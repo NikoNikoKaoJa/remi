@@ -1,0 +1,1991 @@
+<!--
+==========================================================================
+REMI IGRA - Uputstvo za podesavanje (radi samo host, JEDNOM)
+==========================================================================
+Ova verzija ne koristi Claude nalog - koristi besplatnu Firebase bazu
+podataka da bi igraci mogli da igraju zajedno na daljinu.
+
+KORAK 1 - Napravi besplatan Firebase projekat
+  1. Idi na https://console.firebase.google.com
+  2. Klikni "Add project" / "Dodaj projekat", daj mu bilo koje ime
+     (Google Analytics nije potreban, mozes ga iskljuciti)
+  3. Kad se projekat napravi, u levom meniju idi na "Build > Realtime Database"
+  4. Klikni "Create Database", izaberi bilo koji region, i kad pita za
+     nacin rada izaberi "Start in test mode"
+
+KORAK 2 - Podesi pravila pristupa (da svi igraci mogu da citaju/pisu)
+  1. U Realtime Database, otvori tab "Rules"
+  2. Zameni sadrzaj sa:
+     {
+       "rules": {
+         ".read": true,
+         ".write": true
+       }
+     }
+  3. Klikni "Publish"
+  NAPOMENA: ovo cini bazu javno citljivom/pisivom - u redu je za igru
+  sa drustvom, ali ne stavljaj u nju nista osetljivo. Baza je namenjena
+  samo za stanje karataske partije.
+
+KORAK 3 - Kopiraj "Database URL"
+  1. Na vrhu stranice Realtime Database videces URL, izgleda otprilike
+     ovako: https://tvoj-projekat-default-rtdb.firebaseio.com
+  2. Kopiraj taj URL
+
+KORAK 4 - Hostuj ovaj HTML fajl negde javno
+  Najlakse: GitHub Pages (besplatno, treba samo besplatan GitHub nalog)
+    1. Napravi novi repozitorijum na github.com
+    2. Otpremi ovaj fajl i preimenuj ga u "index.html"
+    3. U podesavanjima repozitorijuma ukljuci "GitHub Pages" (Settings > Pages)
+    4. Dobices link tipa https://tvoje-ime.github.io/naziv-repo/
+
+KORAK 5 - Prvo otvaranje
+  Otvori svoj hostovani link, nalepi Firebase Database URL kad te
+  aplikacija pita (samo prvi put), i napravi sobu. Aplikacija ce ti
+  ponuditi gotov link (sa vec ugradjenom bazom i kodom sobe) koji
+  prosledis ostalim igracima - oni samo unesu ime i pridruze se.
+==========================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt-1:#0f3d2e;
+    --felt-2:#0b2e23;
+    --felt-edge:#08201a;
+    --gold:#c9a227;
+    --gold-bright:#e6c34f;
+    --cream:#faf6ea;
+    --cream-dim:#e9e2cf;
+    --ink:#1c1a14;
+    --red:#a3273a;
+    --panel:#123528;
+    --panel-line:rgba(233,226,207,0.14);
+    --danger:#c0483a;
+    --good:#5fae72;
+    --font-display:'Fraunces', serif;
+    --font-body:'Inter', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  #remi-root{
+    font-family:var(--font-body);
+    color:var(--cream);
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(255,255,255,0.05), transparent 60%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 8px),
+      linear-gradient(160deg, var(--felt-1), var(--felt-2) 70%, var(--felt-edge));
+    min-height:100%;
+    border-radius:12px;
+    padding:0;
+    position:relative;
+    overflow-x:hidden;
+  }
+  #remi-root *{box-sizing:border-box;}
+  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 40px;}
+  h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
+  .brand{
+    display:flex;align-items:baseline;gap:10px;justify-content:center;
+    padding:22px 0 6px;
+  }
+  .brand .suits{color:var(--gold);font-size:20px;letter-spacing:3px;}
+  .brand h1{font-size:34px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
+  .brand h1 em{font-style:normal;color:var(--gold-bright);}
+  .subtitle{text-align:center;color:var(--cream-dim);font-size:13px;margin-bottom:24px;letter-spacing:0.4px;}
+
+  .card-panel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.08));
+    border:1px solid var(--panel-line);
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--cream-dim);margin-bottom:6px;}
+  .field input{
+    width:100%;padding:11px 13px;border-radius:9px;border:1px solid var(--panel-line);
+    background:rgba(0,0,0,0.25);color:var(--cream);font-size:16px;font-family:var(--font-body);
+  }
+  .field input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .btn{
+    font-family:var(--font-body);font-weight:600;font-size:14px;
+    padding:11px 18px;border-radius:9px;border:1px solid transparent;
+    cursor:pointer;transition:transform .08s ease, filter .15s ease;
+    letter-spacing:0.2px;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-gold{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#241d05;}
+  .btn-gold:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;border-color:var(--panel-line);color:var(--cream);}
+  .btn-ghost:hover{background:rgba(255,255,255,0.06);}
+  .btn-danger{background:var(--danger);color:var(--cream);}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+
+  .divider{height:1px;background:var(--panel-line);margin:20px 0;}
+  .small{font-size:12px;color:var(--cream-dim);}
+  .center{text-align:center;}
+
+  .roomcode-display{
+    font-family:var(--font-mono);font-size:28px;letter-spacing:6px;text-align:center;
+    color:var(--gold-bright);background:rgba(0,0,0,0.25);border-radius:10px;padding:12px;
+    border:1px dashed var(--panel-line);margin:10px 0;
+  }
+
+  .player-chip{
+    display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+    background:rgba(0,0,0,0.22);border:1px solid var(--panel-line);font-size:14px;
+  }
+  .dealer-badge{
+    background:var(--gold);color:#241d05;font-size:10px;font-weight:700;
+    border-radius:999px;padding:2px 7px;letter-spacing:0.5px;
+  }
+  .chip-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+
+  /* ===== Game table ===== */
+  .table-area{padding:14px 10px 8px;}
+  .opponents-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .opp-card{
+    background:rgba(0,0,0,0.25);border:1px solid var(--panel-line);border-radius:12px;
+    padding:10px 14px;min-width:110px;text-align:center;position:relative;
+  }
+  .opp-card.active{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,0.35), 0 0 18px rgba(201,162,39,0.25);}
+  .opp-card .name{font-weight:600;font-size:14px;}
+  .opp-card .meta{font-size:11px;color:var(--cream-dim);margin-top:3px;}
+  .opp-card .opened-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:4px;}
+
+  .center-table{
+    background:radial-gradient(ellipse at 50% 0%, rgba(0,0,0,0.12), transparent 70%);
+    border-radius:14px;padding:14px;min-height:120px;
+    border:1px solid var(--panel-line);
+  }
+  .stock-discard-row{display:flex;justify-content:center;gap:26px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+  .pile-label{font-size:11px;color:var(--cream-dim);text-align:center;margin-top:5px;text-transform:uppercase;letter-spacing:0.8px;}
+  .pile-stack{position:relative;width:56px;height:78px;cursor:pointer;}
+  .pile-stack.disabled{cursor:not-allowed;opacity:0.5;}
+
+  .card{
+    width:62px;height:86px;border-radius:7px;
+    background:linear-gradient(180deg,var(--cream),var(--cream-dim));
+    border:1px solid rgba(0,0,0,0.25);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--ink);font-family:var(--font-mono);font-weight:700;font-size:15px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.35);
+    user-select:none;position:relative;
+  }
+  .card.red{color:var(--red);}
+  .card .rank{font-size:21px;line-height:1;}
+  .card .suit-sym{font-size:25px;line-height:1;margin-top:3px;}
+  .card.joker{background:linear-gradient(160deg,#2a2a2a,#111);color:var(--gold-bright);border-color:var(--gold);}
+  .card.joker .rank{font-size:13px;letter-spacing:1px;}
+  .card.back{
+    background:
+      repeating-linear-gradient(45deg, #1c4b39 0 6px, #163d2e 6px 12px);
+    border:1px solid rgba(201,162,39,0.4);
+  }
+  .card.back::after{
+    content:'';position:absolute;inset:5px;border:1px solid rgba(201,162,39,0.35);border-radius:4px;
+  }
+  .card.selected{outline:3px solid var(--gold-bright);outline-offset:1px;transform:translateY(-8px);}
+  .card.just-drawn{outline:3px solid #e0453a;outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(224,69,58,0.55);}
+  .card.joker-replaceable{outline:2px dashed var(--gold-bright);outline-offset:1px;}
+  .card.pending-joker{outline:3px dashed var(--gold-bright);outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(201,162,39,0.6);}
+  .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
+  .card.clickable{cursor:pointer;transition:transform .1s ease;}
+  .card.clickable:hover{transform:translateY(-4px);}
+  .card.mini{width:44px;height:60px;}
+  .card.mini .rank{font-size:15px;}
+  .card.mini .suit-sym{font-size:18px;}
+
+  .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
+
+  .melds-area{margin-top:6px;}
+  .meld-owner-label{font-size:11px;color:var(--gold-bright);text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 4px;}
+  .meld-group{
+    display:inline-flex;gap:-6px;margin:3px 8px 3px 0;padding:5px 6px;border-radius:8px;
+    background:rgba(0,0,0,0.15);cursor:default;
+  }
+  .meld-group.targetable{cursor:pointer;border:1px dashed var(--gold);}
+  .meld-group.targetable:hover{background:rgba(201,162,39,0.12);}
+  .meld-cards{display:flex;flex-wrap:wrap;gap:4px;}
+  .meld-cards .card{margin-left:0;}
+
+  .hand-area{margin-top:18px;}
+  .hand-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .hand-cards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px 4px;}
+
+  .action-bar{
+    display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;
+    padding-top:14px;border-top:1px solid var(--panel-line);
+  }
+
+  .turn-banner{
+    text-align:center;font-family:var(--font-display);font-size:17px;color:var(--gold-bright);
+    margin-bottom:10px;letter-spacing:0.3px;
+  }
+  .log-box{
+    max-height:100px;overflow-y:auto;background:rgba(0,0,0,0.2);border-radius:8px;padding:8px 10px;
+    font-size:12px;color:var(--cream-dim);margin-top:12px;
+  }
+  .log-box div{padding:1px 0;}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    background:var(--ink);color:var(--cream);padding:11px 18px;border-radius:9px;
+    font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:50;
+    border:1px solid var(--gold);max-width:90%;text-align:center;
+  }
+
+  .score-table{width:100%;border-collapse:collapse;margin-top:10px;}
+  .score-table th,.score-table td{
+    padding:8px 10px;text-align:center;border-bottom:1px solid var(--panel-line);font-size:13px;
+  }
+  .score-table th{color:var(--gold-bright);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;}
+  .score-table td.name{text-align:left;font-weight:600;}
+  .winner-banner{
+    text-align:center;font-family:var(--font-display);font-size:24px;color:var(--gold-bright);
+    margin:14px 0 4px;
+  }
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;
+    z-index:60;padding:20px;
+  }
+  .modal-box{
+    background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;padding:22px;
+    max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.5);
+  }
+
+  @media (max-width:520px){
+    .brand h1{font-size:26px;}
+    .card{width:46px;height:64px;}
+    .card .rank{font-size:13px;}
+    .card .suit-sym{font-size:16px;}
+    .meld-cards .card{margin-left:0;}
+  }
+</style>
+<div id="remi-root">
+  <div class="wrap" id="app"></div>
+</div>
+<script>
+(function(){
+'use strict';
+// ===== Core Remi (Rummy) game logic =====
+// Cards: {id, suit: 'S'|'H'|'D'|'C', rank: 1-13} or {id, joker:true}
+// rank 1=As, 11=J, 12=Q, 13=K
+
+const SUITS = ['S', 'H', 'D', 'C'];
+
+function makeDeck() {
+  const cards = [];
+  let idc = 0;
+  for (let d = 0; d < 2; d++) {
+    for (const suit of SUITS) {
+      for (let rank = 1; rank <= 13; rank++) {
+        cards.push({ id: 'c' + (idc++), suit, rank });
+      }
+    }
+    // 2 jokers per physical deck => 4 total
+    cards.push({ id: 'c' + (idc++), joker: true });
+    cards.push({ id: 'c' + (idc++), joker: true });
+  }
+  return cards;
+}
+
+function shuffle(deck, rng = Math.random) {
+  const arr = deck.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Standard point value (used when a player is "izložen" but doesn't finish,
+// and also as the base card value inside melds. As=10, Džoker=20)
+function cardValueStandard(card) {
+  if (card.joker) return 20;
+  if (card.rank === 1) return 10;
+  if (card.rank >= 11) return 10;
+  return card.rank;
+}
+
+// Value used for "mali hand" total-hand check: Džoker=0, As=1
+function cardValueMaliHand(card) {
+  if (card.joker) return 0;
+  if (card.rank === 1) return 1;
+  if (card.rank >= 11) return 10;
+  return card.rank;
+}
+
+// Value used for the 51-point opening rule.
+// As = 1 if used low (As-2-3), As = 10 if used in a set of 3/4 aces or in Q-K-As run.
+// Since this depends on context (which meld the card sits in), this function
+// takes the meld (already validated) and returns total meld value.
+function meldValueForOpening(meld) {
+  const resolved = resolveMeld(meld);
+  if (!resolved) return 0;
+  let total = 0;
+  for (const item of resolved.cards) {
+    if (item.isJoker) {
+      // joker takes value of the card it substitutes
+      total += aceAwareValue(item.substitutes, resolved.type);
+    } else {
+      total += aceAwareValue(item.card, resolved.type, item.contextRank);
+    }
+  }
+  return total;
+}
+
+function aceAwareValue(card, type, contextRank) {
+  const rank = card.rank !== undefined ? card.rank : contextRank;
+  if (rank === undefined) return 10;
+  if (rank !== 1) {
+    return rank >= 11 ? 10 : rank;
+  }
+  // Ace: depends on context - handled by caller via contextRank marking
+  return card._aceHigh ? 10 : 1;
+}
+
+// ---- Meld validation ----
+// A meld is either:
+//  RUN: 3+ cards, same suit, consecutive ranks (Ace low: A,2,3..  OR Ace high: ..Q,K,A). No wrap.
+//  SET: 3-4 cards, same rank, distinct suits (jokers fill missing suits/ranks)
+//
+// Returns null if invalid, otherwise { type: 'run'|'set', cards: [...] }
+// cards array items: { isJoker:false, card, contextRank, _aceHigh } or { isJoker:true, substitutes: {rank, suit, _aceHigh} }
+function resolveMeld(cardList) {
+  if (cardList.length < 3) return null;
+  const jokers = cardList.filter(c => c.joker);
+  const normal = cardList.filter(c => !c.joker);
+  if (normal.length === 0) return null; // can't be all jokers (no defined meld)
+
+  const setResult = trySet(normal, jokers, cardList.length);
+  if (setResult) return setResult;
+  const runResult = tryRun(normal, jokers, cardList.length);
+  if (runResult) return runResult;
+  return null;
+}
+
+function trySet(normal, jokers, totalLen) {
+  if (totalLen > 4) return null;
+  const rank = normal[0].rank;
+  if (!normal.every(c => c.rank === rank)) return null;
+  const suitsUsed = new Set();
+  for (const c of normal) {
+    if (suitsUsed.has(c.suit)) return null; // duplicate suit - not allowed in one set
+    suitsUsed.add(c.suit);
+  }
+  if (suitsUsed.size + jokers.length !== totalLen) return null;
+  if (totalLen < 3) return null;
+  const availableSuits = SUITS.filter(s => !suitsUsed.has(s));
+  const cards = normal.map(c => ({ isJoker: false, card: c, contextRank: rank }));
+  jokers.forEach((j, idx) => {
+    cards.push({ isJoker: true, substitutes: { rank, suit: availableSuits[idx] }, jokerCardId: j.id });
+  });
+  return { type: 'set', cards, rank };
+}
+
+function tryRun(normal, jokers, totalLen) {
+  const suit = normal[0].suit;
+  if (!normal.every(c => c.suit === suit)) return null;
+  const ranksSeen = new Set(normal.map(c => c.rank));
+  if (ranksSeen.size !== normal.length) return null; // duplicate rank in same run - invalid
+
+  const lockedJokers = jokers.filter(j => j._lockedRank !== undefined);
+  const freeJokers = jokers.filter(j => j._lockedRank === undefined);
+
+  // try both Ace-low and Ace-high interpretations, find a window of `totalLen`
+  // consecutive numeric ranks (with Ace possibly = 1 or 14) that fits all normal
+  // cards (and any previously-locked joker positions), filling remaining gaps
+  // with the still-free jokers.
+  for (const aceHigh of [false, true]) {
+    const numeric = normal.map(c => ({ orig: c, n: c.rank === 1 ? (aceHigh ? 14 : 1) : c.rank }));
+    const lockedNumeric = lockedJokers.map(lj => ({
+      card: lj,
+      n: lj._lockedRank === 1 ? (lj._lockedAceHigh ? 14 : 1) : lj._lockedRank,
+    }));
+    const nums = numeric.map(x => x.n).concat(lockedNumeric.map(x => x.n));
+    if (nums.length === 0) continue;
+    const minN = Math.min(...nums);
+    const maxN = Math.max(...nums);
+    if (maxN - minN + 1 > totalLen) continue; // spread too large even with jokers
+    for (let start = Math.max(1, maxN - totalLen + 1); start <= minN; start++) {
+      const end = start + totalLen - 1;
+      if (end > 14) continue;
+      if (start < 1) continue;
+      const numToOrig = new Map(numeric.map(x => [x.n, x.orig]));
+      const numToLocked = new Map(lockedNumeric.map(x => [x.n, x.card]));
+      let ok = true;
+      const filled = [];
+      let freeIdx = 0;
+      for (let n = start; n <= end; n++) {
+        if (n === 0) { ok = false; break; }
+        if ((n >= 2 && n <= 13) || (n === 1) || (n === 14)) {
+          if (numToOrig.has(n)) {
+            const origCard = numToOrig.get(n);
+            filled.push({ isJoker: false, card: { ...origCard, _aceHigh: aceHigh }, contextRank: n === 14 ? 1 : n });
+          } else if (numToLocked.has(n)) {
+            const substRank = n === 14 ? 1 : n;
+            filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: numToLocked.get(n).id });
+          } else {
+            if (freeIdx >= freeJokers.length) { ok = false; break; }
+            const substRank = n === 14 ? 1 : n;
+            filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: freeJokers[freeIdx].id });
+            freeIdx++;
+          }
+        } else { ok = false; break; }
+      }
+      if (ok && freeIdx === freeJokers.length && filled.length === totalLen) {
+        return { type: 'run', cards: filled, suit };
+      }
+    }
+  }
+  return null;
+}
+
+function isValidMeld(cardList) {
+  return resolveMeld(cardList) !== null;
+}
+
+// When a card group forms (or could form) a run containing exactly one
+// not-yet-decided joker, there can be more than one valid rank the joker
+// could represent (e.g. 9,10 + joker could be 8-9-10 or 9-10-J). This finds
+// every valid option so the player can be asked to pick. Returns null when
+// there's no ambiguity (0 or 1 options) or when it doesn't apply (sets,
+// multiple undecided jokers, already-locked jokers present).
+function enumerateSingleJokerRunWindows(cards) {
+  const jokers = cards.filter(c => c.joker);
+  if (jokers.some(j => j._lockedRank !== undefined)) return null;
+  if (jokers.length !== 1) return null;
+  const normal = cards.filter(c => !c.joker);
+  if (normal.length < 2) return null;
+  const suit = normal[0].suit;
+  if (!normal.every(c => c.suit === suit)) return null;
+  const ranksSeen = new Set(normal.map(c => c.rank));
+  if (ranksSeen.size !== normal.length) return null;
+  const totalLen = cards.length;
+
+  const results = [];
+  for (const aceHigh of [false, true]) {
+    const numeric = normal.map(c => (c.rank === 1 ? (aceHigh ? 14 : 1) : c.rank));
+    const minN = Math.min(...numeric);
+    const maxN = Math.max(...numeric);
+    if (maxN - minN + 1 > totalLen) continue;
+    for (let start = Math.max(1, maxN - totalLen + 1); start <= minN; start++) {
+      const end = start + totalLen - 1;
+      if (end > 14 || start < 1) continue;
+      const covered = new Set(numeric);
+      const missing = [];
+      for (let n = start; n <= end; n++) if (!covered.has(n)) missing.push(n);
+      if (missing.length !== 1) continue;
+      const slotN = missing[0];
+      results.push({ start, end, slotN, jokerRank: slotN === 14 ? 1 : slotN, jokerAceHigh: slotN === 14 });
+    }
+  }
+  const seen = new Set();
+  const unique = [];
+  for (const r of results) {
+    const key = r.start + ':' + r.end;
+    if (!seen.has(key)) { seen.add(key); unique.push(r); }
+  }
+  return unique.length > 1 ? unique : null;
+}
+
+function sequenceLabel(opt) {
+  const parts = [];
+  for (let n = opt.start; n <= opt.end; n++) {
+    parts.push(n === opt.slotN ? 'DZ' : rankLabel(n === 14 ? 1 : n));
+  }
+  return parts.join(' - ');
+}
+
+// Checks whether `card` could be laid down somewhere THIS turn if drawn -
+// either added to an existing table meld (only possible once opened), or
+// used as part of a brand new meld/melds reaching the 51-point opening rule
+// (only relevant before the player has opened). Bounded combination sizes
+// keep this fast on a ~14-15 card hand.
+function canUseDiscardCard(card, hand, opened) {
+  if (opened) {
+    for (const meld of room.melds) {
+      if (isValidMeld(meld.cards.concat([card]))) return true;
+    }
+    const maxOther = Math.min(6, hand.length);
+    for (let size = 2; size <= maxOther; size++) {
+      for (const combo of combinations(hand, size)) {
+        if (isValidMeld([card, ...combo])) return true;
+      }
+    }
+    return false;
+  }
+  const maxOther = Math.min(6, hand.length);
+  for (let size = 2; size <= maxOther; size++) {
+    for (const combo of combinations(hand, size)) {
+      const group = [card, ...combo];
+      if (!isValidMeld(group)) continue;
+      if (sumOpeningValue([group]) >= 51) return true;
+      const remaining = hand.filter(c => !combo.includes(c));
+      const maxSize2 = Math.min(5, remaining.length);
+      for (let size2 = 3; size2 <= maxSize2; size2++) {
+        for (const combo2 of combinations(remaining, size2)) {
+          if (isValidMeld(combo2) && sumOpeningValue([group, combo2]) >= 51) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// ---- 51-point opening check ----
+// melds: array of card-arrays (each already validated as a meld)
+function sumOpeningValue(melds) {
+  let total = 0;
+  for (const m of melds) {
+    const resolved = resolveMeld(m);
+    if (!resolved) return -1; // invalid
+    const isSet = resolved.type === 'set';
+    for (const item of resolved.cards) {
+      if (item.isJoker) {
+        const r = item.substitutes.rank;
+        if (r === 1) total += (isSet || item.substitutes._aceHigh) ? 10 : 1;
+        else total += (r >= 11) ? 10 : r;
+      } else {
+        const r = item.contextRank;
+        if (r === 1) total += (isSet || item.card._aceHigh) ? 10 : 1;
+        else total += (r >= 11) ? 10 : r;
+      }
+    }
+  }
+  return total;
+}
+
+function canOpenWith(melds) {
+  for (const m of melds) if (!isValidMeld(m)) return false;
+  const val = sumOpeningValue(melds);
+  return val >= 51;
+}
+
+// ---- Mali hand check ----
+function maliHandValue(hand) {
+  return hand.reduce((s, c) => s + cardValueMaliHand(c), 0);
+}
+function isMaliHand(hand) {
+  return maliHandValue(hand) < 51;
+}
+
+// ---- Veliki hand check: can the whole hand be partitioned into valid melds? ----
+function canPartitionAll(cards, maxGroupSize = 8) {
+  if (cards.length === 0) return true;
+  if (cards.length < 3) return false;
+  const sorted = cards.slice(); // order doesn't matter much; pick first
+  const first = sorted[0];
+  const rest = sorted.slice(1);
+  const maxLen = Math.min(maxGroupSize, cards.length);
+  for (let len = 3; len <= maxLen; len++) {
+    const combos = combinations(rest, len - 1);
+    for (const combo of combos) {
+      const group = [first, ...combo];
+      if (isValidMeld(group)) {
+        const remaining = rest.filter(c => !combo.includes(c));
+        if (canPartitionAll(remaining, maxGroupSize)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Like canPartitionAll but returns the actual groups (array of card-arrays) or null.
+function findPartition(cards, maxGroupSize = 8) {
+  if (cards.length === 0) return [];
+  if (cards.length < 3) return null;
+  const first = cards[0];
+  const rest = cards.slice(1);
+  const maxLen = Math.min(maxGroupSize, cards.length);
+  for (let len = 3; len <= maxLen; len++) {
+    const combos = combinations(rest, len - 1);
+    for (const combo of combos) {
+      const group = [first, ...combo];
+      if (isValidMeld(group)) {
+        const remaining = rest.filter(c => !combo.includes(c));
+        const sub = findPartition(remaining, maxGroupSize);
+        if (sub !== null) return [group, ...sub];
+      }
+    }
+  }
+  return null;
+}
+
+function combinations(arr, k) {
+  const results = [];
+  function helper(start, combo) {
+    if (combo.length === k) { results.push(combo.slice()); return; }
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      helper(i + 1, combo);
+      combo.pop();
+    }
+  }
+  helper(0, []);
+  return results;
+}
+
+// ---- 4-joker / 8-same-rank hand ----
+function isFourJokerOrEightSameHand(cards) {
+  if (cards.length === 4 && cards.every(c => c.joker)) return true;
+  if (cards.length === 8) {
+    const normal = cards.filter(c => !c.joker);
+    const jokers = cards.filter(c => c.joker);
+    if (normal.length === 0) return false;
+    const rank = normal[0].rank;
+    if (normal.some(c => c.rank !== rank)) return false;
+    return normal.length + jokers.length === 8;
+  }
+  return false;
+}
+
+function findFourJokerOrEightSame(hand) {
+  const jokers = hand.filter(c => c.joker);
+  if (jokers.length >= 4) return jokers.slice(0, 4);
+  const byRank = {};
+  hand.filter(c => !c.joker).forEach(c => { (byRank[c.rank] = byRank[c.rank] || []).push(c); });
+  let best = null;
+  for (const rank in byRank) {
+    const cards = byRank[rank];
+    const need = 8 - cards.length;
+    if (need >= 0 && need <= jokers.length && cards.length >= 1) {
+      const candidate = cards.concat(jokers.slice(0, need));
+      if (!best || candidate.length > best.length) best = candidate;
+    }
+  }
+  return best;
+}
+
+
+// ===== Round engine =====
+
+function setupRound(players, dealerIndex) {
+  const n = players.length;
+  let deck =  shuffle( makeDeck());
+  const cutPoint = 1 + Math.floor(Math.random() * (deck.length - 2));
+  const topPortion = deck.slice(0, cutPoint);
+  const bottomPortion = deck.slice(cutPoint);
+  const revealed = topPortion[topPortion.length - 1];
+  const secondFromBottom = topPortion.length >= 2 ? topPortion[topPortion.length - 2] : null;
+
+  const cutterIdx = (dealerIndex - 1 + n) % n;
+  const firstPlayerIdx = (dealerIndex + 1) % n;
+
+  let bonusRecipientIdx = null, bonusCard = null, specialBottomCard = null;
+  let stockPool = bottomPortion.concat(topPortion.slice(0, topPortion.length - 1));
+
+  if (revealed.joker) {
+    // the revealed card itself is claimed as a bonus joker by the cutter -
+    // reveal the next card from the pool instead so there's always a visible card.
+    bonusRecipientIdx = cutterIdx; bonusCard = revealed;
+    stockPool =  shuffle(stockPool);
+    specialBottomCard = stockPool.shift();
+  } else if (secondFromBottom && secondFromBottom.joker) {
+    bonusRecipientIdx = dealerIndex; bonusCard = secondFromBottom;
+    stockPool = stockPool.filter(c => c.id !== secondFromBottom.id);
+    stockPool =  shuffle(stockPool);
+    specialBottomCard = revealed;
+  } else {
+    specialBottomCard = revealed;
+  }
+
+  const hands = {};
+  players.forEach(p => hands[p.id] = []);
+  let pool = stockPool.slice();
+  for (let round = 0; round < 14; round++) {
+    for (let k = 0; k < n; k++) {
+      const pIdx = (firstPlayerIdx + k) % n;
+      hands[players[pIdx].id].push(pool.shift());
+    }
+  }
+  hands[players[firstPlayerIdx].id].push(pool.shift()); // extra 15th card
+
+  if (bonusRecipientIdx !== null) {
+    const recipientId = players[bonusRecipientIdx].id;
+    const displaced = hands[recipientId].pop();
+    hands[recipientId].push(bonusCard);
+    pool.push(displaced); // displaced card returns to the stock
+  }
+
+  const log = [`Deli: ${players[dealerIndex].name} | Sece: ${players[cutterIdx].name} | Prvi na potezu: ${players[firstPlayerIdx].name}`];
+  if (bonusRecipientIdx !== null) log.push(`${players[bonusRecipientIdx].name} dobija bonus dzoker pri secenju!`);
+
+  return {
+    phase: 'playing',
+    players,
+    dealerIndex,
+    cutterIdx,
+    firstPlayerIdx,
+    hands,
+    stock: pool,
+    discard: [],
+    specialBottomCard: specialBottomCard ? { card: specialBottomCard, taken: false } : null,
+    melds: [], // {ownerId, cards}
+    openedPlayers: [],
+    currentPlayerIndex: firstPlayerIdx,
+    turnPhase: 'meld', // first player already has 15 cards, skips draw
+    roundWinner: null,
+    roundWinType: null, // null|'mali'|'veliki'|'fourJoker'
+    pendingJokerToPlace: null,
+    log,
+  };
+}
+
+function scoreRound(r, winnerId, handType) {
+  const mult = handType === 'fourJoker' ? 3 : (handType ? 2 : 1);
+  const deltas = {};
+  r.players.forEach(p => {
+    if (p.id === winnerId) {
+      deltas[p.id] = -10 * mult;
+    } else if (r.openedPlayers.includes(p.id)) {
+      const sum = (r.hands[p.id] || []).reduce((s, c) => s +  cardValueStandard(c), 0);
+      deltas[p.id] = sum * mult;
+    } else {
+      deltas[p.id] = 100 * mult;
+    }
+  });
+  return deltas;
+}
+
+// A completed set of 4 identical real cards (no jokers involved) is removed
+// from the table and buried at the bottom of the discard pile, out of sight.
+// Sets that still include a joker are left alone (they aren't "4 iste karte").
+function sweepCompletedQuads(r) {
+  const remaining = [];
+  const swept = [];
+  for (const meld of r.melds) {
+    const resolved = resolveMeld(meld.cards);
+    if (resolved && resolved.type === 'set' && meld.cards.length === 4 && meld.cards.every(c => !c.joker)) {
+      swept.push(meld);
+    } else {
+      remaining.push(meld);
+    }
+  }
+  if (swept.length > 0) {
+    r.melds = remaining;
+    if (!r.quadAnnouncements) r.quadAnnouncements = [];
+    swept.forEach(meld => {
+      const label = rankLabel(meld.cards[0].rank);
+      r.log.push(`Cetiri karte (${label}) uklonjene sa stola i sklonjene na dno otpada.`);
+      r.discard = meld.cards.concat(r.discard);
+      r.quadAnnouncements.push({ id: 'qa_' + Math.random().toString(36).slice(2), cards: meld.cards, rank: meld.cards[0].rank });
+    });
+    r.quadAnnouncements = r.quadAnnouncements.slice(-5);
+  }
+  return swept.length > 0;
+}
+
+
+// ===== Card display helpers =====
+const SUIT_SYM = { S:'\u2660', H:'\u2665', D:'\u2666', C:'\u2663' };
+const RANK_SYM = { 1:'A', 11:'J', 12:'Q', 13:'K' };
+function rankLabel(r){ return RANK_SYM[r] || String(r); }
+function isRedSuit(s){ return s === 'H' || s === 'D'; }
+
+function cardEl(card, opts) {
+  opts = opts || {};
+  const div = document.createElement('div');
+  div.className = 'card' + (card.joker ? ' joker' : (isRedSuit(card.suit) ? ' red' : '')) + (opts.mini ? ' mini' : '') + (opts.clickable ? ' clickable' : '') + (opts.selected ? ' selected' : '');
+  if (card.joker) {
+    div.innerHTML = '<div class="rank">DZOKER</div><div class="suit-sym">\u2605</div>';
+  } else {
+    div.innerHTML = `<div class="rank">${rankLabel(card.rank)}</div><div class="suit-sym">${SUIT_SYM[card.suit]}</div>`;
+  }
+  if (opts.onClick) div.addEventListener('click', opts.onClick);
+  return div;
+}
+function cardBackEl(mini) {
+  const div = document.createElement('div');
+  div.className = 'card back' + (mini ? ' mini' : '');
+  return div;
+}
+function sortHand(hand) {
+  return hand.slice().sort((a, b) => {
+    if (a.joker && b.joker) return 0;
+    if (a.joker) return 1;
+    if (b.joker) return -1;
+    if (a.suit !== b.suit) return a.suit.localeCompare(b.suit);
+    const ra = a.rank === 1 ? 14 : a.rank;
+    const rb = b.rank === 1 ? 14 : b.rank;
+    return ra - rb;
+  });
+}
+
+// ===== App state =====
+let session = { playerId: null, name: null, roomCode: null };
+let room = null;
+let pollTimer = null;
+let selectedIds = new Set();
+let dismissedQuadAnnouncements = new Set(); // announcement ids this browser has already OK'd
+let addToMeldTarget = null; // {ownerIdx, meldIdx} or null
+let toastTimer = null;
+let busy = false; // guards against double actions while writing to storage
+
+function showToast(msg, ms) {
+  const el = document.getElementById('toast');
+  if (el) el.remove();
+  const t = document.createElement('div');
+  t.id = 'toast'; t.className = 'toast'; t.textContent = msg;
+  document.getElementById('remi-root').appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.remove(), ms || 2600);
+}
+
+// For the "selected cards" sum display: Ace always counts as 10, and a joker
+// takes the value of whatever card it represents. If the selected cards form
+// a resolvable meld (run/set), the joker's represented card is known exactly.
+// Otherwise this makes its own best guess from context (matching ranks/suits
+// among the other selected cards) rather than interrupting the player - the
+// player is only ever actually asked at the moment they press "Izlozi se",
+// via the run-position picker if real ambiguity remains at that point.
+function computeSelectedSum(selected) {
+  const jokers = selected.filter(c => c.joker);
+  const nonJokers = selected.filter(c => !c.joker);
+  if (jokers.length === 0) {
+    return nonJokers.reduce((s, c) => s + cardValueStandard(c), 0);
+  }
+  if (selected.length >= 3) {
+    const resolved = resolveMeld(selected);
+    if (resolved) {
+      let sum = 0;
+      for (const item of resolved.cards) {
+        sum += item.isJoker ? cardValueStandard({ rank: item.substitutes.rank }) : cardValueStandard(item.card);
+      }
+      return sum;
+    }
+  }
+  let sum = nonJokers.reduce((s, c) => s + cardValueStandard(c), 0);
+  jokers.forEach(() => { sum += guessJokerRankValue(nonJokers); });
+  return sum;
+}
+
+// Best-effort guess (no prompting) for what a joker likely represents, based
+// on the other currently-selected cards: matching ranks suggest a set (guess
+// that rank); matching suits suggest a run-in-progress (guess the gap, or the
+// next card before/after). Falls back to the flat wildcard value (20) when
+// there's genuinely no context to go on.
+function guessJokerRankValue(nonJokers) {
+  const rankCounts = {};
+  nonJokers.forEach(c => { rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1; });
+  const setCandidate = Object.keys(rankCounts).find(r => rankCounts[r] >= 2);
+  if (setCandidate) return cardValueStandard({ rank: Number(setCandidate) });
+
+  const bySuit = {};
+  nonJokers.forEach(c => { (bySuit[c.suit] = bySuit[c.suit] || []).push(c.rank); });
+  const suitKey = Object.keys(bySuit).find(s => bySuit[s].length >= 1);
+  if (suitKey) {
+    const ranks = bySuit[suitKey].slice().sort((a, b) => a - b);
+    let guess = null;
+    if (ranks.length >= 2) {
+      for (let i = 0; i < ranks.length - 1; i++) {
+        if (ranks[i + 1] - ranks[i] === 2) { guess = ranks[i] + 1; break; }
+      }
+      if (guess === null) guess = ranks[0] > 1 ? ranks[0] - 1 : ranks[ranks.length - 1] + 1;
+    } else {
+      guess = ranks[0] > 1 ? ranks[0] - 1 : ranks[0] + 1;
+    }
+    if (guess >= 1 && guess <= 13) return cardValueStandard({ rank: guess });
+  }
+  return 20; // no context at all - fall back to the flat wildcard value
+}
+
+function checkQuadAnnouncement() {
+  if (!room || !room.quadAnnouncements) return;
+  const pending = room.quadAnnouncements.find(a => !dismissedQuadAnnouncements.has(a.id));
+  if (pending) showQuadAnnouncementModal(pending);
+}
+
+function showQuadAnnouncementModal(announcement) {
+  if (document.getElementById('quad-modal')) return; // already showing one
+  const overlay = document.createElement('div');
+  overlay.id = 'quad-modal';
+  overlay.className = 'modal-overlay';
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  const h = document.createElement('h3');
+  h.textContent = 'Cetiri karte uklonjene sa stola!';
+  h.style.marginBottom = '10px';
+  box.appendChild(h);
+  const p = document.createElement('div');
+  p.className = 'small';
+  p.style.marginBottom = '14px';
+  p.textContent = `Kompletirana grupa (${rankLabel(announcement.rank)}) je sklonjena sa stola i vise se ne moze koristiti.`;
+  box.appendChild(p);
+  const cardsRow = document.createElement('div');
+  cardsRow.style.display = 'flex';
+  cardsRow.style.justifyContent = 'center';
+  cardsRow.style.gap = '8px';
+  cardsRow.style.marginBottom = '18px';
+  announcement.cards.forEach(c => {
+    const cd = cardEl(c, {});
+    cd.classList.add('quad-highlight');
+    cardsRow.appendChild(cd);
+  });
+  box.appendChild(cardsRow);
+  const okBtn = document.createElement('button');
+  okBtn.className = 'btn btn-gold';
+  okBtn.textContent = 'OK';
+  okBtn.style.width = '100%';
+  okBtn.onclick = () => {
+    dismissedQuadAnnouncements.add(announcement.id);
+    overlay.remove();
+    checkQuadAnnouncement();
+  };
+  box.appendChild(okBtn);
+  overlay.appendChild(box);
+  document.getElementById('remi-root').appendChild(overlay);
+}
+
+function showChoiceModal(title, options, onPick) {
+  const existing = document.getElementById('choice-modal');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'choice-modal';
+  overlay.className = 'modal-overlay';
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  const h = document.createElement('h3');
+  h.textContent = title;
+  h.style.marginBottom = '14px';
+  box.appendChild(h);
+  options.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'btn btn-gold';
+    b.textContent = opt.label;
+    b.style.width = '100%';
+    b.style.marginBottom = '8px';
+    b.style.display = 'block';
+    b.onclick = () => { overlay.remove(); onPick(opt); };
+    box.appendChild(b);
+  });
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-ghost';
+  cancelBtn.textContent = 'Otkazi';
+  cancelBtn.style.width = '100%';
+  cancelBtn.onclick = () => overlay.remove();
+  box.appendChild(cancelBtn);
+  overlay.appendChild(box);
+  document.getElementById('remi-root').appendChild(overlay);
+}
+
+function roomKey(code) { return 'room:' + code; }
+
+// ===== External storage (Firebase Realtime Database REST API) =====
+// No Claude account needed - uses a free Firebase project's public REST endpoint instead.
+let DB_URL = null; // resolved at boot from ?db= query param or localStorage
+
+function resolveDbUrl() {
+  const params = new URLSearchParams(location.search);
+  const fromQuery = params.get('db');
+  if (fromQuery) {
+    const decoded = decodeURIComponent(fromQuery);
+    localStorage.setItem('remi-db-url', decoded);
+    return decoded;
+  }
+  return localStorage.getItem('remi-db-url');
+}
+
+async function loadRoom(code) {
+  if (!DB_URL) return null;
+  try {
+    const res = await fetch(`${DB_URL}/rooms/${code}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data ? hydrateRoom(data) : null;
+  } catch (e) { return null; }
+}
+
+// Firebase Realtime Database silently converts empty objects/arrays ({} or [])
+// to null when saving. This restores sane defaults after loading so the rest
+// of the app never has to special-case null vs {} vs [].
+function hydrateRoom(r) {
+  if (!r.scores) r.scores = {};
+  if (!r.players) r.players = [];
+  if (!r.hands) r.hands = {};
+  if (!r.stock) r.stock = [];
+  if (!r.discard) r.discard = [];
+  if (!r.melds) r.melds = [];
+  if (!r.openedPlayers) r.openedPlayers = [];
+  if (!r.log) r.log = [];
+  if (!r.quadAnnouncements) r.quadAnnouncements = [];
+  r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
+  return r;
+}
+async function saveRoom(r) {
+  if (!DB_URL) return;
+  r.updatedAt = Date.now();
+  await fetch(`${DB_URL}/rooms/${r.code}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(r),
+  });
+}
+
+function newRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+function uid() { return 'pl_' + Math.random().toString(36).slice(2, 10); }
+
+async function mySession() {
+  try {
+    const raw = localStorage.getItem('my-remi-session');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+async function saveSession() {
+  localStorage.setItem('my-remi-session', JSON.stringify(session));
+}
+
+// ===== Room lifecycle =====
+async function createRoom(name) {
+  const code = newRoomCode();
+  session = { playerId: uid(), name, roomCode: code };
+  await saveSession();
+  const r = {
+    code,
+    phase: 'lobby',
+    players: [{ id: session.playerId, name }],
+    dealerIndex: 0,
+    round: 0,
+    scores: {},
+    createdAt: Date.now(),
+  };
+  await saveRoom(r);
+  room = r;
+  startPolling();
+  render();
+}
+
+async function joinRoom(code, name) {
+  code = code.toUpperCase().trim();
+  const r = await loadRoom(code);
+  if (!r) { showToast('Nema sobe sa tim kodom.'); return; }
+  if (r.phase !== 'lobby') { showToast('Igra je vec pocela u toj sobi.'); return; }
+  if (r.players.length >= 4) { showToast('Soba je puna (max 4 igraca).'); return; }
+  session = { playerId: uid(), name, roomCode: code };
+  await saveSession();
+  r.players.push({ id: session.playerId, name });
+  await saveRoom(r);
+  room = r;
+  startPolling();
+  render();
+}
+
+async function rejoin() {
+  const s = await mySession();
+  if (!s || !s.roomCode) return false;
+  const r = await loadRoom(s.roomCode);
+  if (!r) return false;
+  if (!r.players.find(p => p.id === s.playerId)) return false;
+  session = s;
+  room = r;
+  startPolling();
+  return true;
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if (!session.roomCode || busy) return;
+    const r = await loadRoom(session.roomCode);
+    if (r) { room = r; render(); }
+  }, 2200);
+}
+
+async function refreshAndRender() {
+  const r = await loadRoom(session.roomCode);
+  if (r) room = r;
+  render();
+}
+
+// ===== Round setup wrapper (uses engine above) =====
+function beginRound(r) {
+  if (!r.scores) r.scores = {};
+  const engineState = setupRound(r.players, r.dealerIndex);
+  Object.assign(r, engineState);
+  r.round = (r.round || 0) + 1;
+  r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
+  return r;
+}
+
+async function hostStartGame() {
+  if (room.players.length < 2) { showToast('Treba bar 2 igraca.'); return; }
+  busy = true;
+  beginRound(room);
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function hostNextRound() {
+  busy = true;
+  room.dealerIndex = (room.dealerIndex + 1) % room.players.length;
+  beginRound(room);
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function hostResetGame() {
+  const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise trenutno stanje partije za sve igrace.');
+  if (!ok) return;
+  busy = true;
+  room.phase = 'lobby';
+  room.round = 0;
+  room.dealerIndex = 0;
+  room.hands = {};
+  room.stock = [];
+  room.discard = [];
+  room.melds = [];
+  room.openedPlayers = [];
+  room.scores = {};
+  room.log = [];
+  room.specialBottomCard = null;
+  room.currentPlayerIndex = 0;
+  room.turnPhase = null;
+  room.roundWinner = null;
+  room.roundWinType = null;
+  room.lastDeltas = null;
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+// ===== Turn helpers =====
+function myIndex() { return room.players.findIndex(p => p.id === session.playerId); }
+function isMyTurn() { return room.phase === 'playing' && room.currentPlayerIndex === myIndex(); }
+function myHand() { return room.hands[session.playerId] || []; }
+
+function advanceTurn(r) {
+  const n = r.players.length;
+  r.currentPlayerIndex = (r.currentPlayerIndex + 1) % n;
+  r.turnPhase = 'draw';
+}
+
+async function endRoundWithWinner(r, winnerId, handType) {
+  const deltas = scoreRound(r, winnerId, handType);
+  r.players.forEach(p => { r.scores[p.id] = (r.scores[p.id] || 0) + deltas[p.id]; });
+  r.roundWinner = winnerId;
+  r.roundWinType = handType;
+  r.lastDeltas = deltas;
+  r.phase = 'round_end';
+  const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : handType === 'fourJoker' ? 'handom (4 dzokera/8 istih)' : 'regularno';
+  r.log.push(`${r.players.find(p=>p.id===winnerId).name} je zavrsio rundu (${label})!`);
+}
+
+// ===== Actions =====
+async function actionDrawStock() {
+  if (!isMyTurn() || room.turnPhase !== 'draw' || busy) return;
+  busy = true;
+  if (room.stock.length === 0) {
+    if (room.discard.length <= 1) { showToast('Nema vise karata za vucenje.'); busy = false; return; }
+    const top = room.discard.pop();
+    room.stock = shuffle(room.discard);
+    room.discard = [top];
+  }
+  const card = room.stock.shift();
+  myHandPush(card);
+  room.turnPhase = 'meld';
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+function myHandPush(card) {
+  if (!room.hands[session.playerId]) room.hands[session.playerId] = [];
+  room.hands[session.playerId].push(card);
+  room.lastDrawnPlayerId = session.playerId;
+  room.lastDrawnCardId = card.id;
+}
+
+async function actionDrawDiscard() {
+  if (!isMyTurn() || room.turnPhase !== 'draw' || busy) return;
+  if (room.discard.length === 0) { showToast('Otpad je prazan.'); return; }
+  const card = room.discard[room.discard.length - 1];
+  const opened = room.openedPlayers.includes(session.playerId);
+  if (!canUseDiscardCard(card, myHand(), opened)) {
+    showToast('Ne mozes da vuces tu kartu sa otpada - nema kombinacije gde bi je odmah izlozio.');
+    return;
+  }
+  busy = true;
+  room.discard.pop();
+  myHandPush(card);
+  room.turnPhase = 'meld';
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionDiscard(cardId) {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  if (room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId) {
+    showToast('Prvo moras da spustis dzokera kog si zamenio (nova kombinacija ili dodavanje na postojeci niz).');
+    return;
+  }
+  busy = true;
+  const hand = room.hands[session.playerId];
+  const idx = hand.findIndex(c => c.id === cardId);
+  if (idx === -1) { busy = false; return; }
+  const [card] = hand.splice(idx, 1);
+  room.discard.push(card);
+  selectedIds.clear();
+  if (hand.length === 0) {
+    await endRoundWithWinner(room, session.playerId, null);
+  } else {
+    advanceTurn(room);
+  }
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+function getSelectedCards() {
+  const hand = room.hands[session.playerId] || [];
+  return hand.filter(c => selectedIds.has(c.id));
+}
+
+async function actionLayMeld() {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  const cards = getSelectedCards();
+  if (cards.length < 3) { showToast('Izaberi bar 3 karte za kombinaciju.'); return; }
+  if (!isValidMeld(cards)) { showToast('To nije validna kombinacija (niz ili grupa).'); return; }
+  const opened = room.openedPlayers.includes(session.playerId);
+  if (!opened) {
+    const val = sumOpeningValue([cards]);
+    if (val < 51) { showToast(`Ova kombinacija vredi ${val} poena - treba 51+ za prvo izlaganje. Mozes izabrati vise kombinacija odjednom.`); return; }
+  }
+  busy = true;
+  const hand = room.hands[session.playerId];
+  cards.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+  room.melds.push({ ownerId: session.playerId, cards });
+  if (!opened) room.openedPlayers.push(session.playerId);
+  selectedIds.clear();
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionLayMultipleSelected() {
+  // Lay out ALL currently selected cards at once, auto-partitioned into melds.
+  // Used for the opening play when it takes multiple melds to reach 51 points.
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  const cards = getSelectedCards();
+  if (cards.length < 3) { showToast('Izaberi karte za izlaganje.'); return; }
+  const partition = findPartition(cards);
+  if (!partition) { showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.'); return; }
+  for (const group of partition) {
+    const opts = enumerateSingleJokerRunWindows(group);
+    if (opts) {
+      const jokerCard = group.find(c => c.joker && c._lockedRank === undefined);
+      showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({ label: sequenceLabel(o), opt: o })), (picked) => {
+        jokerCard._lockedRank = picked.opt.jokerRank;
+        jokerCard._lockedAceHigh = picked.opt.jokerAceHigh;
+        actionLayMultipleSelected();
+      });
+      return;
+    }
+  }
+  const opened = room.openedPlayers.includes(session.playerId);
+  if (!opened) {
+    const val = sumOpeningValue(partition);
+    if (val < 51) { showToast(`Ukupno ${val} poena - treba 51+ za prvo izlaganje.`); return; }
+  }
+  busy = true;
+  const hand = room.hands[session.playerId];
+  cards.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+  partition.forEach(group => room.melds.push({ ownerId: session.playerId, cards: group }));
+  if (!opened) room.openedPlayers.push(session.playerId);
+  selectedIds.clear();
+  if (room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId
+      && !hand.some(c => c.id === room.pendingJokerToPlace.jokerCardId)) {
+    room.pendingJokerToPlace = null;
+  }
+  sweepCompletedQuads(room);
+  if (hand.length === 0) {
+    await endRoundWithWinner(room, session.playerId, null);
+  }
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  if (!room.openedPlayers.includes(session.playerId)) { showToast('Prvo se moras izloziti (51+ poena) da bi dodavao karte.'); return; }
+  const cards = getSelectedCards();
+  if (cards.length === 0) { showToast('Izaberi karte iz ruke koje zelis da dodas.'); return; }
+  const meld = room.melds[meldIdx];
+  if (!meld) return;
+  const combined = meld.cards.concat(cards);
+  if (!isValidMeld(combined)) { showToast('Te karte ne mogu da se dodaju na tu kombinaciju.'); return; }
+  const opts = enumerateSingleJokerRunWindows(combined);
+  if (opts) {
+    const jokerCard = combined.find(c => c.joker && c._lockedRank === undefined);
+    showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({ label: sequenceLabel(o), opt: o })), (picked) => {
+      jokerCard._lockedRank = picked.opt.jokerRank;
+      jokerCard._lockedAceHigh = picked.opt.jokerAceHigh;
+      actionAddToMeld(ownerIdOfMeld, meldIdx);
+    });
+    return;
+  }
+  busy = true;
+  const hand = room.hands[session.playerId];
+  cards.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+  meld.cards = combined;
+  selectedIds.clear();
+  addToMeldTarget = null;
+  if (room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId
+      && !hand.some(c => c.id === room.pendingJokerToPlace.jokerCardId)) {
+    room.pendingJokerToPlace = null;
+  }
+  sweepCompletedQuads(room);
+  if (hand.length === 0) {
+    await endRoundWithWinner(room, session.playerId, null);
+  }
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionReplaceJoker(meldIdx, jokerCardId) {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  if (room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId) {
+    showToast('Prvo moras da spustis prethodnog dzokera koga si zamenio.');
+    return;
+  }
+  const meld = room.melds[meldIdx];
+  if (!meld) return;
+  const resolved = resolveMeld(meld.cards);
+  if (!resolved) return;
+  const item = resolved.cards.find(it => it.isJoker && it.jokerCardId === jokerCardId);
+  if (!item) return;
+  const selected = getSelectedCards();
+  if (selected.length !== 1) { showToast('Izaberi tacno jednu kartu iz ruke koja odgovara mestu dzokera.'); return; }
+  const candidate = selected[0];
+  if (candidate.joker) { showToast('Ne mozes zameniti dzokera drugim dzokerom.'); return; }
+  const targetRank = item.substitutes.rank;
+  if (resolved.type === 'set') {
+    // In a set the joker can stand for any of the rank's missing suits, so the
+    // candidate just needs the right rank and a suit not already on the table.
+    if (candidate.rank !== targetRank) {
+      showToast(`Ta karta ne odgovara mestu dzokera (treba ${rankLabel(targetRank)}).`);
+      return;
+    }
+    const suitsInMeld = meld.cards.filter(c => !c.joker).map(c => c.suit);
+    if (suitsInMeld.includes(candidate.suit)) {
+      showToast('Ta boja vec postoji u toj grupi.');
+      return;
+    }
+  } else {
+    // In a run the joker's slot is a specific rank AND suit.
+    const targetSuit = item.substitutes.suit;
+    if (candidate.rank !== targetRank || candidate.suit !== targetSuit) {
+      showToast(`Ta karta ne odgovara mestu dzokera (treba ${rankLabel(targetRank)} ${SUIT_SYM[targetSuit]}).`);
+      return;
+    }
+  }
+  busy = true;
+  const hand = room.hands[session.playerId];
+  const handIdx = hand.findIndex(c => c.id === candidate.id);
+  hand.splice(handIdx, 1);
+  const meldIdx2 = meld.cards.findIndex(c => c.id === jokerCardId);
+  const jokerObj = meld.cards[meldIdx2];
+  delete jokerObj._lockedRank;
+  delete jokerObj._lockedAceHigh;
+  meld.cards[meldIdx2] = candidate;
+  hand.push(jokerObj);
+  room.pendingJokerToPlace = { playerId: session.playerId, jokerCardId: jokerObj.id };
+  selectedIds.clear();
+  sweepCompletedQuads(room);
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+
+async function actionDeclareMaliHand() {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  const cards = getSelectedCards();
+  if (cards.length !== 1) { showToast('Izaberi tacno jednu kartu koju bi odbacio, pa probaj Mali Hand.'); return; }
+  const hand = room.hands[session.playerId];
+  const remaining = hand.filter(c => !selectedIds.has(c.id));
+  if (remaining.length !== 14) { showToast('Mali hand se proverava sa 14 preostalih karata.'); return; }
+  const val = maliHandValue(remaining);
+  if (val >= 51) { showToast(`Zbir ruke je ${val} - mora biti ispod 51 za Mali Hand.`); return; }
+  busy = true;
+  const discardCard = cards[0];
+  const idx = hand.findIndex(c => c.id === discardCard.id);
+  hand.splice(idx, 1);
+  room.discard.push(discardCard);
+  selectedIds.clear();
+  await endRoundWithWinner(room, session.playerId, 'mali');
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionDeclareVelikiHand() {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  if (room.openedPlayers.includes(session.playerId)) { showToast('Veliki hand vazi samo ako se jos nisi izlagao ove runde.'); return; }
+  const hand = room.hands[session.playerId];
+  let found = null;
+  for (let i = 0; i < hand.length; i++) {
+    const leftover = hand[i];
+    const rest = hand.filter((c, idx) => idx !== i);
+    const partition = findPartition(rest);
+    if (partition) { found = { leftover, partition }; break; }
+  }
+  if (!found) { showToast('Nemas validan Veliki Hand sa trenutnom rukom.'); return; }
+  busy = true;
+  found.partition.forEach(group => room.melds.push({ ownerId: session.playerId, cards: group }));
+  room.discard.push(found.leftover);
+  room.hands[session.playerId] = [];
+  if (!room.openedPlayers.includes(session.playerId)) room.openedPlayers.push(session.playerId);
+  selectedIds.clear();
+  await endRoundWithWinner(room, session.playerId, 'veliki');
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionDeclareFourJokerHand() {
+  if (!isMyTurn() || room.turnPhase !== 'meld' || busy) return;
+  if (room.openedPlayers.includes(session.playerId)) { showToast('Ovaj hand vazi samo ako se jos nisi izlagao ove runde.'); return; }
+  const hand = room.hands[session.playerId];
+  const found = findFourJokerOrEightSame(hand);
+  if (!found) { showToast('Nemas 4 dzokera ni 8 istih karata u ruci.'); return; }
+  busy = true;
+  room.melds.push({ ownerId: session.playerId, cards: found });
+  found.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+  if (!room.openedPlayers.includes(session.playerId)) room.openedPlayers.push(session.playerId);
+  await endRoundWithWinner(room, session.playerId, 'fourJoker');
+  await saveRoom(room);
+  busy = false;
+  render();
+}
+
+async function actionTryBottomCard() {
+  if (!isMyTurn() || room.turnPhase !== 'draw' || busy) return;
+  if (!room.specialBottomCard || room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
+  const card = room.specialBottomCard.card;
+  const hypothetical = myHand().concat([card]);
+  // Check if drawing this card immediately enables ANY hand declaration.
+  let handType = null;
+  if (findFourJokerOrEightSame(hypothetical)) handType = 'fourJoker';
+  else {
+    let velikiOk = false;
+    for (let i = 0; i < hypothetical.length && !velikiOk; i++) {
+      const rest = hypothetical.filter((c, idx) => idx !== i);
+      if (findPartition(rest)) velikiOk = true;
+    }
+    if (velikiOk) handType = 'veliki';
+    else {
+      // mali hand: need some discard leaving 14 with sum<51
+      let maliOk = false;
+      for (let i = 0; i < hypothetical.length && !maliOk; i++) {
+        const rest = hypothetical.filter((c, idx) => idx !== i);
+        if (rest.length === 14 && maliHandValue(rest) < 51) maliOk = true;
+      }
+      if (maliOk) handType = 'mali';
+    }
+  }
+  if (!handType) { showToast('Sa tom kartom ne mozes odmah da napravis hand.'); return; }
+  busy = true;
+  room.specialBottomCard.taken = true;
+  myHandPush(card);
+  room.turnPhase = 'meld';
+  await saveRoom(room);
+  busy = false;
+  showToast('Uzeo si otkrivenu kartu! Sad mozes da proglasis odgovarajuci hand.', 3400);
+  render();
+}
+
+// ===== Rendering =====
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  const brand = el('div', 'brand');
+  brand.innerHTML = `<span class="suits">\u2660\u2665</span><h1>REMI<em>.</em></h1><span class="suits">\u2666\u2663</span>`;
+  app.appendChild(brand);
+  app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima \u2022 pravilo od 51 \u2022 mali/veliki hand'));
+
+  if (!DB_URL) {
+    renderDbSetup(app);
+  } else if (!session.roomCode || !room) {
+    renderLanding(app);
+  } else if (room.phase === 'lobby') {
+    renderLobby(app);
+  } else if (room.phase === 'playing') {
+    renderGame(app);
+  } else if (room.phase === 'round_end') {
+    renderRoundEnd(app);
+  }
+  checkQuadAnnouncement();
+}
+
+function renderDbSetup(app) {
+  const panel = el('div', 'card-panel');
+  panel.appendChild(el('h2', null, 'Podesavanje (samo prvi put)'));
+  panel.appendChild(el('div', 'small', 'Ova igra cuva stanje partije u besplatnoj Firebase bazi (ne treba Claude nalog). Ako je host vec podesio bazu i poslao ti link, samo otvori taj link - ovaj korak ce se preskociti automatski. Ako si host i tek podesavas, nalepi ovde "Database URL" tvog Firebase Realtime Database projekta.'));
+  const field = el('div', 'field');
+  field.innerHTML = '<label>Firebase Database URL</label>';
+  const input = document.createElement('input');
+  input.placeholder = 'https://tvoj-projekat-default-rtdb.firebaseio.com';
+  field.appendChild(input);
+  panel.appendChild(field);
+  const btn = el('button', 'btn btn-gold', 'Sacuvaj i nastavi');
+  btn.style.width = '100%';
+  btn.onclick = () => {
+    const v = input.value.trim().replace(/\/$/, '');
+    if (!v.startsWith('https://')) { showToast('Unesi validan https:// URL.'); return; }
+    localStorage.setItem('remi-db-url', v);
+    DB_URL = v;
+    render();
+  };
+  panel.appendChild(btn);
+  app.appendChild(panel);
+  const note = el('div', 'small center', 'Uputstvo za podesavanje Firebase baze je u komentaru na vrhu HTML fajla.');
+  note.style.marginTop = '14px';
+  app.appendChild(note);
+}
+
+function renderLanding(app) {
+  const panel = el('div', 'card-panel');
+  const nameField = el('div', 'field');
+  nameField.innerHTML = '<label>Tvoje ime</label>';
+  const nameInput = document.createElement('input');
+  nameInput.placeholder = 'Npr. Niko';
+  nameInput.id = 'name-input';
+  nameField.appendChild(nameInput);
+  panel.appendChild(nameField);
+
+  const row = el('div', 'row');
+  const createBtn = el('button', 'btn btn-gold', 'Napravi sobu');
+  createBtn.style.flex = '1';
+  createBtn.onclick = async () => {
+    const name = nameInput.value.trim();
+    if (!name) { showToast('Unesi ime.'); return; }
+    createBtn.disabled = true;
+    await createRoom(name);
+  };
+  row.appendChild(createBtn);
+  panel.appendChild(row);
+
+  panel.appendChild(el('div', 'divider'));
+
+  const joinField = el('div', 'field');
+  joinField.innerHTML = '<label>Kod sobe</label>';
+  const codeInput = document.createElement('input');
+  codeInput.placeholder = 'npr. A1B2';
+  codeInput.style.textTransform = 'uppercase';
+  codeInput.id = 'code-input';
+  const params = new URLSearchParams(location.search);
+  const roomFromLink = params.get('room');
+  if (roomFromLink) codeInput.value = roomFromLink.toUpperCase();
+  joinField.appendChild(codeInput);
+  panel.appendChild(joinField);
+
+  const joinBtn = el('button', 'btn btn-ghost', 'Pridruzi se sobi');
+  joinBtn.style.width = '100%';
+  joinBtn.onclick = async () => {
+    const name = nameInput.value.trim();
+    const code = codeInput.value.trim();
+    if (!name) { showToast('Unesi ime.'); return; }
+    if (!code) { showToast('Unesi kod sobe.'); return; }
+    joinBtn.disabled = true;
+    await joinRoom(code, name);
+    joinBtn.disabled = false;
+  };
+  panel.appendChild(joinBtn);
+
+  app.appendChild(panel);
+
+  const note = el('div', 'small center', 'Do 4 igraca, svako sa svog uredjaja preko istog koda sobe.');
+  note.style.marginTop = '14px';
+  app.appendChild(note);
+}
+
+function renderLobby(app) {
+  const panel = el('div', 'card-panel');
+  panel.appendChild(el('h2', null, 'Cekaonica'));
+  panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima - kad ga otvore, sve je vec podeseno, samo unose ime i pridruzuju se:'));
+
+  const shareUrl = `${location.origin}${location.pathname}?db=${encodeURIComponent(DB_URL)}&room=${room.code}`;
+  const linkBox = el('div', 'field');
+  const linkInput = document.createElement('input');
+  linkInput.value = shareUrl;
+  linkInput.readOnly = true;
+  linkInput.style.fontSize = '12px';
+  linkBox.appendChild(linkInput);
+  panel.appendChild(linkBox);
+  const copyBtn = el('button', 'btn btn-ghost', 'Kopiraj link');
+  copyBtn.style.width = '100%';
+  copyBtn.onclick = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); showToast('Link kopiran!'); }
+    catch (e) { linkInput.select(); showToast('Selektovano - kopiraj sa Ctrl/Cmd+C'); }
+  };
+  panel.appendChild(copyBtn);
+
+  panel.appendChild(el('div', 'divider'));
+  panel.appendChild(el('div', 'small', 'Ili kod sobe za rucni unos:'));
+  panel.appendChild(el('div', 'roomcode-display', room.code));
+
+  const chips = el('div', 'chip-list');
+  room.players.forEach((p, i) => {
+    const chip = el('div', 'player-chip');
+    chip.textContent = p.name + (p.id === session.playerId ? ' (ti)' : '');
+    if (i === 0) {
+      const b = el('span', 'dealer-badge', 'HOST');
+      chip.appendChild(b);
+    }
+    chips.appendChild(chip);
+  });
+  panel.appendChild(chips);
+
+  panel.appendChild(el('div', 'divider'));
+
+  const isHost = room.players[0] && room.players[0].id === session.playerId;
+  if (isHost) {
+    const startBtn = el('button', 'btn btn-gold', `Zapocni igru (${room.players.length} igraca)`);
+    startBtn.disabled = room.players.length < 2;
+    startBtn.onclick = hostStartGame;
+    panel.appendChild(startBtn);
+    if (room.players.length < 2) panel.appendChild(el('div', 'small', 'Ceka se jos bar 1 igrac...'));
+  } else {
+    panel.appendChild(el('div', 'small', 'Cekamo da host (' + room.players[0].name + ') zapocne igru...'));
+  }
+  app.appendChild(panel);
+}
+
+function renderOpponents(app) {
+  const rowEl = el('div', 'opponents-row');
+  room.players.forEach((p, i) => {
+    if (p.id === session.playerId) return;
+    const c = el('div', 'opp-card' + (room.currentPlayerIndex === i ? ' active' : ''));
+    const nameLine = el('div', 'name', p.name);
+    c.appendChild(nameLine);
+    const handCount = (room.hands[p.id] || []).length;
+    const meta = el('div', 'meta');
+    meta.innerHTML = (room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>Izlozen' : 'Nije izlozen') + ` \u2022 ${handCount} karata`;
+    c.appendChild(meta);
+    if (i === room.dealerIndex) {
+      const b = el('span', 'dealer-badge', 'DELI');
+      b.style.position = 'absolute'; b.style.top = '-8px'; b.style.right = '8px';
+      c.style.position = 'relative';
+      c.appendChild(b);
+    }
+    rowEl.appendChild(c);
+  });
+  app.appendChild(rowEl);
+}
+
+function renderCenterTable(app) {
+  const center = el('div', 'center-table');
+
+  const pilesRow = el('div', 'stock-discard-row');
+
+  // Stock
+  const stockWrap = el('div', 'special-card-wrap');
+  const stockClickable = isMyTurn() && room.turnPhase === 'draw';
+  const stockStack = el('div', 'pile-stack' + (stockClickable ? '' : ' disabled'));
+  if (room.stock.length > 0) stockStack.appendChild(cardBackEl());
+  else stockStack.appendChild((() => { const d = el('div', 'card back'); d.style.opacity = '0.3'; return d; })());
+  stockStack.onclick = stockClickable ? actionDrawStock : null;
+  stockWrap.appendChild(stockStack);
+  stockWrap.appendChild(el('div', 'pile-label', `Talon (${room.stock.length})`));
+  pilesRow.appendChild(stockWrap);
+
+  // Special bottom card
+  if (room.specialBottomCard && !room.specialBottomCard.taken) {
+    const specWrap = el('div', 'special-card-wrap');
+    const specClickable = isMyTurn() && room.turnPhase === 'draw';
+    const wrapDiv = el('div', 'pile-stack' + (specClickable ? '' : ' disabled'));
+    wrapDiv.appendChild(cardEl(room.specialBottomCard.card, {}));
+    wrapDiv.onclick = specClickable ? actionTryBottomCard : null;
+    specWrap.appendChild(wrapDiv);
+    specWrap.appendChild(el('div', 'pile-label', 'Ispod talona (samo za hand)'));
+    pilesRow.appendChild(specWrap);
+  }
+
+  // Discard
+  const discardWrap = el('div', 'special-card-wrap');
+  const discardClickable = isMyTurn() && room.turnPhase === 'draw' && room.discard.length > 0
+    && canUseDiscardCard(room.discard[room.discard.length - 1], myHand(), room.openedPlayers.includes(session.playerId));
+  const discardStack = el('div', 'pile-stack' + (discardClickable ? '' : ' disabled'));
+  if (room.discard.length > 0) {
+    discardStack.appendChild(cardEl(room.discard[room.discard.length - 1], {}));
+  } else {
+    const d = el('div', 'card'); d.style.opacity = '0.25'; d.textContent = '\u2014';
+    discardStack.appendChild(d);
+  }
+  discardStack.onclick = discardClickable ? actionDrawDiscard : null;
+  discardWrap.appendChild(discardStack);
+  discardWrap.appendChild(el('div', 'pile-label', `Otpad (${room.discard.length})`));
+  pilesRow.appendChild(discardWrap);
+
+  center.appendChild(pilesRow);
+
+  // Melds on table, grouped by owner
+  const meldsArea = el('div', 'melds-area');
+  room.players.forEach((p, pi) => {
+    const ownMelds = room.melds.map((m, idx) => ({ m, idx })).filter(x => x.m.ownerId === p.id);
+    if (ownMelds.length === 0) return;
+    meldsArea.appendChild(el('div', 'meld-owner-label', p.name + (p.id === session.playerId ? ' (ti)' : '')));
+    const line = el('div', null);
+    ownMelds.forEach(({ m, idx }) => {
+      const canTarget = isMyTurn() && room.turnPhase === 'meld' && room.openedPlayers.includes(session.playerId) && selectedIds.size > 0;
+      const groupDiv = el('div', 'meld-group' + (canTarget ? ' targetable' : ''));
+      const cardsDiv = el('div', 'meld-cards');
+      const canReplaceJoker = isMyTurn() && room.turnPhase === 'meld' && !room.pendingJokerToPlace && selectedIds.size === 1;
+      sortMeldForDisplay(m.cards).forEach(c => {
+        const cardElement = cardEl(c, { mini: true });
+        if (c.joker && canReplaceJoker) {
+          cardElement.classList.add('clickable');
+          cardElement.classList.add('joker-replaceable');
+          cardElement.onclick = (e) => { e.stopPropagation(); actionReplaceJoker(idx, c.id); };
+        }
+        cardsDiv.appendChild(cardElement);
+      });
+      groupDiv.appendChild(cardsDiv);
+      if (canTarget) groupDiv.onclick = () => actionAddToMeld(p.id, idx);
+      line.appendChild(groupDiv);
+    });
+    meldsArea.appendChild(line);
+  });
+  center.appendChild(meldsArea);
+
+  app.appendChild(center);
+}
+
+function sortMeldForDisplay(cards) {
+  const resolved = resolveMeld(cards);
+  if (!resolved || resolved.type !== 'run') {
+    // Sets: order doesn't matter, keep it simple - reals sorted, jokers trailing.
+    const normal = cards.filter(c => !c.joker);
+    const jokers = cards.filter(c => c.joker);
+    return normal.slice().sort((a, b) => a.rank - b.rank).concat(jokers);
+  }
+  // Runs: resolved.cards is already in ascending sequence order - place each
+  // joker at the exact slot of the card it substitutes instead of trailing.
+  return resolved.cards.map(item => {
+    if (item.isJoker) return cards.find(c => c.id === item.jokerCardId) || cards.find(c => c.joker);
+    return cards.find(c => c.id === item.card.id) || item.card;
+  });
+}
+
+function renderHandAndActions(app) {
+  const handWrap = el('div', 'hand-area');
+  const titleRow = el('div', 'hand-title-row');
+  titleRow.appendChild(el('h3', null, 'Tvoja ruka'));
+  const countLbl = el('div', 'small', myHand().length + ' karata');
+  titleRow.appendChild(countLbl);
+  handWrap.appendChild(titleRow);
+
+  const sumRow = el('div', 'small');
+  sumRow.style.textAlign = 'center';
+  sumRow.style.marginBottom = '4px';
+  sumRow.style.color = 'var(--gold-bright)';
+  const opened_ = room.openedPlayers.includes(session.playerId);
+  let sumText;
+  if (!opened_) {
+    sumText = `Zbir ruke (mali hand): ${maliHandValue(myHand())}`;
+  } else {
+    const standardSum = myHand().reduce((s, c) => s + cardValueStandard(c), 0);
+    sumText = `Zbir ruke: ${standardSum}`;
+  }
+  sumRow.textContent = sumText;
+  handWrap.appendChild(sumRow);
+
+  const selectedCards = getSelectedCards();
+  if (selectedCards.length > 0) {
+    const sum = computeSelectedSum(selectedCards);
+    const selRow = el('div', 'small');
+    selRow.style.textAlign = 'center';
+    selRow.style.marginBottom = '8px';
+    selRow.style.color = 'var(--cream-dim)';
+    selRow.textContent = `Zbir izabranih: ${sum}`;
+    handWrap.appendChild(selRow);
+  }
+
+  const cardsRow = el('div', 'hand-cards');
+  const myTurn = isMyTurn();
+  const canPick = myTurn && room.turnPhase === 'meld';
+  sortHand(myHand()).forEach(c => {
+    const selected = selectedIds.has(c.id);
+    const drawn = room.lastDrawnPlayerId === session.playerId && room.lastDrawnCardId === c.id;
+    const pending = room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId && room.pendingJokerToPlace.jokerCardId === c.id;
+    const cd = cardEl(c, {
+      clickable: canPick,
+      selected,
+      onClick: canPick ? () => { if (selected) selectedIds.delete(c.id); else selectedIds.add(c.id); render(); } : null,
+    });
+    if (drawn) cd.classList.add('just-drawn');
+    if (pending) cd.classList.add('pending-joker');
+    cardsRow.appendChild(cd);
+  });
+  handWrap.appendChild(cardsRow);
+  app.appendChild(handWrap);
+
+  // Turn banner
+  const banner = el('div', 'turn-banner');
+  if (room.phase === 'playing') {
+    const cur = room.players[room.currentPlayerIndex];
+    if (myTurn) {
+      banner.textContent = room.turnPhase === 'draw' ? 'Tvoj red - vuci kartu' : 'Tvoj red - odigraj i odbaci';
+    } else {
+      banner.textContent = `Na potezu: ${cur.name}`;
+    }
+  }
+  app.appendChild(banner);
+
+  if (myTurn && room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId) {
+    const warn = el('div', 'small center', '\u26a0\ufe0f Imas dzokera (zlatno oivicen u ruci) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto odbacis kartu.');
+    warn.style.color = 'var(--gold-bright)';
+    warn.style.marginBottom = '10px';
+    app.appendChild(warn);
+  }
+
+  const bar = el('div', 'action-bar');
+  const opened = room.openedPlayers.includes(session.playerId);
+
+  if (myTurn && room.turnPhase === 'meld') {
+    const layBtn = el('button', 'btn btn-gold', opened ? 'Spusti kombinaciju' : 'Izlozi se (51+)');
+    layBtn.disabled = selectedIds.size < 3;
+    layBtn.onclick = actionLayMultipleSelected;
+    bar.appendChild(layBtn);
+
+    if (opened) {
+      const addBtn = el('button', 'btn btn-ghost', 'Dodaj na kombinaciju (klikni na sto)');
+      addBtn.disabled = selectedIds.size === 0;
+      addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
+      bar.appendChild(addBtn);
+    }
+
+    if (!opened) {
+      const maliBtn = el('button', 'btn btn-ghost', 'Mali Hand');
+      maliBtn.onclick = actionDeclareMaliHand;
+      bar.appendChild(maliBtn);
+
+      const velikiBtn = el('button', 'btn btn-ghost', 'Veliki Hand');
+      velikiBtn.onclick = actionDeclareVelikiHand;
+      bar.appendChild(velikiBtn);
+
+      const fourJBtn = el('button', 'btn btn-ghost', '4 Dzokera / 8 Istih');
+      fourJBtn.onclick = actionDeclareFourJokerHand;
+      bar.appendChild(fourJBtn);
+    }
+
+    const clearBtn = el('button', 'btn btn-ghost', 'Ponisti izbor');
+    clearBtn.disabled = selectedIds.size === 0;
+    clearBtn.onclick = () => { selectedIds.clear(); render(); };
+    bar.appendChild(clearBtn);
+
+    const hasPendingJoker = room.pendingJokerToPlace && room.pendingJokerToPlace.playerId === session.playerId;
+    const discardBtn = el('button', 'btn btn-danger', 'Odbaci izabranu kartu');
+    discardBtn.disabled = selectedIds.size !== 1 || hasPendingJoker;
+    discardBtn.onclick = () => { const id = [...selectedIds][0]; actionDiscard(id); };
+    bar.appendChild(discardBtn);
+  } else if (myTurn && room.turnPhase === 'draw') {
+    bar.appendChild(el('div', 'small center', 'Vuci kartu sa talona ili otpada da nastavis.'));
+  }
+
+  app.appendChild(bar);
+
+  const log = el('div', 'log-box');
+  (room.log || []).slice(-8).forEach(l => log.appendChild(el('div', null, l)));
+  app.appendChild(log);
+}
+
+function renderGame(app) {
+  const panel = el('div', 'card-panel table-area');
+  renderOpponents(panel);
+  renderCenterTable(panel);
+  renderHandAndActions(panel);
+  app.appendChild(panel);
+  renderResetControl(app);
+}
+
+function renderResetControl(app) {
+  const isHost = room.players[0] && room.players[0].id === session.playerId;
+  if (!isHost) return;
+  const wrap = el('div', 'center');
+  wrap.style.marginTop = '14px';
+  const btn = el('button', 'btn btn-danger', 'Prekini igru i resetuj');
+  btn.onclick = hostResetGame;
+  wrap.appendChild(btn);
+  app.appendChild(wrap);
+}
+
+function renderRoundEnd(app) {
+  const panel = el('div', 'card-panel');
+  const winner = room.players.find(p => p.id === room.roundWinner);
+  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[room.roundWinType] || 'regularno';
+  panel.appendChild(el('div', 'winner-banner', `\ud83c\udfc6 ${winner ? winner.name : '?'} pobedjuje!`));
+  panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
+
+  const table = document.createElement('table');
+  table.className = 'score-table';
+  table.innerHTML = '<tr><th>Igrac</th><th>Runda</th><th>Ukupno</th></tr>';
+  room.players.forEach(p => {
+    const tr = document.createElement('tr');
+    const delta = (room.lastDeltas && room.lastDeltas[p.id]) || 0;
+    tr.innerHTML = `<td class="name">${p.name}</td><td>${delta > 0 ? '+' : ''}${delta}</td><td>${room.scores[p.id] || 0}</td>`;
+    table.appendChild(tr);
+  });
+  panel.appendChild(table);
+
+  panel.appendChild(el('div', 'divider'));
+  const isHost = room.players[0] && room.players[0].id === session.playerId;
+  if (isHost) {
+    const nextBtn = el('button', 'btn btn-gold', 'Sledeca runda');
+    nextBtn.style.width = '100%';
+    nextBtn.onclick = hostNextRound;
+    panel.appendChild(nextBtn);
+  } else {
+    panel.appendChild(el('div', 'small center', 'Cekamo da host pokrene sledecu rundu...'));
+  }
+  app.appendChild(panel);
+  renderResetControl(app);
+}
+
+// ===== Boot =====
+(async function boot() {
+  DB_URL = resolveDbUrl();
+  if (DB_URL) {
+    const ok = await rejoin();
+    render();
+    if (!ok) render();
+  } else {
+    render();
+  }
+})();
+
+})();
+</script>
