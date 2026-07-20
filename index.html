@@ -91,6 +91,7 @@ KORAK 5 - Prvo otvaranje
   .brand .suits{color:var(--gold);font-size:20px;letter-spacing:3px;}
   .brand h1{font-size:34px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
   .brand h1 em{font-style:normal;color:var(--gold-bright);}
+  .brand .version{font-size:12px;color:var(--cream-dim);letter-spacing:0.5px;align-self:flex-end;margin-bottom:6px;}
   .subtitle{text-align:center;color:var(--cream-dim);font-size:13px;margin-bottom:24px;letter-spacing:0.4px;}
 
   .card-panel{
@@ -816,6 +817,8 @@ function sortHand(hand) {
     return ra - rb;
   });
 }
+
+const APP_VERSION = 'v0.1';
 
 // ===== App state =====
 let session = { playerId: null, name: null, roomCode: null };
@@ -1545,7 +1548,7 @@ function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
   const brand = el('div', 'brand');
-  brand.innerHTML = `<span class="suits">\u2660\u2665</span><h1>REMI<em>.</em></h1><span class="suits">\u2666\u2663</span>`;
+  brand.innerHTML = `<span class="suits">\u2660\u2665</span><h1>REMI<em>.</em></h1><span class="version">${APP_VERSION}</span><span class="suits">\u2666\u2663</span>`;
   app.appendChild(brand);
   app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima \u2022 pravilo od 51 \u2022 mali/veliki hand'));
 
