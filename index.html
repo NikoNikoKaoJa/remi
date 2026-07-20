@@ -1150,10 +1150,11 @@ async function hostResetGame() {
   const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise trenutno stanje partije za sve igrace.');
   if (!ok) return;
   busy = true;
+  const me = room.players.find(p => p.id === session.playerId);
   room.phase = 'lobby';
   room.round = 0;
   room.dealerIndex = 0;
-  room.players = [];
+  room.players = me ? [me] : [];
   room.hands = {};
   room.stock = [];
   room.discard = [];
@@ -1169,10 +1170,6 @@ async function hostResetGame() {
   room.lastDeltas = null;
   await saveRoom(room);
   busy = false;
-  clearInterval(pollTimer);
-  localStorage.removeItem('my-remi-session');
-  session = { playerId: null, name: null, roomCode: null };
-  room = null;
   render();
 }
 
