@@ -818,7 +818,7 @@ function sortHand(hand) {
   });
 }
 
-const APP_VERSION = 'v0.2';
+const APP_VERSION = 'v0.3';
 
 // ===== App state =====
 let session = { playerId: null, name: null, roomCode: null };
@@ -1092,6 +1092,21 @@ async function joinRoom(code, name) {
   room = r;
   startPolling();
   render();
+}
+
+async function leaveRoom() {
+  clearInterval(pollTimer);
+  const leftRoom = room;
+  const leftPlayerId = session.playerId;
+  localStorage.removeItem('my-remi-session');
+  session = { playerId: null, name: null, roomCode: null };
+  room = null;
+  history.replaceState(null, '', location.pathname);
+  render();
+  if (leftRoom && leftPlayerId) {
+    leftRoom.players = leftRoom.players.filter(p => p.id !== leftPlayerId);
+    await saveRoom(leftRoom);
+  }
 }
 
 async function rejoin() {
@@ -1711,6 +1726,12 @@ function renderLobby(app) {
   } else {
     panel.appendChild(el('div', 'small', 'Cekamo da host (' + room.players[0].name + ') zapocne igru...'));
   }
+
+  const leaveBtn = el('button', 'btn btn-ghost', 'Napusti sobu');
+  leaveBtn.style.width = '100%';
+  leaveBtn.style.marginTop = '10px';
+  leaveBtn.onclick = leaveRoom;
+  panel.appendChild(leaveBtn);
   app.appendChild(panel);
 }
 
@@ -2009,7 +2030,11 @@ function renderRoundEnd(app) {
 (async function boot() {
   DB_URL = resolveDbUrl();
   if (DB_URL) {
-    const ok = await rejoin();
+    const roomFromLink = new URLSearchParams(location.search).get('room');
+    const s = await mySession();
+    const linkPointsElsewhere = roomFromLink && s && s.roomCode
+      && s.roomCode.toUpperCase() !== roomFromLink.toUpperCase();
+    const ok = linkPointsElsewhere ? false : await rejoin();
     render();
     if (!ok) render();
   } else {
