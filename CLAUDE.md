@@ -108,12 +108,6 @@ position in a run), `jokerCardId` (which physical joker fills a resolved slot),
 
 ## Testing
 
-`test_runner.html` is a static page that loads the game logic and runs visible
-assertions (green = pass, red = fail). **Test 1 is the set-joker-replacement
-scenario.** When changing logic, add/adjust a test here FIRST, and keep all tests
-green. There is also a Python builder (`build_test_page.py`) that regenerated the
-test page from the single-file build — if the code is split into modules, the
-test page should import the logic module directly instead.
 
 ## Working agreement with the user
 

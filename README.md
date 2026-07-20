@@ -56,7 +56,6 @@ Otvori svoj Pages link, nalepi Firebase Database URL kad te aplikacija pita
 
 ```
 index.html          # igra (Firebase multiplayer build)
-test_runner.html    # statična test stranica (otvori u browseru: zeleno/crveno)
 CLAUDE.md           # kontekst projekta za Claude Code
 README.md           # ovaj fajl
 ```
