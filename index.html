@@ -1097,7 +1097,18 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     if (!session.roomCode || busy) return;
     const r = await loadRoom(session.roomCode);
-    if (r) { room = r; render(); }
+    if (!r) return;
+    if (session.playerId && !r.players.find(p => p.id === session.playerId)) {
+      clearInterval(pollTimer);
+      localStorage.removeItem('my-remi-session');
+      session = { playerId: null, name: null, roomCode: null };
+      room = null;
+      showToast('Host je resetovao igru. Pridruzi se ponovo preko linka.');
+      render();
+      return;
+    }
+    room = r;
+    render();
   }, 2200);
 }
 
@@ -1142,6 +1153,7 @@ async function hostResetGame() {
   room.phase = 'lobby';
   room.round = 0;
   room.dealerIndex = 0;
+  room.players = [];
   room.hands = {};
   room.stock = [];
   room.discard = [];
@@ -1157,6 +1169,10 @@ async function hostResetGame() {
   room.lastDeltas = null;
   await saveRoom(room);
   busy = false;
+  clearInterval(pollTimer);
+  localStorage.removeItem('my-remi-session');
+  session = { playerId: null, name: null, roomCode: null };
+  room = null;
   render();
 }
 
