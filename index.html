@@ -818,14 +818,14 @@ function sortHand(hand) {
   });
 }
 
-const APP_VERSION = 'v0.1';
+const APP_VERSION = 'v0.2';
 
 // ===== App state =====
 let session = { playerId: null, name: null, roomCode: null };
 let room = null;
 let pollTimer = null;
 let selectedIds = new Set();
-let dismissedQuadAnnouncements = new Set(); // announcement ids this browser has already OK'd
+let dismissedQuadAnnouncements = loadDismissedQuadAnnouncements(); // announcement ids this browser has already OK'd
 let addToMeldTarget = null; // {ownerIdx, meldIdx} or null
 let toastTimer = null;
 let busy = false; // guards against double actions while writing to storage
@@ -898,6 +898,16 @@ function guessJokerRankValue(nonJokers) {
   return 20; // no context at all - fall back to the flat wildcard value
 }
 
+function loadDismissedQuadAnnouncements() {
+  try {
+    const raw = localStorage.getItem('remi-dismissed-quads');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (e) { return new Set(); }
+}
+function saveDismissedQuadAnnouncements() {
+  localStorage.setItem('remi-dismissed-quads', JSON.stringify([...dismissedQuadAnnouncements]));
+}
+
 function checkQuadAnnouncement() {
   if (!room || !room.quadAnnouncements) return;
   const pending = room.quadAnnouncements.find(a => !dismissedQuadAnnouncements.has(a.id));
@@ -937,6 +947,7 @@ function showQuadAnnouncementModal(announcement) {
   okBtn.style.width = '100%';
   okBtn.onclick = () => {
     dismissedQuadAnnouncements.add(announcement.id);
+    saveDismissedQuadAnnouncements();
     overlay.remove();
     checkQuadAnnouncement();
   };
@@ -1171,6 +1182,9 @@ async function hostResetGame() {
   room.roundWinner = null;
   room.roundWinType = null;
   room.lastDeltas = null;
+  room.quadAnnouncements = [];
+  dismissedQuadAnnouncements.clear();
+  saveDismissedQuadAnnouncements();
   await saveRoom(room);
   busy = false;
   render();
