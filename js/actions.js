@@ -40,7 +40,17 @@ function startCutReveal(r) {
 
 export function applyPendingRound(r) {
   if (!r.scores) r.scores = {};
-  Object.assign(r, r.pendingRound);
+  // pendingRound may have been round-tripped through Firebase (saved during
+  // the 'cutting' phase, then reloaded by a different client/poll tick) -
+  // Firebase drops empty-array fields on save, so restore them before
+  // merging or a fresh round would silently inherit the previous round's
+  // melds/discard/openedPlayers/stock.
+  const pr = r.pendingRound || {};
+  if (!pr.melds) pr.melds = [];
+  if (!pr.discard) pr.discard = [];
+  if (!pr.openedPlayers) pr.openedPlayers = [];
+  if (!pr.stock) pr.stock = [];
+  Object.assign(r, pr);
   r.round = (r.round || 0) + 1;
   r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
   r.pendingRound = null;
