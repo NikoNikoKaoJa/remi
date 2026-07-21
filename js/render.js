@@ -27,8 +27,8 @@ export function render() {
     const brand = el('div', 'brand');
     brand.innerHTML = `<span class="suits">♠♥</span><h1>REMI<em>.</em></h1><span class="version">${APP_VERSION}</span><span class="suits">♦♣</span>`;
     app.appendChild(brand);
+    app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima • pravilo od 51 • mali/veliki hand'));
   }
-  app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima • pravilo od 51 • mali/veliki hand'));
 
   if (!state.dbUrl) {
     renderDbSetup(app);
@@ -355,13 +355,6 @@ function renderHandAndActions(app) {
 
   if (myTurn && state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
     const warn = el('div', 'small center', '⚠️ Imas dzokera (zlatno oivicen u ruci) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto odbacis kartu.');
-    warn.style.color = 'var(--gold-bright)';
-    warn.style.marginBottom = '10px';
-    app.appendChild(warn);
-  }
-
-  if (myTurn && state.room.discardDrawCardId && myHand().some(c => c.id === state.room.discardDrawCardId)) {
-    const warn = el('div', 'small center', '⚠️ Kartu koju si uzeo sa otpada moras da izlozis ovog poteza - ili je vratis nazad na otpad odbacivanjem iste karte.');
     warn.style.color = 'var(--gold-bright)';
     warn.style.marginBottom = '10px';
     app.appendChild(warn);
