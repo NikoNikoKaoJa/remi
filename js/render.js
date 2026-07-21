@@ -83,6 +83,24 @@ function renderLanding(app) {
   nameField.appendChild(nameInput);
   panel.appendChild(nameField);
 
+  const params = new URLSearchParams(location.search);
+  const roomFromLink = params.get('room');
+
+  // Only whoever opens the bare site (no ?room= in the URL, i.e. not someone
+  // who arrived via a player's invite link) can create a new room - the host.
+  // Players always arrive via a shared link that already has ?room=CODE.
+  if (!roomFromLink) {
+    const createBtn = el('button', 'btn btn-gold', 'Napravi sobu');
+    createBtn.style.width = '100%';
+    createBtn.onclick = async () => {
+      const name = nameInput.value.trim();
+      if (!name) { showToast('Unesi ime.'); return; }
+      createBtn.disabled = true;
+      await createRoom(name);
+    };
+    panel.appendChild(createBtn);
+  }
+
   panel.appendChild(el('div', 'divider'));
 
   const joinField = el('div', 'field');
@@ -91,8 +109,6 @@ function renderLanding(app) {
   codeInput.placeholder = 'npr. A1B2';
   codeInput.style.textTransform = 'uppercase';
   codeInput.id = 'code-input';
-  const params = new URLSearchParams(location.search);
-  const roomFromLink = params.get('room');
   if (roomFromLink) codeInput.value = roomFromLink.toUpperCase();
   joinField.appendChild(codeInput);
   panel.appendChild(joinField);
