@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { loadRoom, saveRoom } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
-import { applyPendingRound } from './actions.js';
+import { applyPendingRound, CUT_REVEAL_MS } from './actions.js';
 
 // ===== Room lifecycle =====
 
@@ -100,7 +100,7 @@ export function startPolling() {
       render();
       return;
     }
-    if (r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt && Date.now() - r.cutRevealedAt > 2500) {
+    if (r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt && Date.now() - r.cutRevealedAt > CUT_REVEAL_MS) {
       applyPendingRound(r);
       await saveRoom(r);
     }

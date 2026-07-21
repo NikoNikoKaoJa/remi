@@ -144,11 +144,34 @@ gated on **every** player clicking it (`room.readyForNextRound`, synced) or
 the host force-starting (`actionForceNextRound`). Once everyone's ready, the
 next round is precomputed via `setupRound` and stashed in `room.pendingRound`
 (phase `'cutting'`) so a brief cut-reveal can show before it's actually
-applied to `hands`/`stock`/etc. ~2.5s later, via `applyPendingRound` — either
-from the triggering client's own timer or, as a fallback, the next poller
-past `room.cutRevealedAt + 2500ms` in `js/room.js`'s `startPolling`. The
+applied to `hands`/`stock`/etc. ~`CUT_REVEAL_MS` (3.5s) later, via
+`applyPendingRound` — either from the triggering client's own timer
+(`scheduleCutAdvance`) or, as a fallback, the next poller past
+`room.cutRevealedAt + CUT_REVEAL_MS` in `js/room.js`'s `startPolling`. The
 `'announce'`/`'scores'` sub-stage within `'round_end'` is local-only UI state
 (`state.roundEndStage`), not synced.
+
+The **very first** round (from the lobby's "Zapocni igru") goes through the
+same `'cutting'` reveal too — `hostStartGame` calls the same
+`beginCutReveal` helper `actionReadyForNextRound`/`actionForceNextRound` use,
+just without the dealer-rotation step (`startCutReveal` wraps
+`beginCutReveal` with `dealerIndex = (dealerIndex + 1) % n` for subsequent
+rounds; the first round keeps the room's initial `dealerIndex`).
+
+The cut-reveal screen (`renderCutReveal`) shows `pendingRound.revealedCard`
+(the raw cut card, as returned by `setupRound`) separately from
+`pendingRound.specialBottomCard` — normally the same card, but they differ
+whenever a bonus joker was awarded (the revealed card, or the one just under
+it, was a joker — see `setupRound`'s cutter/dealer bonus-recipient logic in
+`js/engine.js`), in which case both are shown side by side alongside the log
+line naming who got the bonus.
+
+`applyPendingRound` re-defaults `pendingRound.melds`/`discard`/
+`openedPlayers`/`stock` to `[]` if missing before merging — `pendingRound`
+can round-trip through Firebase (saved during `'cutting'`, reloaded by a
+different client or the polling fallback) and Firebase drops empty-array
+fields on save, so a fresh round's empty collections would otherwise silently
+inherit the previous round's values.
 
 Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
 position in a run), `jokerCardId` (which physical joker fills a resolved slot),

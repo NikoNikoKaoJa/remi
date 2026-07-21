@@ -545,13 +545,31 @@ function renderCutReveal(app) {
   panel.appendChild(el('h2', null, 'Sece se...'));
   const pr = state.room.pendingRound;
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
-  if (pr && pr.specialBottomCard) {
-    const wrap = el('div', 'special-card-wrap');
-    wrap.style.margin = '14px auto';
-    wrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
-    wrap.appendChild(el('div', 'pile-label', 'Otkrivena karta'));
-    panel.appendChild(wrap);
+
+  if (pr && pr.revealedCard) {
+    // Normally the revealed (cut) card IS the bottom card for the rest of the
+    // round. But if it (or the card just under it) was a joker, that joker
+    // gets claimed as a bonus and a different card ends up as the bottom
+    // card - show both explicitly in that case so it's clear what happened.
+    const bottomDiffers = pr.specialBottomCard && pr.specialBottomCard.card.id !== pr.revealedCard.id;
+    const cardsRow = el('div', 'stock-discard-row');
+    cardsRow.style.justifyContent = 'center';
+    cardsRow.style.margin = '14px auto';
+
+    const cutWrap = el('div', 'special-card-wrap');
+    cutWrap.appendChild(cardEl(pr.revealedCard, {}));
+    cutWrap.appendChild(el('div', 'pile-label', bottomDiffers ? 'Presecena karta' : 'Presecena karta (i donja karta)'));
+    cardsRow.appendChild(cutWrap);
+
+    if (bottomDiffers) {
+      const bottomWrap = el('div', 'special-card-wrap');
+      bottomWrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
+      bottomWrap.appendChild(el('div', 'pile-label', 'Donja karta (za hand)'));
+      cardsRow.appendChild(bottomWrap);
+    }
+    panel.appendChild(cardsRow);
   }
+
   panel.appendChild(el('div', 'small center', 'Deli se za par sekundi...'));
   app.appendChild(panel);
 }

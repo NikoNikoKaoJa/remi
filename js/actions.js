@@ -9,33 +9,34 @@ import { loadRoom, saveRoom } from './storage.js';
 import { showToast, showChoiceModal } from './ui.js';
 import { render } from './render.js';
 
-// ===== Round setup wrapper (uses engine above) =====
-export function beginRound(r) {
-  if (!r.scores) r.scores = {};
-  const engineState = setupRound(r.players, r.dealerIndex);
-  Object.assign(r, engineState);
-  r.round = (r.round || 0) + 1;
-  r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
-  return r;
+// ===== Round setup -> cut-reveal -> deal =====
+// Every round (including the very first) goes through a 'cutting' phase that
+// shows who dealt/cut and which card before the hand is actually dealt - see
+// beginCutReveal below. The dealer only rotates BETWEEN rounds, not before
+// the first one, hence the split between beginCutReveal and startCutReveal.
+export const CUT_REVEAL_MS = 3500;
+
+function beginCutReveal(r) {
+  r.pendingRound = setupRound(r.players, r.dealerIndex);
+  r.phase = 'cutting';
+  r.cutRevealedAt = Date.now();
+  r.readyForNextRound = [];
+}
+
+function startCutReveal(r) {
+  r.dealerIndex = (r.dealerIndex + 1) % r.players.length;
+  beginCutReveal(r);
 }
 
 export async function hostStartGame() {
   if (state.room.players.length < 2) { showToast('Treba bar 2 igraca.'); return; }
   state.busy = true;
-  beginRound(state.room);
+  if (!state.room.scores) state.room.scores = {};
+  beginCutReveal(state.room);
+  scheduleCutAdvance();
   await saveRoom(state.room);
   state.busy = false;
   render();
-}
-
-// ===== Round-end -> cut-reveal -> deal =====
-
-function startCutReveal(r) {
-  r.dealerIndex = (r.dealerIndex + 1) % r.players.length;
-  r.pendingRound = setupRound(r.players, r.dealerIndex);
-  r.phase = 'cutting';
-  r.cutRevealedAt = Date.now();
-  r.readyForNextRound = [];
 }
 
 export function applyPendingRound(r) {
@@ -64,7 +65,7 @@ function scheduleCutAdvance() {
       await saveRoom(state.room);
       render();
     }
-  }, 2500);
+  }, CUT_REVEAL_MS);
 }
 
 export function actionReadyForScores() {
