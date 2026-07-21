@@ -97,7 +97,7 @@ function renderLanding(app) {
   joinField.appendChild(codeInput);
   panel.appendChild(joinField);
 
-  const joinBtn = el('button', 'btn btn-ghost', 'Pridruzi se sobi');
+  const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
   joinBtn.style.width = '100%';
   joinBtn.onclick = async () => {
     const name = nameInput.value.trim();
@@ -145,7 +145,7 @@ function renderLobby(app) {
   const chips = el('div', 'chip-list');
   state.room.players.forEach((p, i) => {
     const chip = el('div', 'player-chip');
-    chip.textContent = p.name + (p.id === state.session.playerId ? ' (ti)' : '');
+    chip.textContent = p.name;
     if (i === 0) {
       const b = el('span', 'dealer-badge', 'HOST');
       chip.appendChild(b);
