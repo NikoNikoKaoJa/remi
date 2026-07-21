@@ -360,6 +360,13 @@ function renderHandAndActions(app) {
     app.appendChild(warn);
   }
 
+  if (myTurn && state.room.discardDrawCardId && myHand().some(c => c.id === state.room.discardDrawCardId)) {
+    const warn = el('div', 'small center', '⚠️ Kartu koju si uzeo sa otpada moras da izlozis ovog poteza - ili je vratis nazad na otpad odbacivanjem iste karte.');
+    warn.style.color = 'var(--gold-bright)';
+    warn.style.marginBottom = '10px';
+    app.appendChild(warn);
+  }
+
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 

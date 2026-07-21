@@ -447,6 +447,7 @@ export function setupRound(players, dealerIndex) {
     roundWinner: null,
     roundWinType: null, // null|'mali'|'veliki'|'fourJoker'
     pendingJokerToPlace: null,
+    discardDrawCardId: null,
     log,
   };
 }

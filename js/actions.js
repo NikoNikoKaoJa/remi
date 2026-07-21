@@ -76,6 +76,7 @@ export function advanceTurn(r) {
   const n = r.players.length;
   r.currentPlayerIndex = (r.currentPlayerIndex + 1) % n;
   r.turnPhase = 'draw';
+  r.discardDrawCardId = null;
 }
 
 export async function endRoundWithWinner(r, winnerId, handType) {
@@ -131,6 +132,7 @@ export async function actionDrawDiscard() {
   state.room.discard.pop();
   myHandPush(card);
   state.room.turnPhase = 'meld';
+  state.room.discardDrawCardId = card.id;
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -140,6 +142,10 @@ export async function actionDiscard(cardId) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
     showToast('Prvo moras da spustis dzokera kog si zamenio (nova kombinacija ili dodavanje na postojeci niz).');
+    return;
+  }
+  if (state.room.discardDrawCardId && state.room.discardDrawCardId !== cardId) {
+    showToast('Kartu koju si uzeo sa otpada moras da iskoristis (izlozis) ovog poteza, ili je vratis nazad na otpad.');
     return;
   }
   state.busy = true;
@@ -197,6 +203,9 @@ export async function actionLayMultipleSelected() {
       && !hand.some(c => c.id === state.room.pendingJokerToPlace.jokerCardId)) {
     state.room.pendingJokerToPlace = null;
   }
+  if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
+    state.room.discardDrawCardId = null;
+  }
   sweepCompletedQuads(state.room);
   if (hand.length === 0) {
     await endRoundWithWinner(state.room, state.session.playerId, null);
@@ -237,6 +246,9 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
       && !hand.some(c => c.id === state.room.pendingJokerToPlace.jokerCardId)) {
     state.room.pendingJokerToPlace = null;
+  }
+  if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
+    state.room.discardDrawCardId = null;
   }
   sweepCompletedQuads(state.room);
   if (hand.length === 0) {
@@ -295,6 +307,9 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   meld.cards[meldIdx2] = candidate;
   hand.push(jokerObj);
   state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
+  if (state.room.discardDrawCardId === candidate.id) {
+    state.room.discardDrawCardId = null;
+  }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
   await saveRoom(state.room);
