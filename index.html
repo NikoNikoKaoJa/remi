@@ -55,6 +55,7 @@ KORAK 5 - Prvo otvaranje
     --felt-edge:#00361a;
     --gold:#c9a227;
     --gold-bright:#e6c34f;
+    --navy-blue:#5b84b1;
     --cream:#faf6ea;
     --cream-dim:#e9e2cf;
     --ink:#1c1a14;
@@ -191,8 +192,9 @@ KORAK 5 - Prvo otvaranje
   .card.back::after{
     content:'';position:absolute;inset:5px;border:1px solid rgba(201,162,39,0.35);border-radius:4px;
   }
-  .card.selected{outline:3px solid var(--gold-bright);outline-offset:1px;transform:translateY(-8px);}
-  .card.just-drawn{outline:3px solid #e0453a;outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(224,69,58,0.55);}
+  .card.selected{box-shadow:0 0 0 3px var(--gold-bright);transform:translateY(-50%);}
+  .card.just-drawn{box-shadow:0 0 0 4.5px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
+  .card.selected.just-drawn{box-shadow:0 0 0 3px var(--gold-bright), 0 0 0 7.5px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
   .card.joker-replaceable{outline:2px dashed var(--gold-bright);outline-offset:1px;}
   .card.pending-joker{outline:3px dashed var(--gold-bright);outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(201,162,39,0.6);}
   .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
