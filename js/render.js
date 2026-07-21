@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, APP_VERSION } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
 import { cardEl, cardBackEl, sortHand } from './cards.js';
 import { showToast, checkQuadAnnouncement } from './ui.js';
@@ -19,6 +19,9 @@ export function el(tag, cls, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+
+// Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
+function versionBadge() { return el('div', 'version-badge', APP_VERSION); }
 
 export function render() {
   const app = document.getElementById('app');
@@ -49,6 +52,7 @@ export function render() {
 
 function renderDbSetup(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Podesavanje (samo prvi put)'));
   panel.appendChild(el('div', 'small', 'Ova igra cuva stanje partije u besplatnoj Firebase bazi (ne treba Claude nalog). Ako je host vec podesio bazu i poslao ti link, samo otvori taj link - ovaj korak ce se preskociti automatski. Ako si host i tek podesavas, nalepi ovde "Database URL" tvog Firebase Realtime Database projekta.'));
   const field = el('div', 'field');
@@ -75,6 +79,7 @@ function renderDbSetup(app) {
 
 function renderLanding(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   const nameField = el('div', 'field');
   nameField.innerHTML = '<label>Tvoje ime</label>';
   const nameInput = document.createElement('input');
@@ -135,6 +140,7 @@ function renderLanding(app) {
 
 function renderLobby(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Cekaonica'));
   panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima - kad ga otvore, sve je vec podeseno, samo unose ime i pridruzuju se:'));
 
@@ -466,6 +472,7 @@ function renderHandAndActions(app) {
 
 function renderGame(app) {
   const panel = el('div', 'card-panel table-area');
+  panel.appendChild(versionBadge());
   renderOpponents(panel);
   renderCenterTable(panel);
   renderHandAndActions(panel);
@@ -496,6 +503,7 @@ function renderRoundEnd(app) {
 
 function renderRoundAnnounce(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
@@ -535,6 +543,7 @@ function renderRoundAnnounce(app) {
 
 function renderRoundScores(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
@@ -577,6 +586,7 @@ function renderRoundScores(app) {
 
 function renderCutReveal(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Sece se...'));
   const pr = state.room.pendingRound;
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
