@@ -201,43 +201,6 @@ export function sequenceLabel(opt) {
   return parts.join(' - ');
 }
 
-// Checks whether `card` could be laid down somewhere THIS turn if drawn -
-// either added to an existing table meld (only possible once opened), or
-// used as part of a brand new meld/melds reaching the 51-point opening rule
-// (only relevant before the player has opened). Bounded combination sizes
-// keep this fast on a ~14-15 card hand. `tableMelds` is the room's current
-// melds array, passed in by the caller (this module has no app-state access).
-export function canUseDiscardCard(card, hand, opened, tableMelds) {
-  if (opened) {
-    for (const meld of tableMelds) {
-      if (isValidMeld(meld.cards.concat([card]))) return true;
-    }
-    const maxOther = Math.min(6, hand.length);
-    for (let size = 2; size <= maxOther; size++) {
-      for (const combo of combinations(hand, size)) {
-        if (isValidMeld([card, ...combo])) return true;
-      }
-    }
-    return false;
-  }
-  const maxOther = Math.min(6, hand.length);
-  for (let size = 2; size <= maxOther; size++) {
-    for (const combo of combinations(hand, size)) {
-      const group = [card, ...combo];
-      if (!isValidMeld(group)) continue;
-      if (sumOpeningValue([group]) >= 51) return true;
-      const remaining = hand.filter(c => !combo.includes(c));
-      const maxSize2 = Math.min(5, remaining.length);
-      for (let size2 = 3; size2 <= maxSize2; size2++) {
-        for (const combo2 of combinations(remaining, size2)) {
-          if (isValidMeld(combo2) && sumOpeningValue([group, combo2]) >= 51) return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
 // ---- 51-point opening check ----
 // melds: array of card-arrays (each already validated as a meld)
 export function sumOpeningValue(melds) {
@@ -448,6 +411,7 @@ export function setupRound(players, dealerIndex) {
     roundWinType: null, // null|'mali'|'veliki'|'fourJoker'
     pendingJokerToPlace: null,
     discardDrawCardId: null,
+    mustDrawFromStock: false,
     log,
   };
 }

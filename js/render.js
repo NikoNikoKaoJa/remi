@@ -1,5 +1,5 @@
 import { state, APP_VERSION } from './state.js';
-import { resolveMeld, canUseDiscardCard, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
+import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
 import { cardEl, cardBackEl, sortHand } from './cards.js';
 import { showToast, checkQuadAnnouncement } from './ui.js';
 import {
@@ -225,7 +225,7 @@ function renderCenterTable(app) {
   // Discard
   const discardWrap = el('div', 'special-card-wrap');
   const discardClickable = isMyTurn() && state.room.turnPhase === 'draw' && state.room.discard.length > 0
-    && canUseDiscardCard(state.room.discard[state.room.discard.length - 1], myHand(), state.room.openedPlayers.includes(state.session.playerId), state.room.melds);
+    && !state.room.mustDrawFromStock;
   const discardStack = el('div', 'pile-stack' + (discardClickable ? '' : ' disabled'));
   if (state.room.discard.length > 0) {
     discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
@@ -360,6 +360,14 @@ function renderHandAndActions(app) {
     app.appendChild(warn);
   }
 
+  const discardDrawPending = myTurn && state.room.discardDrawCardId && myHand().some(c => c.id === state.room.discardDrawCardId);
+  if (discardDrawPending) {
+    const warn = el('div', 'small center', '⚠️ Kartu koju si uzeo sa otpada moras da izlozis ili odigras u hand ovog poteza - ili je izaberi i klikni "Vrati kartu na otpad".');
+    warn.style.color = 'var(--gold-bright)';
+    warn.style.marginBottom = '10px';
+    app.appendChild(warn);
+  }
+
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
@@ -396,12 +404,14 @@ function renderHandAndActions(app) {
     bar.appendChild(clearBtn);
 
     const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
-    const discardBtn = el('button', 'btn btn-danger', 'Odbaci izabranu kartu');
+    const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
+    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Odbaci izabranu kartu');
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
   } else if (myTurn && state.room.turnPhase === 'draw') {
-    bar.appendChild(el('div', 'small center', 'Vuci kartu sa talona ili otpada da nastavis.'));
+    const msg = state.room.mustDrawFromStock ? 'Vratio si kartu na otpad - vuci kartu sa talona da nastavis.' : 'Vuci kartu sa talona ili otpada da nastavis.';
+    bar.appendChild(el('div', 'small center', msg));
   }
 
   app.appendChild(bar);

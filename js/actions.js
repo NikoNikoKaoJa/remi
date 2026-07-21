@@ -2,7 +2,7 @@ import { state, saveDismissedQuadAnnouncements } from './state.js';
 import {
   setupRound, scoreRound, sweepCompletedQuads, isValidMeld, sumOpeningValue,
   findPartition, enumerateSingleJokerRunWindows, sequenceLabel, resolveMeld,
-  findFourJokerOrEightSame, maliHandValue, canUseDiscardCard, shuffle,
+  findFourJokerOrEightSame, maliHandValue, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel } from './cards.js';
 import { saveRoom } from './storage.js';
@@ -77,6 +77,7 @@ export function advanceTurn(r) {
   r.currentPlayerIndex = (r.currentPlayerIndex + 1) % n;
   r.turnPhase = 'draw';
   r.discardDrawCardId = null;
+  r.mustDrawFromStock = false;
 }
 
 export async function endRoundWithWinner(r, winnerId, handType) {
@@ -108,6 +109,7 @@ export async function actionDrawStock() {
   const card = state.room.stock.shift();
   myHandPush(card);
   state.room.turnPhase = 'meld';
+  state.room.mustDrawFromStock = false;
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -122,14 +124,9 @@ function myHandPush(card) {
 export async function actionDrawDiscard() {
   if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
   if (state.room.discard.length === 0) { showToast('Otpad je prazan.'); return; }
-  const card = state.room.discard[state.room.discard.length - 1];
-  const opened = state.room.openedPlayers.includes(state.session.playerId);
-  if (!canUseDiscardCard(card, myHand(), opened, state.room.melds)) {
-    showToast('Ne mozes da vuces tu kartu sa otpada - nema kombinacije gde bi je odmah izlozio.');
-    return;
-  }
+  if (state.room.mustDrawFromStock) { showToast('Vratio si kartu na otpad - sad moras da vuces sa talona.'); return; }
   state.busy = true;
-  state.room.discard.pop();
+  const card = state.room.discard.pop();
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.discardDrawCardId = card.id;
@@ -148,6 +145,7 @@ export async function actionDiscard(cardId) {
     showToast('Kartu koju si uzeo sa otpada moras da iskoristis (izlozis) ovog poteza, ili je vratis nazad na otpad.');
     return;
   }
+  const isReturningDiscardDraw = state.room.discardDrawCardId === cardId;
   state.busy = true;
   const hand = state.room.hands[state.session.playerId];
   const idx = hand.findIndex(c => c.id === cardId);
@@ -155,7 +153,13 @@ export async function actionDiscard(cardId) {
   const [card] = hand.splice(idx, 1);
   state.room.discard.push(card);
   state.selectedIds.clear();
-  if (hand.length === 0) {
+  if (isReturningDiscardDraw) {
+    // Not a real discard - just undoing the discard-pull. Turn continues,
+    // but only drawing from the stock is allowed for the rest of this draw.
+    state.room.discardDrawCardId = null;
+    state.room.turnPhase = 'draw';
+    state.room.mustDrawFromStock = true;
+  } else if (hand.length === 0) {
     await endRoundWithWinner(state.room, state.session.playerId, null);
   } else {
     advanceTurn(state.room);
