@@ -158,13 +158,18 @@ just without the dealer-rotation step (`startCutReveal` wraps
 `beginCutReveal` with `dealerIndex = (dealerIndex + 1) % n` for subsequent
 rounds; the first round keeps the room's initial `dealerIndex`).
 
-The cut-reveal screen (`renderCutReveal`) shows `pendingRound.revealedCard`
-(the raw cut card, as returned by `setupRound`) separately from
-`pendingRound.specialBottomCard` — normally the same card, but they differ
-whenever a bonus joker was awarded (the revealed card, or the one just under
-it, was a joker — see `setupRound`'s cutter/dealer bonus-recipient logic in
-`js/engine.js`), in which case both are shown side by side alongside the log
-line naming who got the bonus.
+The cut-reveal screen (`renderCutReveal`) shows two cards from `setupRound`'s
+return value: `pendingRound.revealedCard` ("Presecena karta", the raw cut
+card) and `pendingRound.belowCutCard` ("Donja karta", the card directly under
+it). Which one matters for the bonus-joker rule depends on which is the
+joker: if `revealedCard` is a joker, the **cutter** gets it as a bonus; if
+instead `belowCutCard` is a joker, the **dealer** gets it (see `setupRound`'s
+cutter/dealer bonus-recipient logic in `js/engine.js`) — the log line already
+names who got it, but both cards are shown regardless so it's clear which
+rule fired. When `revealedCard` itself was claimed as the cutter's bonus, a
+third, freshly-drawn card fills the "ispod talona" slot for the round
+(`pendingRound.specialBottomCard`) — shown as "Nova karta ispod talona" since
+it's neither of the other two.
 
 `applyPendingRound` re-defaults `pendingRound.melds`/`discard`/
 `openedPlayers`/`stock` to `[]` if missing before merging — `pendingRound`

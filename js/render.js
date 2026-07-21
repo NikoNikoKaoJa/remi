@@ -558,26 +558,37 @@ function renderCutReveal(app) {
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
 
   if (pr && pr.revealedCard) {
-    // Normally the revealed (cut) card IS the bottom card for the rest of the
-    // round. But if it (or the card just under it) was a joker, that joker
-    // gets claimed as a bonus and a different card ends up as the bottom
-    // card - show both explicitly in that case so it's clear what happened.
-    const bottomDiffers = pr.specialBottomCard && pr.specialBottomCard.card.id !== pr.revealedCard.id;
+    // Cutting exposes two cards: the cut card itself, and the card directly
+    // under it. If the cut card is a joker, the CUTTER gets it as a bonus;
+    // if instead the card under it is a joker, the DEALER gets that one -
+    // both must be shown so it's clear which rule applied.
     const cardsRow = el('div', 'stock-discard-row');
     cardsRow.style.justifyContent = 'center';
+    cardsRow.style.flexWrap = 'wrap';
     cardsRow.style.margin = '14px auto';
 
     const cutWrap = el('div', 'special-card-wrap');
     cutWrap.appendChild(cardEl(pr.revealedCard, {}));
-    cutWrap.appendChild(el('div', 'pile-label', bottomDiffers ? 'Presecena karta' : 'Presecena karta (i donja karta)'));
+    cutWrap.appendChild(el('div', 'pile-label', 'Presecena karta'));
     cardsRow.appendChild(cutWrap);
 
-    if (bottomDiffers) {
-      const bottomWrap = el('div', 'special-card-wrap');
-      bottomWrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
-      bottomWrap.appendChild(el('div', 'pile-label', 'Donja karta (za hand)'));
-      cardsRow.appendChild(bottomWrap);
+    if (pr.belowCutCard) {
+      const belowWrap = el('div', 'special-card-wrap');
+      belowWrap.appendChild(cardEl(pr.belowCutCard, {}));
+      belowWrap.appendChild(el('div', 'pile-label', 'Donja karta'));
+      cardsRow.appendChild(belowWrap);
     }
+
+    // If the cut card itself was a joker (claimed by the cutter), a fresh
+    // card gets drawn to fill the "ispod talona" slot for the round - that's
+    // neither of the two cards above, so show it too.
+    if (pr.revealedCard.joker && pr.specialBottomCard) {
+      const freshWrap = el('div', 'special-card-wrap');
+      freshWrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
+      freshWrap.appendChild(el('div', 'pile-label', 'Nova karta ispod talona'));
+      cardsRow.appendChild(freshWrap);
+    }
+
     panel.appendChild(cardsRow);
   }
 

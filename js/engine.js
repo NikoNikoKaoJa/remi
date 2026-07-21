@@ -402,7 +402,8 @@ export function setupRound(players, dealerIndex) {
     hands,
     stock: pool,
     discard: [],
-    revealedCard: revealed, // the raw cut card, before any bonus-joker swap - for the cut-reveal screen
+    revealedCard: revealed, // the raw cut card - for the cut-reveal screen
+    belowCutCard: secondFromBottom, // the card directly under the cut card - if THIS one is a joker, it's the dealer's bonus (not the cutter's)
     specialBottomCard: specialBottomCard ? { card: specialBottomCard, taken: false } : null,
     melds: [], // {ownerId, cards}
     openedPlayers: [],
