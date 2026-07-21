@@ -158,11 +158,18 @@ function renderLobby(app) {
 
   const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
   if (isHost) {
+    if (state.room.players.length < 2) {
+      const waitMsg = el('div', 'small center', 'Ceka se jos bar 1 igrac...');
+      waitMsg.style.fontWeight = '700';
+      waitMsg.style.color = 'var(--danger)';
+      waitMsg.style.marginBottom = '8px';
+      panel.appendChild(waitMsg);
+    }
     const startBtn = el('button', 'btn btn-gold', `Zapocni igru (${state.room.players.length} igraca)`);
+    startBtn.style.width = '100%';
     startBtn.disabled = state.room.players.length < 2;
     startBtn.onclick = hostStartGame;
     panel.appendChild(startBtn);
-    if (state.room.players.length < 2) panel.appendChild(el('div', 'small', 'Ceka se jos bar 1 igrac...'));
   } else {
     panel.appendChild(el('div', 'small', 'Cekamo da host (' + state.room.players[0].name + ') zapocne igru...'));
   }
