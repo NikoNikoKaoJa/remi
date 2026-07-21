@@ -80,18 +80,6 @@ function renderLanding(app) {
   nameField.appendChild(nameInput);
   panel.appendChild(nameField);
 
-  const row = el('div', 'row');
-  const createBtn = el('button', 'btn btn-gold', 'Napravi sobu');
-  createBtn.style.flex = '1';
-  createBtn.onclick = async () => {
-    const name = nameInput.value.trim();
-    if (!name) { showToast('Unesi ime.'); return; }
-    createBtn.disabled = true;
-    await createRoom(name);
-  };
-  row.appendChild(createBtn);
-  panel.appendChild(row);
-
   panel.appendChild(el('div', 'divider'));
 
   const joinField = el('div', 'field');
