@@ -130,7 +130,7 @@ function renderLobby(app) {
   linkInput.style.fontSize = '12px';
   linkBox.appendChild(linkInput);
   panel.appendChild(linkBox);
-  const copyBtn = el('button', 'btn btn-ghost', 'Kopiraj link');
+  const copyBtn = el('button', 'btn btn-outline-gold', 'Kopiraj link');
   copyBtn.style.width = '100%';
   copyBtn.onclick = async () => {
     try { await navigator.clipboard.writeText(shareUrl); showToast('Link kopiran!'); }
@@ -167,7 +167,7 @@ function renderLobby(app) {
     panel.appendChild(el('div', 'small', 'Cekamo da host (' + state.room.players[0].name + ') zapocne igru...'));
   }
 
-  const leaveBtn = el('button', 'btn btn-ghost', 'Napusti sobu');
+  const leaveBtn = el('button', 'btn btn-danger', 'Napusti sobu');
   leaveBtn.style.width = '100%';
   leaveBtn.style.marginTop = '10px';
   leaveBtn.onclick = leaveRoom;
@@ -255,7 +255,7 @@ function renderMeldsForPlayers(container, { clickable }) {
   state.room.players.forEach((p) => {
     const ownMelds = state.room.melds.map((m, idx) => ({ m, idx })).filter(x => x.m.ownerId === p.id);
     if (ownMelds.length === 0) return;
-    meldsArea.appendChild(el('div', 'meld-owner-label', p.name + (p.id === state.session.playerId ? ' (ti)' : '')));
+    meldsArea.appendChild(el('div', 'meld-owner-label', p.name));
     const line = el('div', null);
     ownMelds.forEach(({ m, idx }) => {
       const canTarget = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.room.openedPlayers.includes(state.session.playerId) && state.selectedIds.size > 0;
