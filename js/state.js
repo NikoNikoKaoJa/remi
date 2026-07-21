@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v0.17';
+export const APP_VERSION = 'v0.18';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },

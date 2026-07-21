@@ -92,7 +92,6 @@ KORAK 5 - Prvo otvaranje
   .brand .suits{color:var(--gold);font-size:28px;letter-spacing:3px;}
   .brand h1{font-size:47px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
   .brand h1 em{font-style:normal;color:var(--gold-bright);}
-  .brand .version{font-size:17px;color:var(--cream-dim);letter-spacing:0.5px;align-self:flex-end;margin-bottom:6px;}
   .subtitle{text-align:center;color:var(--cream-dim);font-size:18px;margin-bottom:24px;letter-spacing:0.4px;}
 
   .card-panel{
@@ -243,6 +242,13 @@ KORAK 5 - Prvo otvaranje
     border:1px solid var(--gold);max-width:90%;text-align:center;
   }
 
+  /* z-index below .toast so a toast is never obscured; pointer-events:none so
+     it can't swallow clicks on anything underneath it. */
+  .version-badge{
+    position:fixed;right:10px;bottom:8px;z-index:10;pointer-events:none;
+    font-size:14px;color:var(--cream-dim);opacity:0.55;letter-spacing:0.5px;
+  }
+
   .score-table{width:100%;border-collapse:collapse;margin-top:10px;}
   .score-table th,.score-table td{
     padding:8px 10px;text-align:center;border-bottom:1px solid var(--panel-line);font-size:18px;
@@ -273,5 +279,8 @@ KORAK 5 - Prvo otvaranje
 </style>
 <div id="remi-root">
   <div class="wrap" id="app"></div>
+  <!-- Lives outside #app so render()'s innerHTML reset never wipes it - the
+       version stays visible on every screen. Text is set once in main.js. -->
+  <div class="version-badge" id="version-badge"></div>
 </div>
 <script type="module" src="js/main.js"></script>
