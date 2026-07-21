@@ -1,4 +1,4 @@
-# Remi — srpski remi (multiplayer web igra)
+# Remi — multiplayer web igra
 
 Web igra karata koja implementira specifičnu srpsku varijantu remija. Igra se
 preko interneta — svaki igrač se pridružuje sa svog uređaja preko deljenog linka,
