@@ -26,6 +26,7 @@ export function hydrateRoom(r) {
   if (!r.openedPlayers) r.openedPlayers = [];
   if (!r.log) r.log = [];
   if (!r.quadAnnouncements) r.quadAnnouncements = [];
+  if (!r.readyForNextRound) r.readyForNextRound = [];
   r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
   return r;
 }

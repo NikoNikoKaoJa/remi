@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { loadRoom, saveRoom } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
+import { applyPendingRound } from './actions.js';
 
 // ===== Room lifecycle =====
 
@@ -98,6 +99,10 @@ export function startPolling() {
       showToast('Host je resetovao igru. Pridruzi se ponovo preko linka.');
       render();
       return;
+    }
+    if (r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt && Date.now() - r.cutRevealedAt > 2500) {
+      applyPendingRound(r);
+      await saveRoom(r);
     }
     state.room = r;
     render();

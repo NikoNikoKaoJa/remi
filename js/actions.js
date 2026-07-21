@@ -5,7 +5,7 @@ import {
   findFourJokerOrEightSame, maliHandValue, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel } from './cards.js';
-import { saveRoom } from './storage.js';
+import { loadRoom, saveRoom } from './storage.js';
 import { showToast, showChoiceModal } from './ui.js';
 import { render } from './render.js';
 
@@ -28,10 +28,64 @@ export async function hostStartGame() {
   render();
 }
 
-export async function hostNextRound() {
+// ===== Round-end -> cut-reveal -> deal =====
+
+function startCutReveal(r) {
+  r.dealerIndex = (r.dealerIndex + 1) % r.players.length;
+  r.pendingRound = setupRound(r.players, r.dealerIndex);
+  r.phase = 'cutting';
+  r.cutRevealedAt = Date.now();
+  r.readyForNextRound = [];
+}
+
+export function applyPendingRound(r) {
+  if (!r.scores) r.scores = {};
+  Object.assign(r, r.pendingRound);
+  r.round = (r.round || 0) + 1;
+  r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
+  r.pendingRound = null;
+  r.cutRevealedAt = null;
+}
+
+function scheduleCutAdvance() {
+  setTimeout(async () => {
+    if (state.room && state.room.phase === 'cutting' && state.room.pendingRound) {
+      applyPendingRound(state.room);
+      await saveRoom(state.room);
+      render();
+    }
+  }, 2500);
+}
+
+export function actionReadyForScores() {
+  state.roundEndStage = 'scores';
+  render();
+}
+
+export async function actionReadyForNextRound() {
+  if (state.busy) return;
+  const myId = state.session.playerId;
+  if ((state.room.readyForNextRound || []).includes(myId)) return;
   state.busy = true;
-  state.room.dealerIndex = (state.room.dealerIndex + 1) % state.room.players.length;
-  beginRound(state.room);
+  const fresh = await loadRoom(state.session.roomCode) || state.room;
+  state.room = fresh;
+  if (!state.room.readyForNextRound) state.room.readyForNextRound = [];
+  if (!state.room.readyForNextRound.includes(myId)) state.room.readyForNextRound.push(myId);
+  if (state.room.readyForNextRound.length >= state.room.players.length) {
+    startCutReveal(state.room);
+    scheduleCutAdvance();
+  }
+  await saveRoom(state.room);
+  state.busy = false;
+  render();
+}
+
+export async function actionForceNextRound() {
+  const ok = confirm('Pokreni sledecu rundu i bez da su svi spremni?');
+  if (!ok) return;
+  state.busy = true;
+  startCutReveal(state.room);
+  scheduleCutAdvance();
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -60,6 +114,9 @@ export async function hostResetGame() {
   state.room.roundWinType = null;
   state.room.lastDeltas = null;
   state.room.quadAnnouncements = [];
+  state.room.readyForNextRound = [];
+  state.room.pendingRound = null;
+  state.room.cutRevealedAt = null;
   state.dismissedQuadAnnouncements.clear();
   saveDismissedQuadAnnouncements();
   await saveRoom(state.room);

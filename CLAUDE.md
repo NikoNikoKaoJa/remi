@@ -118,10 +118,12 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    `newRoomCode`/`uid`.
 7. **`js/actions.js`** — turn helpers (`myIndex`/`isMyTurn`/`myHand`/
    `advanceTurn`/`endRoundWithWinner`/`getSelectedCards`) + round-start wrapper
-   (`beginRound`, `hostStartGame`/`hostNextRound`/`hostResetGame`) + all
-   `actionDrawStock`/`actionDrawDiscard`/`actionDiscard`/
-   `actionLayMultipleSelected`/`actionAddToMeld`/`actionReplaceJoker`/
-   `actionDeclare{Mali,Veliki,FourJoker}Hand`/`actionTryBottomCard`.
+   (`beginRound`, `hostStartGame`/`hostResetGame`) + round-end flow
+   (`applyPendingRound`, `actionReadyForScores`/`actionReadyForNextRound`/
+   `actionForceNextRound`) + all `actionDrawStock`/`actionDrawDiscard`/
+   `actionDiscard`/`actionLayMultipleSelected`/`actionAddToMeld`/
+   `actionReplaceJoker`/`actionDeclare{Mali,Veliki,FourJoker}Hand`/
+   `actionTryBottomCard`.
 8. **`js/render.js`** — `el()` DOM helper, `render` dispatcher, and all
    `render*` view functions.
 9. **`js/main.js`** — boot only: resolves the DB URL, attempts `rejoin()`,
@@ -131,7 +133,22 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
 action functions as button handlers; actions call `render()` after mutating
 state) — this circular import is intentional and safe in native ESM, since
 neither side calls the other during module-evaluation time, only from inside
-event handlers/async functions that run later.
+event handlers/async functions that run later. `room.js` also imports
+`applyPendingRound` from `actions.js` (one-directional, not circular) as a
+polling-loop fallback for the `'cutting'` phase (see round-end flow below).
+
+**Round-end flow** (`room.phase`: `'round_end'` → `'cutting'` → `'playing'`):
+after a win, everyone sees a winner announcement (final board still visible),
+then clicks through to a score table. The score-table "Sledeca partija" is
+gated on **every** player clicking it (`room.readyForNextRound`, synced) or
+the host force-starting (`actionForceNextRound`). Once everyone's ready, the
+next round is precomputed via `setupRound` and stashed in `room.pendingRound`
+(phase `'cutting'`) so a brief cut-reveal can show before it's actually
+applied to `hands`/`stock`/etc. ~2.5s later, via `applyPendingRound` — either
+from the triggering client's own timer or, as a fallback, the next poller
+past `room.cutRevealedAt + 2500ms` in `js/room.js`'s `startPolling`. The
+`'announce'`/`'scores'` sub-stage within `'round_end'` is local-only UI state
+(`state.roundEndStage`), not synced.
 
 Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
 position in a run), `jokerCardId` (which physical joker fills a resolved slot),

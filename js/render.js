@@ -7,7 +7,8 @@ import {
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
   actionAddToMeld, actionLayMultipleSelected, actionDeclareMaliHand,
   actionDeclareVelikiHand, actionDeclareFourJokerHand, actionDiscard,
-  hostStartGame, hostResetGame, hostNextRound,
+  hostStartGame, hostResetGame,
+  actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
 } from './actions.js';
 import { createRoom, joinRoom, leaveRoom } from './room.js';
 
@@ -40,6 +41,8 @@ export function render() {
     renderGame(app);
   } else if (state.room.phase === 'round_end') {
     renderRoundEnd(app);
+  } else if (state.room.phase === 'cutting') {
+    renderCutReveal(app);
   }
   checkQuadAnnouncement();
 }
@@ -240,18 +243,25 @@ function renderCenterTable(app) {
 
   center.appendChild(pilesRow);
 
-  // Melds on table, grouped by owner
+  renderMeldsForPlayers(center, { clickable: true });
+
+  app.appendChild(center);
+}
+
+// Melds on table, grouped by owner. `clickable: false` renders a read-only
+// snapshot (used on the round-announce screen) with no interactive handlers.
+function renderMeldsForPlayers(container, { clickable }) {
   const meldsArea = el('div', 'melds-area');
-  state.room.players.forEach((p, pi) => {
+  state.room.players.forEach((p) => {
     const ownMelds = state.room.melds.map((m, idx) => ({ m, idx })).filter(x => x.m.ownerId === p.id);
     if (ownMelds.length === 0) return;
     meldsArea.appendChild(el('div', 'meld-owner-label', p.name + (p.id === state.session.playerId ? ' (ti)' : '')));
     const line = el('div', null);
     ownMelds.forEach(({ m, idx }) => {
-      const canTarget = isMyTurn() && state.room.turnPhase === 'meld' && state.room.openedPlayers.includes(state.session.playerId) && state.selectedIds.size > 0;
+      const canTarget = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.room.openedPlayers.includes(state.session.playerId) && state.selectedIds.size > 0;
       const groupDiv = el('div', 'meld-group' + (canTarget ? ' targetable' : ''));
       const cardsDiv = el('div', 'meld-cards');
-      const canReplaceJoker = isMyTurn() && state.room.turnPhase === 'meld' && !state.room.pendingJokerToPlace && state.selectedIds.size === 1;
+      const canReplaceJoker = clickable && isMyTurn() && state.room.turnPhase === 'meld' && !state.room.pendingJokerToPlace && state.selectedIds.size === 1;
       sortMeldForDisplay(m.cards).forEach(c => {
         const cardElement = cardEl(c, { mini: true });
         if (c.joker && canReplaceJoker) {
@@ -267,9 +277,7 @@ function renderCenterTable(app) {
     });
     meldsArea.appendChild(line);
   });
-  center.appendChild(meldsArea);
-
-  app.appendChild(center);
+  container.appendChild(meldsArea);
 }
 
 function sortMeldForDisplay(cards) {
@@ -442,6 +450,55 @@ function renderResetControl(app) {
 }
 
 function renderRoundEnd(app) {
+  if (state.lastRoundEndRound !== state.room.round) {
+    state.roundEndStage = 'announce';
+    state.lastRoundEndRound = state.room.round;
+  }
+  if (state.roundEndStage === 'announce') renderRoundAnnounce(app);
+  else renderRoundScores(app);
+  renderResetControl(app);
+}
+
+function renderRoundAnnounce(app) {
+  const panel = el('div', 'card-panel');
+  const winner = state.room.players.find(p => p.id === state.room.roundWinner);
+  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
+  panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
+  panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
+
+  const discardWrap = el('div', 'special-card-wrap');
+  const discardStack = el('div', 'pile-stack disabled');
+  if (state.room.discard.length > 0) {
+    discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
+  } else {
+    const d = el('div', 'card'); d.style.opacity = '0.25'; d.textContent = '—';
+    discardStack.appendChild(d);
+  }
+  discardWrap.appendChild(discardStack);
+  discardWrap.appendChild(el('div', 'pile-label', 'Poslednja odbacena karta'));
+  panel.appendChild(discardWrap);
+
+  renderMeldsForPlayers(panel, { clickable: false });
+
+  if (state.room.roundWinType === 'mali') {
+    panel.appendChild(el('div', 'meld-owner-label', (winner ? winner.name : '?') + ' - ruka (Mali Hand)'));
+    const row = el('div', 'hand-cards');
+    sortHand(state.room.hands[state.room.roundWinner] || []).forEach(c => {
+      row.appendChild(cardEl(c, { mini: true }));
+    });
+    panel.appendChild(row);
+  }
+
+  const nextBtn = el('button', 'btn btn-gold', 'Sledeca partija');
+  nextBtn.style.width = '100%';
+  nextBtn.style.marginTop = '14px';
+  nextBtn.onclick = actionReadyForScores;
+  panel.appendChild(nextBtn);
+
+  app.appendChild(panel);
+}
+
+function renderRoundScores(app) {
   const panel = el('div', 'card-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
@@ -460,15 +517,41 @@ function renderRoundEnd(app) {
   panel.appendChild(table);
 
   panel.appendChild(el('div', 'divider'));
-  const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
+
+  const readyList = state.room.readyForNextRound || [];
+  const myId = state.session.playerId;
+  const iAmReady = readyList.includes(myId);
+  const nextBtn = el('button', 'btn btn-gold',
+    iAmReady ? `Cekamo ostale (${readyList.length}/${state.room.players.length}) spremno...` : 'Sledeca partija');
+  nextBtn.style.width = '100%';
+  nextBtn.disabled = iAmReady;
+  nextBtn.onclick = actionReadyForNextRound;
+  panel.appendChild(nextBtn);
+
+  const isHost = state.room.players[0] && state.room.players[0].id === myId;
   if (isHost) {
-    const nextBtn = el('button', 'btn btn-gold', 'Sledeca runda');
-    nextBtn.style.width = '100%';
-    nextBtn.onclick = hostNextRound;
-    panel.appendChild(nextBtn);
-  } else {
-    panel.appendChild(el('div', 'small center', 'Cekamo da host pokrene sledecu rundu...'));
+    const forceBtn = el('button', 'btn btn-ghost', 'Podeli ionako');
+    forceBtn.style.width = '100%';
+    forceBtn.style.marginTop = '8px';
+    forceBtn.onclick = actionForceNextRound;
+    panel.appendChild(forceBtn);
   }
+
   app.appendChild(panel);
-  renderResetControl(app);
+}
+
+function renderCutReveal(app) {
+  const panel = el('div', 'card-panel');
+  panel.appendChild(el('h2', null, 'Sece se...'));
+  const pr = state.room.pendingRound;
+  (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
+  if (pr && pr.specialBottomCard) {
+    const wrap = el('div', 'special-card-wrap');
+    wrap.style.margin = '14px auto';
+    wrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
+    wrap.appendChild(el('div', 'pile-label', 'Otkrivena karta'));
+    panel.appendChild(wrap);
+  }
+  panel.appendChild(el('div', 'small center', 'Deli se za par sekundi...'));
+  app.appendChild(panel);
 }
