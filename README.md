@@ -55,16 +55,25 @@ Otvori svoj Pages link, nalepi Firebase Database URL kad te aplikacija pita
 ## Struktura projekta
 
 ```
-index.html          # igra (Firebase multiplayer build)
+index.html          # HTML skeleton + CSS + <script type="module" src="js/main.js">
+js/
+  cards.js           # prikaz karata (simboli, DOM elementi)
+  engine.js           # cista pravila igre (bez DOM-a): melds, bodovanje, deljenje
+  state.js            # deljeno mutabilno stanje aplikacije + APP_VERSION
+  storage.js          # Firebase REST (loadRoom/saveRoom/hydrateRoom)
+  ui.js                # toast/modal pomocne DOM funkcije
+  room.js              # zivotni ciklus sobe (create/join/leave/rejoin/poll)
+  actions.js           # sve akcije u potezu (vuci, spusti, hand, ...)
+  render.js            # sve render* funkcije
+  main.js              # boot ulazna tacka
 CLAUDE.md           # kontekst projekta za Claude Code
 README.md           # ovaj fajl
 ```
 
-## Testiranje
-
-Otvori `test_runner.html` u browseru (preko Pages linka ili lokalnog servera —
-NE preko `file://` ako je kod podeljen na module). Prikazuje sve provere sa
-zeleno/crveno rezultatom. Test 1 pokriva scenario zamene džokera u grupi.
+Napomena: `<script type="module">` ne radi preko `file://` (CORS) — za lokalno
+testiranje pokreni jednostavan HTTP server (npr. `python3 -m http.server`) i
+otvori `http://localhost:8000/`. Preko GitHub Pages radi bez ikakvog dodatnog
+koraka.
 
 ## Pravila igre (ukratko)
 

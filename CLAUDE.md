@@ -23,11 +23,11 @@ There are two builds of the same game:
 ## Tech constraints (important)
 
 - **No build tooling.** GitHub Pages serves files as-is. Keep it runnable by
-  just opening the hosted URL. Historically everything lived in ONE html file
-  with inline `<script>` and `<style>`.
-- If splitting into modules, use native `<script type="module">` + plain `.js`
-  files (no bundler). NOTE: module scripts do NOT work over `file://` (CORS) —
-  only over http(s) / GitHub Pages / a local server.
+  just opening the hosted URL. The JS is split into native ES modules under
+  `js/` (see Code structure below) — no bundler, plain `.js` files loaded via
+  `<script type="module">`. NOTE: module scripts do NOT work over `file://`
+  (CORS) — only over http(s) / GitHub Pages / a local server (e.g.
+  `python3 -m http.server`) — keep this in mind when testing locally.
 - **No browser storage APIs beyond what's already used.** State lives in Firebase
   (shared) + `localStorage` (per-browser session + dismissed-dialog tracking).
 - Pure vanilla JS. No frameworks.
@@ -84,23 +84,58 @@ There are two builds of the same game:
 - **Hand display:** Ace sorts highest (after King). A run's joker displays in the
   slot it represents, not trailing.
 
-## Code structure (current, single-file)
+## Code structure (ES modules under `js/`)
 
-Inside the one html file, in `<script>`, roughly in this order:
-1. **Pure logic** (no DOM): `makeDeck`, `shuffle`, card values, `resolveMeld`
-   (→ `trySet` / `tryRun`), `isValidMeld`, `sumOpeningValue`, `canOpenWith`,
-   `maliHandValue`/`isMaliHand`, `canPartitionAll`/`findPartition`,
-   `isFourJokerOrEightSameHand`/`findFourJokerOrEightSame`,
-   `enumerateSingleJokerRunWindows`, `computeSelectedSum`/`guessJokerRankValue`.
-2. **Round engine:** `setupRound`, `scoreRound`, `sweepCompletedQuads`.
-3. **Storage/session:** `loadRoom`/`saveRoom` (Firebase REST), `hydrateRoom`,
-   `mySession`/`saveSession`, room create/join.
-4. **Actions:** `actionDrawStock`, `actionDrawDiscard`, `actionDiscard`,
-   `actionLayMultipleSelected`, `actionAddToMeld`, `actionReplaceJoker`,
-   `actionDeclare{Mali,Veliki,FourJoker}Hand`, `actionTryBottomCard`,
-   `hostStartGame`/`hostNextRound`/`hostResetGame`.
-5. **Rendering:** `render` and `render*` helpers, `showChoiceModal`,
-   `showQuadAnnouncementModal`, `showToast`.
+`index.html` is now just the CSS + skeleton `<div id="remi-root">`, loading
+`<script type="module" src="js/main.js">`. No bundler — plain native ES
+modules, so this only works over http(s)/GitHub Pages/a local server, not
+`file://` (see Tech constraints above). Files:
+
+1. **`js/cards.js`** — card display primitives, no other module deps:
+   `SUIT_SYM`/`RANK_SYM`/`rankLabel`/`isRedSuit`, `cardEl`/`cardBackEl`,
+   `sortHand`.
+2. **`js/engine.js`** — pure rules engine + round engine (no DOM, no app
+   state): `makeDeck`, `shuffle`, card values, `resolveMeld` (→ `trySet` /
+   `tryRun`), `isValidMeld`, `sumOpeningValue`, `maliHandValue`,
+   `findPartition`, `findFourJokerOrEightSame`, `enumerateSingleJokerRunWindows`,
+   `computeSelectedSum`/`guessJokerRankValue`, `setupRound`, `scoreRound`,
+   `sweepCompletedQuads`. `canUseDiscardCard` takes the table melds as an
+   explicit parameter (`tableMelds`) rather than reading app state, to keep
+   this module state-free.
+3. **`js/state.js`** — the one shared mutable `state` object (`room`,
+   `session`, `dbUrl`, `busy`, `selectedIds`, `dismissedQuadAnnouncements`,
+   etc.) plus `APP_VERSION` and the `localStorage`-backed helpers tied to that
+   state (`resolveDbUrl`, `loadDismissedQuadAnnouncements`/
+   `saveDismissedQuadAnnouncements`). Other modules mutate through
+   `state.foo = ...` rather than reassigning bare exported bindings (ES module
+   imports are read-only live bindings, so a single shared object is what lets
+   many modules reassign these wholesale).
+4. **`js/storage.js`** — Firebase REST: `loadRoom`/`saveRoom`, `hydrateRoom`.
+5. **`js/ui.js`** — `showToast`, `showChoiceModal`, `showQuadAnnouncementModal`,
+   `checkQuadAnnouncement`.
+6. **`js/room.js`** — room lifecycle + session identity: `createRoom`,
+   `joinRoom`, `leaveRoom`, `rejoin`, `startPolling`, `mySession`/`saveSession`,
+   `newRoomCode`/`uid`.
+7. **`js/actions.js`** — turn helpers (`myIndex`/`isMyTurn`/`myHand`/
+   `advanceTurn`/`endRoundWithWinner`/`getSelectedCards`) + round-start wrapper
+   (`beginRound`, `hostStartGame`/`hostNextRound`/`hostResetGame`) + all
+   `actionDrawStock`/`actionDrawDiscard`/`actionDiscard`/
+   `actionLayMultipleSelected`/`actionAddToMeld`/`actionReplaceJoker`/
+   `actionDeclare{Mali,Veliki,FourJoker}Hand`/`actionTryBottomCard`.
+8. **`js/render.js`** — `el()` DOM helper, `render` dispatcher, and all
+   `render*` view functions.
+9. **`js/main.js`** — boot only: resolves the DB URL, attempts `rejoin()`,
+   first `render()`.
+
+`render.js` and `actions.js`/`room.js` import each other (render wires up
+action functions as button handlers; actions call `render()` after mutating
+state) — this circular import is intentional and safe in native ESM, since
+neither side calls the other during module-evaluation time, only from inside
+event handlers/async functions that run later.
+
+Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
+position in a run), `jokerCardId` (which physical joker fills a resolved slot),
+`pendingJokerToPlace` (a freed joker that must be laid down before discarding).
 
 Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
 position in a run), `jokerCardId` (which physical joker fills a resolved slot),
