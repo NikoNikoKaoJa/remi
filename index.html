@@ -225,6 +225,10 @@ KORAK 5 - Prvo otvaranje
   .hand-area{margin-top:18px;}
   .hand-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
   .hand-cards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px 4px;}
+  /* Selected cards lift transform:translateY(-50%) (see .card.selected) without
+     reserving layout space, so leave room above the row to keep that lift from
+     painting over the "Zbir ruke"/"Zbir izabranih" text above it. */
+  .hand-cards.has-selection{padding-top:50px;}
 
   .action-bar{
     display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;
@@ -281,6 +285,7 @@ KORAK 5 - Prvo otvaranje
     .card .rank{font-size:18px;}
     .card .suit-sym{font-size:22px;}
     .meld-cards .card{margin-left:0;}
+    .hand-cards.has-selection{padding-top:40px;}
   }
 </style>
 <div id="remi-root">

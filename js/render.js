@@ -362,7 +362,7 @@ function renderHandAndActions(app) {
     handWrap.appendChild(selRow);
   }
 
-  const cardsRow = el('div', 'hand-cards');
+  const cardsRow = el('div', 'hand-cards' + (selectedCards.length > 0 ? ' has-selection' : ''));
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
   sortHand(myHand()).forEach(c => {
