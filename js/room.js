@@ -104,7 +104,12 @@ export function startPolling() {
       applyPendingRound(r);
       await saveRoom(r);
     }
+    // Skip the (expensive, full-DOM-rebuild) render() when nothing actually
+    // changed - otherwise every idle poll tears down and recreates every card
+    // element, which drops the browser's :hover state on whatever card the
+    // mouse happens to be resting on and makes it visibly flicker.
+    const changed = JSON.stringify(r) !== JSON.stringify(state.room);
     state.room = r;
-    render();
+    if (changed) render();
   }, 2200);
 }
