@@ -376,18 +376,29 @@ function renderHandAndActions(app) {
     app.appendChild(warn);
   }
 
+  if (myTurn && state.room.turnPhase === 'meld' && state.selectedIds.size === myHand().length && myHand().length > 0) {
+    const warn = el('div', 'small center', '⚠️ Moras zadrzati bar jednu kartu da je baci na otpad - ne mozes spustiti/dodati sve karte odjednom.');
+    warn.style.color = 'var(--gold-bright)';
+    warn.style.marginBottom = '10px';
+    app.appendChild(warn);
+  }
+
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
   if (myTurn && state.room.turnPhase === 'meld') {
+    // A player must always keep at least one card back to discard - the
+    // hand can never be emptied purely by laying/adding melds (that's the
+    // discard action's job, per actionDiscard's own hand.length===0 check).
+    const selectingWholeHand = state.selectedIds.size === myHand().length && myHand().length > 0;
     const layBtn = el('button', 'btn btn-gold', opened ? 'Spusti kombinaciju' : 'Izlozi se (51+)');
-    layBtn.disabled = state.selectedIds.size < 3;
+    layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
     if (opened) {
       const addBtn = el('button', 'btn btn-ghost', 'Dodaj na kombinaciju (klikni na sto)');
-      addBtn.disabled = state.selectedIds.size === 0;
+      addBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
       addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
       bar.appendChild(addBtn);
     }

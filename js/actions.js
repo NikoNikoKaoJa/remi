@@ -243,6 +243,10 @@ export async function actionLayMultipleSelected() {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   const cards = getSelectedCards();
   if (cards.length < 3) { showToast('Izaberi karte za izlaganje.'); return; }
+  if (cards.length === state.room.hands[state.session.playerId].length) {
+    showToast('Moras zadrzati bar jednu kartu za bacanje - ne mozes spustiti sve karte odjednom.');
+    return;
+  }
   const partition = findPartition(cards);
   if (!partition) { showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.'); return; }
   for (const group of partition) {
@@ -279,9 +283,6 @@ export async function actionLayMultipleSelected() {
     state.room.discardDrawCardId = null;
   }
   sweepCompletedQuads(state.room);
-  if (hand.length === 0) {
-    await endRoundWithWinner(state.room, state.session.playerId, null);
-  }
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -292,6 +293,10 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   if (!state.room.openedPlayers.includes(state.session.playerId)) { showToast('Prvo se moras izloziti (51+ poena) da bi dodavao karte.'); return; }
   const cards = getSelectedCards();
   if (cards.length === 0) { showToast('Izaberi karte iz ruke koje zelis da dodas.'); return; }
+  if (cards.length === state.room.hands[state.session.playerId].length) {
+    showToast('Moras zadrzati bar jednu kartu za bacanje - ne mozes dodati sve karte odjednom.');
+    return;
+  }
   const meld = state.room.melds[meldIdx];
   if (!meld) return;
   const combined = meld.cards.concat(cards);
@@ -323,9 +328,6 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     state.room.discardDrawCardId = null;
   }
   sweepCompletedQuads(state.room);
-  if (hand.length === 0) {
-    await endRoundWithWinner(state.room, state.session.playerId, null);
-  }
   await saveRoom(state.room);
   state.busy = false;
   render();
