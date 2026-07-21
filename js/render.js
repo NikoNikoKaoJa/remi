@@ -22,9 +22,12 @@ export function el(tag, cls, text) {
 export function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
-  const brand = el('div', 'brand');
-  brand.innerHTML = `<span class="suits">♠♥</span><h1>REMI<em>.</em></h1><span class="version">${APP_VERSION}</span><span class="suits">♦♣</span>`;
-  app.appendChild(brand);
+  const isGameScreen = state.dbUrl && state.session.roomCode && state.room && state.room.phase === 'playing';
+  if (!isGameScreen) {
+    const brand = el('div', 'brand');
+    brand.innerHTML = `<span class="suits">♠♥</span><h1>REMI<em>.</em></h1><span class="version">${APP_VERSION}</span><span class="suits">♦♣</span>`;
+    app.appendChild(brand);
+  }
   app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima • pravilo od 51 • mali/veliki hand'));
 
   if (!state.dbUrl) {
