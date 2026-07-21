@@ -88,11 +88,11 @@ KORAK 5 - Prvo otvaranje
     display:flex;align-items:baseline;gap:10px;justify-content:center;
     padding:22px 0 6px;
   }
-  .brand .suits{color:var(--gold);font-size:20px;letter-spacing:3px;}
-  .brand h1{font-size:34px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
+  .brand .suits{color:var(--gold);font-size:28px;letter-spacing:3px;}
+  .brand h1{font-size:47px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
   .brand h1 em{font-style:normal;color:var(--gold-bright);}
-  .brand .version{font-size:12px;color:var(--cream-dim);letter-spacing:0.5px;align-self:flex-end;margin-bottom:6px;}
-  .subtitle{text-align:center;color:var(--cream-dim);font-size:13px;margin-bottom:24px;letter-spacing:0.4px;}
+  .brand .version{font-size:17px;color:var(--cream-dim);letter-spacing:0.5px;align-self:flex-end;margin-bottom:6px;}
+  .subtitle{text-align:center;color:var(--cream-dim);font-size:18px;margin-bottom:24px;letter-spacing:0.4px;}
 
   .card-panel{
     background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.08));
@@ -102,14 +102,14 @@ KORAK 5 - Prvo otvaranje
     box-shadow:0 12px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
   }
   .field{margin-bottom:14px;}
-  .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--cream-dim);margin-bottom:6px;}
+  .field label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--cream-dim);margin-bottom:6px;}
   .field input{
     width:100%;padding:11px 13px;border-radius:9px;border:1px solid var(--panel-line);
-    background:rgba(0,0,0,0.25);color:var(--cream);font-size:16px;font-family:var(--font-body);
+    background:rgba(0,0,0,0.25);color:var(--cream);font-size:22px;font-family:var(--font-body);
   }
   .field input:focus{outline:2px solid var(--gold);outline-offset:1px;}
   .btn{
-    font-family:var(--font-body);font-weight:600;font-size:14px;
+    font-family:var(--font-body);font-weight:600;font-size:19px;
     padding:11px 18px;border-radius:9px;border:1px solid transparent;
     cursor:pointer;transition:transform .08s ease, filter .15s ease;
     letter-spacing:0.2px;
@@ -126,21 +126,21 @@ KORAK 5 - Prvo otvaranje
   .row > *{flex:1;}
 
   .divider{height:1px;background:var(--panel-line);margin:20px 0;}
-  .small{font-size:12px;color:var(--cream-dim);}
+  .small{font-size:17px;color:var(--cream-dim);}
   .center{text-align:center;}
 
   .roomcode-display{
-    font-family:var(--font-mono);font-size:28px;letter-spacing:6px;text-align:center;
+    font-family:var(--font-mono);font-size:39px;letter-spacing:6px;text-align:center;
     color:var(--gold-bright);background:rgba(0,0,0,0.25);border-radius:10px;padding:12px;
     border:1px dashed var(--panel-line);margin:10px 0;
   }
 
   .player-chip{
     display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
-    background:rgba(0,0,0,0.22);border:1px solid var(--panel-line);font-size:14px;
+    background:rgba(0,0,0,0.22);border:1px solid var(--panel-line);font-size:19px;
   }
   .dealer-badge{
-    background:var(--gold);color:#241d05;font-size:10px;font-weight:700;
+    background:var(--gold);color:#241d05;font-size:14px;font-weight:700;
     border-radius:999px;padding:2px 7px;letter-spacing:0.5px;
   }
   .chip-list{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
@@ -153,8 +153,8 @@ KORAK 5 - Prvo otvaranje
     padding:10px 14px;min-width:110px;text-align:center;position:relative;
   }
   .opp-card.active{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,0.35), 0 0 18px rgba(201,162,39,0.25);}
-  .opp-card .name{font-weight:600;font-size:14px;}
-  .opp-card .meta{font-size:11px;color:var(--cream-dim);margin-top:3px;}
+  .opp-card .name{font-weight:600;font-size:19px;}
+  .opp-card .meta{font-size:15px;color:var(--cream-dim);margin-top:3px;}
   .opp-card .opened-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:4px;}
 
   .center-table{
@@ -163,7 +163,7 @@ KORAK 5 - Prvo otvaranje
     border:1px solid var(--panel-line);
   }
   .stock-discard-row{display:flex;justify-content:center;gap:26px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
-  .pile-label{font-size:11px;color:var(--cream-dim);text-align:center;margin-top:5px;text-transform:uppercase;letter-spacing:0.8px;}
+  .pile-label{font-size:15px;color:var(--cream-dim);text-align:center;margin-top:5px;text-transform:uppercase;letter-spacing:0.8px;}
   .pile-stack{position:relative;width:56px;height:78px;cursor:pointer;}
   .pile-stack.disabled{cursor:not-allowed;opacity:0.5;}
 
@@ -172,15 +172,15 @@ KORAK 5 - Prvo otvaranje
     background:linear-gradient(180deg,var(--cream),var(--cream-dim));
     border:1px solid rgba(0,0,0,0.25);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    color:var(--ink);font-family:var(--font-mono);font-weight:700;font-size:15px;
+    color:var(--ink);font-family:var(--font-mono);font-weight:700;font-size:21px;
     box-shadow:0 2px 5px rgba(0,0,0,0.35);
     user-select:none;position:relative;
   }
   .card.red{color:var(--red);}
-  .card .rank{font-size:21px;line-height:1;}
-  .card .suit-sym{font-size:25px;line-height:1;margin-top:3px;}
+  .card .rank{font-size:29px;line-height:1;}
+  .card .suit-sym{font-size:34px;line-height:1;margin-top:3px;}
   .card.joker{background:linear-gradient(160deg,#2a2a2a,#111);color:var(--gold-bright);border-color:var(--gold);}
-  .card.joker .rank{font-size:13px;letter-spacing:1px;}
+  .card.joker .rank{font-size:18px;letter-spacing:1px;}
   .card.back{
     background:
       repeating-linear-gradient(45deg, #1c4b39 0 6px, #163d2e 6px 12px);
@@ -197,13 +197,13 @@ KORAK 5 - Prvo otvaranje
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
   .card.clickable:hover{transform:translateY(-4px);}
   .card.mini{width:44px;height:60px;}
-  .card.mini .rank{font-size:15px;}
-  .card.mini .suit-sym{font-size:18px;}
+  .card.mini .rank{font-size:21px;}
+  .card.mini .suit-sym{font-size:25px;}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
 
   .melds-area{margin-top:6px;}
-  .meld-owner-label{font-size:11px;color:var(--gold-bright);text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 4px;}
+  .meld-owner-label{font-size:15px;color:var(--gold-bright);text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 4px;}
   .meld-group{
     display:inline-flex;gap:-6px;margin:3px 8px 3px 0;padding:5px 6px;border-radius:8px;
     background:rgba(0,0,0,0.15);cursor:default;
@@ -223,30 +223,30 @@ KORAK 5 - Prvo otvaranje
   }
 
   .turn-banner{
-    text-align:center;font-family:var(--font-display);font-size:17px;color:var(--gold-bright);
+    text-align:center;font-family:var(--font-display);font-size:23px;color:var(--gold-bright);
     margin-bottom:10px;letter-spacing:0.3px;
   }
   .log-box{
     max-height:100px;overflow-y:auto;background:rgba(0,0,0,0.2);border-radius:8px;padding:8px 10px;
-    font-size:12px;color:var(--cream-dim);margin-top:12px;
+    font-size:17px;color:var(--cream-dim);margin-top:12px;
   }
   .log-box div{padding:1px 0;}
 
   .toast{
     position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
     background:var(--ink);color:var(--cream);padding:11px 18px;border-radius:9px;
-    font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:50;
+    font-size:18px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:50;
     border:1px solid var(--gold);max-width:90%;text-align:center;
   }
 
   .score-table{width:100%;border-collapse:collapse;margin-top:10px;}
   .score-table th,.score-table td{
-    padding:8px 10px;text-align:center;border-bottom:1px solid var(--panel-line);font-size:13px;
+    padding:8px 10px;text-align:center;border-bottom:1px solid var(--panel-line);font-size:18px;
   }
-  .score-table th{color:var(--gold-bright);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;}
+  .score-table th{color:var(--gold-bright);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;}
   .score-table td.name{text-align:left;font-weight:600;}
   .winner-banner{
-    text-align:center;font-family:var(--font-display);font-size:24px;color:var(--gold-bright);
+    text-align:center;font-family:var(--font-display);font-size:33px;color:var(--gold-bright);
     margin:14px 0 4px;
   }
 
@@ -260,10 +260,10 @@ KORAK 5 - Prvo otvaranje
   }
 
   @media (max-width:520px){
-    .brand h1{font-size:26px;}
+    .brand h1{font-size:36px;}
     .card{width:46px;height:64px;}
-    .card .rank{font-size:13px;}
-    .card .suit-sym{font-size:16px;}
+    .card .rank{font-size:18px;}
+    .card .suit-sym{font-size:22px;}
     .meld-cards .card{margin-left:0;}
   }
 </style>
