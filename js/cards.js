@@ -16,6 +16,18 @@ export function cardEl(card, opts) {
   if (opts.onClick) div.addEventListener('click', opts.onClick);
   return div;
 }
+// Wraps a clickable card in a non-transformed "slot" div so :hover is
+// evaluated against a box that never moves. Without this, hovering the card
+// itself and lifting it via CSS transform can shift its bottom edge above a
+// stationary cursor, causing mouseleave -> drop -> mouseenter -> lift to
+// oscillate every frame (visible as flicker).
+export function wrapHoverSlot(cardNode) {
+  const slot = document.createElement('div');
+  slot.className = 'card-slot';
+  slot.appendChild(cardNode);
+  return slot;
+}
+
 export function cardBackEl(mini) {
   const div = document.createElement('div');
   div.className = 'card back' + (mini ? ' mini' : '');

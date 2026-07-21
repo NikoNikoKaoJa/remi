@@ -199,7 +199,12 @@ KORAK 5 - Prvo otvaranje
   .card.pending-joker{outline:3px dashed var(--gold-bright);outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(201,162,39,0.6);}
   .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
-  .card.clickable:hover{transform:translateY(-25%);}
+  /* Hover-triggered from the non-moving .card-slot wrapper (see wrapHoverSlot
+     in cards.js), not from the card's own :hover - the lift itself would
+     otherwise carry the card's bottom edge away from a stationary cursor,
+     causing mouseleave/mouseenter to oscillate every frame (flicker). */
+  .card-slot{display:inline-flex;align-items:flex-end;}
+  .card-slot:hover .card.clickable{transform:translateY(-25%);}
   .card.mini{width:58px;height:80px;}
   .card.mini .rank{font-size:20px;}
   .card.mini .suit-sym{font-size:24px;}

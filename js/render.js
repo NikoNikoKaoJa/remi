@@ -1,6 +1,6 @@
 import { state, APP_VERSION } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
-import { cardEl, cardBackEl, sortHand } from './cards.js';
+import { cardEl, cardBackEl, sortHand, wrapHoverSlot } from './cards.js';
 import { showToast, checkQuadAnnouncement } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
@@ -298,8 +298,10 @@ function renderMeldsForPlayers(container, { clickable }) {
           cardElement.classList.add('clickable');
           cardElement.classList.add('joker-replaceable');
           cardElement.onclick = (e) => { e.stopPropagation(); actionReplaceJoker(idx, c.id); };
+          cardsDiv.appendChild(wrapHoverSlot(cardElement));
+        } else {
+          cardsDiv.appendChild(cardElement);
         }
-        cardsDiv.appendChild(cardElement);
       });
       groupDiv.appendChild(cardsDiv);
       if (canTarget) groupDiv.onclick = () => actionAddToMeld(p.id, idx);
@@ -374,7 +376,7 @@ function renderHandAndActions(app) {
     });
     if (drawn) cd.classList.add('just-drawn');
     if (pending) cd.classList.add('pending-joker');
-    cardsRow.appendChild(cd);
+    cardsRow.appendChild(canPick ? wrapHoverSlot(cd) : cd);
   });
   handWrap.appendChild(cardsRow);
   app.appendChild(handWrap);
