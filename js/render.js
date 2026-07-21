@@ -163,6 +163,7 @@ function renderLobby(app) {
       waitMsg.style.fontWeight = '700';
       waitMsg.style.color = 'var(--danger)';
       waitMsg.style.marginBottom = '8px';
+      waitMsg.style.fontSize = '30px';
       panel.appendChild(waitMsg);
     }
     const startBtn = el('button', 'btn btn-gold', `Zapocni igru (${state.room.players.length} igraca)`);
