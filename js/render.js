@@ -29,9 +29,9 @@ export function render() {
   const isGameScreen = state.dbUrl && state.session.roomCode && state.room && state.room.phase === 'playing';
   if (!isGameScreen) {
     const brand = el('div', 'brand');
-    brand.innerHTML = `<span class="suits">♠♥</span><h1>REMI<em>.</em></h1><span class="suits">♦♣</span>`;
+    brand.innerHTML = `<span class="suits" style="color:#2b2b2b;">♠</span><span class="suits" style="color:#c0392b;">♥</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">♦</span><span class="suits" style="color:#2b2b2b;">♣</span>`;
     app.appendChild(brand);
-    app.appendChild(el('div', 'subtitle', 'Varijanta sa dzokerima • pravilo od 51 • mali/veliki hand'));
+    app.appendChild(el('div', 'subtitle', 'Izlazak  sa 51 - Mali/Veliki Hand'));
   }
 
   if (!state.dbUrl) {
@@ -142,7 +142,7 @@ function renderLobby(app) {
   const panel = el('div', 'card-panel');
   panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Cekaonica'));
-  panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima - kad ga otvore, sve je vec podeseno, samo unose ime i pridruzuju se:'));
+  panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima igracim - kad ga otvore, sve je vec podeseno'));
 
   const shareUrl = `${location.origin}${location.pathname}?db=${encodeURIComponent(state.dbUrl)}&room=${state.room.code}`;
   const linkBox = el('div', 'field');
@@ -181,7 +181,7 @@ function renderLobby(app) {
   const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
   if (isHost) {
     if (state.room.players.length < 2) {
-      const waitMsg = el('div', 'small center', 'Ceka se jos bar 1 igrac...');
+      const waitMsg = el('div', 'small center', 'Ceka se jos bar 1 igrac ...');
       waitMsg.style.fontWeight = '700';
       waitMsg.style.color = 'var(--danger)';
       waitMsg.style.marginBottom = '8px';
