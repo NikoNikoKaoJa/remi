@@ -110,6 +110,8 @@ export function startPolling() {
     // mouse happens to be resting on and makes it visibly flicker.
     const changed = JSON.stringify(r) !== JSON.stringify(state.room);
     state.room = r;
-    if (changed) render();
+    // Also skip while a hand-card reorder drag is in progress - a full
+    // render() would tear down and rebuild the hand DOM mid-gesture.
+    if (changed && !state.handDragActive) render();
   }, 2200);
 }

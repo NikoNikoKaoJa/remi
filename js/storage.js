@@ -27,6 +27,7 @@ export function hydrateRoom(r) {
   if (!r.log) r.log = [];
   if (!r.quadAnnouncements) r.quadAnnouncements = [];
   if (!r.readyForNextRound) r.readyForNextRound = [];
+  if (!r.handOrders) r.handOrders = {};
   r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
   return r;
 }

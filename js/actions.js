@@ -53,6 +53,7 @@ export function applyPendingRound(r) {
   if (!pr.stock) pr.stock = [];
   Object.assign(r, pr);
   r.round = (r.round || 0) + 1;
+  r.handOrders = {}; // fresh deck each round means old card ids (and thus old order) never match anyway
   r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
   r.pendingRound = null;
   r.cutRevealedAt = null;
@@ -128,6 +129,7 @@ export async function hostResetGame() {
   state.room.readyForNextRound = [];
   state.room.pendingRound = null;
   state.room.cutRevealedAt = null;
+  state.room.handOrders = {};
   state.dismissedQuadAnnouncements.clear();
   saveDismissedQuadAnnouncements();
   await saveRoom(state.room);

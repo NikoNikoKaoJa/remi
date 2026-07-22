@@ -1,6 +1,7 @@
 import { state, APP_VERSION } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
-import { cardEl, cardBackEl, sortHand, wrapHoverSlot } from './cards.js';
+import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
+import { saveRoom } from './storage.js';
 import { showToast, checkQuadAnnouncement } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
@@ -22,6 +23,108 @@ export function el(tag, cls, text) {
 
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
 function versionBadge() { return el('div', 'version-badge', APP_VERSION); }
+
+// ===== Hand card drag-to-reorder =====
+// Pointer Events (not HTML5 drag-and-drop, which is unreliable on mobile
+// Safari/Chrome - players mostly join from phones) power a manual reorder:
+// press-and-drag a card past a small threshold to pick it up; a floating
+// "ghost" clone follows the finger/cursor while the real node is dimmed and
+// physically moved among its flex siblings on every move, so the browser's
+// own flex-wrap reflow does the "make room" shifting for free. On release,
+// the new left-to-right DOM order is saved to room.handOrders so it survives
+// reconnects/other devices (see orderHand in cards.js for how it's applied).
+const HAND_DRAG_THRESHOLD = 8;
+
+function enableHandReorder(node, container) {
+  let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
+
+  node.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    dragging = false;
+    pointerId = e.pointerId;
+    // Listen on window rather than node: once the drag reorders `node`
+    // among its siblings, or the finger/cursor strays outside its bounds,
+    // an element-scoped listener can miss the eventual pointerup entirely
+    // and leave the ghost stranded. setPointerCapture normally routes events
+    // back to node, but capture support is inconsistent enough (older
+    // WebViews, some automation input paths) that window is the safe default.
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+
+  function onMove(e) {
+    if (e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!dragging) {
+      if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
+      dragging = true;
+      state.handDragActive = true;
+      const rect = node.getBoundingClientRect();
+      offsetX = startX - rect.left;
+      offsetY = startY - rect.top;
+      ghost = node.cloneNode(true);
+      ghost.style.position = 'fixed';
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      ghost.style.margin = '0';
+      ghost.style.pointerEvents = 'none';
+      ghost.style.zIndex = '1000';
+      ghost.style.transform = 'scale(1.08)';
+      ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
+      document.body.appendChild(ghost);
+      node.style.opacity = '0.25';
+    }
+    e.preventDefault();
+    ghost.style.left = (e.clientX - offsetX) + 'px';
+    ghost.style.top = (e.clientY - offsetY) + 'px';
+    reflow(e.clientX, e.clientY);
+  }
+
+  // Finds the flex-wrap sibling whose row/column the pointer is currently
+  // over and moves `node` next to it - this is what makes the row visually
+  // "open a gap" at the drop target as the browser's own flex layout reflows.
+  function reflow(x, y) {
+    const siblings = [...container.children].filter(ch => ch !== node);
+    if (siblings.length === 0) return;
+    let target = siblings[siblings.length - 1];
+    let insertAfter = true;
+    for (const sib of siblings) {
+      const r = sib.getBoundingClientRect();
+      const inRow = y >= r.top && y <= r.bottom;
+      if (!inRow && r.top > y) { target = sib; insertAfter = false; break; }
+      if (inRow) {
+        target = sib;
+        insertAfter = x >= r.left + r.width / 2;
+        if (!insertAfter) break;
+      }
+    }
+    const desired = insertAfter ? target.nextSibling : target;
+    if (desired !== node) container.insertBefore(node, desired);
+  }
+
+  async function onUp(e) {
+    if (e.pointerId !== pointerId) return;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    if (!dragging) return;
+    state.suppressNextCardClick = true;
+    node.style.opacity = '';
+    if (ghost) { ghost.remove(); ghost = null; }
+    state.handDragActive = false;
+    const newOrder = [...container.children].map(ch => ch.dataset.cardId);
+    if (!state.room.handOrders) state.room.handOrders = {};
+    state.room.handOrders[state.session.playerId] = newOrder;
+    await saveRoom(state.room);
+    setTimeout(() => { state.suppressNextCardClick = false; }, 300);
+    render();
+  }
+}
 
 export function render() {
   const app = document.getElementById('app');
@@ -365,18 +468,25 @@ function renderHandAndActions(app) {
   const cardsRow = el('div', 'hand-cards' + (selectedCards.length > 0 ? ' has-selection' : ''));
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
-  sortHand(myHand()).forEach(c => {
+  const myHandOrder = (state.room.handOrders || {})[state.session.playerId] || null;
+  orderHand(myHand(), myHandOrder).forEach(c => {
     const selected = state.selectedIds.has(c.id);
     const drawn = state.room.lastDrawnPlayerId === state.session.playerId && state.room.lastDrawnCardId === c.id;
     const pending = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId && state.room.pendingJokerToPlace.jokerCardId === c.id;
     const cd = cardEl(c, {
       clickable: canPick,
       selected,
-      onClick: canPick ? () => { if (selected) state.selectedIds.delete(c.id); else state.selectedIds.add(c.id); render(); } : null,
+      onClick: canPick ? () => {
+        if (state.suppressNextCardClick) { state.suppressNextCardClick = false; return; }
+        if (selected) state.selectedIds.delete(c.id); else state.selectedIds.add(c.id); render();
+      } : null,
     });
     if (drawn) cd.classList.add('just-drawn');
     if (pending) cd.classList.add('pending-joker');
-    cardsRow.appendChild(canPick ? wrapHoverSlot(cd) : cd);
+    const flexItem = canPick ? wrapHoverSlot(cd) : cd;
+    flexItem.dataset.cardId = c.id;
+    enableHandReorder(flexItem, cardsRow);
+    cardsRow.appendChild(flexItem);
   });
   handWrap.appendChild(cardsRow);
   app.appendChild(handWrap);

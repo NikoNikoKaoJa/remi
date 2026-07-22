@@ -44,3 +44,13 @@ export function sortHand(hand) {
     return ra - rb;
   });
 }
+// Applies a player's manually-dragged card order (an array of card ids) if
+// one exists; cards not present in it (e.g. a card just drawn this turn)
+// fall back to sortHand and are appended at the end.
+export function orderHand(hand, order) {
+  if (!order || order.length === 0) return sortHand(hand);
+  const byId = new Map(hand.map(c => [c.id, c]));
+  const ordered = order.map(id => byId.get(id)).filter(Boolean);
+  const orderedIds = new Set(order);
+  return ordered.concat(sortHand(hand.filter(c => !orderedIds.has(c.id))));
+}
