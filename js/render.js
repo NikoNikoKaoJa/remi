@@ -465,9 +465,12 @@ function renderHandAndActions(app) {
     handWrap.appendChild(selRow);
   }
 
-  const cardsRow = el('div', 'hand-cards' + (selectedCards.length > 0 ? ' has-selection' : ''));
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
+  // Reserve the same top space whenever cards are clickable, not just when one
+  // is actually selected - a hovered (but unselected) card also lifts via
+  // .card-slot:hover and would otherwise overlap the "Zbir ruke" text above.
+  const cardsRow = el('div', 'hand-cards' + ((canPick || selectedCards.length > 0) ? ' has-selection' : ''));
   const myHandOrder = (state.room.handOrders || {})[state.session.playerId] || null;
   orderHand(myHand(), myHandOrder).forEach(c => {
     const selected = state.selectedIds.has(c.id);
