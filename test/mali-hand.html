@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>TEST: Mali Hand</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body{margin:0;background:#0c4428;}
+  .instr{max-width:920px;margin:0 auto;padding:16px 16px 0;}
+  .instr .card-panel{border:2px solid var(--gold);}
+  .instr ol{margin:8px 0 0 20px;padding:0;font-size:17px;color:var(--cream);}
+  .instr li{margin-bottom:4px;}
+  .instr code{background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;color:var(--gold-bright);}
+</style>
+</head>
+<body>
+<div class="instr">
+  <div class="card-panel">
+    <h2>TEST: Mali Hand</h2>
+    <div class="small">
+      Ruka je nameštena tako da 14 od 15 karata NE mogu da se poklope u kombinacije,
+      ali njihov zbir (džoker=0, as=1, J/Q/K=10, ostalo=lice) je ispod 51.
+    </div>
+    <ol>
+      <li>Selektuj svih 14 karata <strong>osim</strong> <code>K♠</code> (kliknu na svaku).</li>
+      <li>Klikni <code>Izlozi se</code>.</li>
+      <li>Očekivano: runda se odmah završava kao <strong>Mali Hand</strong> (množilac x2), bez postavljanja ijedne kombinacije na sto.</li>
+    </ol>
+  </div>
+</div>
+<div id="remi-root">
+  <div class="wrap" id="app"></div>
+</div>
+<script type="module">
+  import { buildTestRoom, mount } from './harness.js';
+
+  const room = buildTestRoom({
+    myHandSpecs: [
+      ['S', 1], ['S', 1],
+      ['H', 1], ['H', 1],
+      ['D', 2], ['D', 2],
+      ['C', 2], ['C', 2],
+      ['S', 3], ['S', 3],
+      ['D', 3], ['D', 3],
+      ['H', 4], ['H', 4],
+      ['S', 13], // leftover to discard (K♠)
+    ],
+  });
+  mount(room);
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>TEST: Zatvaranje posle izlaganja</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body{margin:0;background:#0c4428;}
+  .instr{max-width:920px;margin:0 auto;padding:16px 16px 0;}
+  .instr .card-panel{border:2px solid var(--gold);}
+  .instr ol{margin:8px 0 0 20px;padding:0;font-size:17px;color:var(--cream);}
+  .instr li{margin-bottom:4px;}
+  .instr code{background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;color:var(--gold-bright);}
+</style>
+</head>
+<body>
+<div class="instr">
+  <div class="card-panel">
+    <h2>TEST: Zatvaranje posle izlaganja (bez mali/veliki hand)</h2>
+    <div class="small">
+      Igrač se već izlagao ranije ove runde (na stolu već postoji njegov
+      set Q-Q-Q) - sad mu je ostalo samo 4 karte i zatvara igru regularno,
+      ne preko Mali/Veliki Hand-a.
+    </div>
+    <ol>
+      <li>Selektuj <code>7♠ 8♠ 9♠</code> (niz).</li>
+      <li>Klikni <code>Spusti kombinaciju</code> (dugme se tako zove jer je igrač već opened - ista funkcija kao "Izlozi se").</li>
+      <li>Selektuj preostalu kartu <code>K♦</code>.</li>
+      <li>Klikni <code>Odbaci izabranu kartu</code>.</li>
+      <li>Očekivano: ruka je prazna, runda se završava kao regularna pobeda
+        (<strong>bez</strong> x2 množioca, jer nije Mali/Veliki Hand).</li>
+    </ol>
+  </div>
+</div>
+<div id="remi-root">
+  <div class="wrap" id="app"></div>
+</div>
+<script type="module">
+  import { buildTestRoom, mount } from './harness.js';
+
+  const room = buildTestRoom({
+    myHandSpecs: [
+      ['S', 7], ['S', 8], ['S', 9],
+      ['D', 13], // leftover to discard (K♦)
+    ],
+    openedPlayers: ['me'],
+    existingMelds: [
+      { ownerId: 'me', cardSpecs: [['C', 12], ['D', 12], ['H', 12]] },
+    ],
+  });
+  mount(room);
+</script>
+</body>
+</html>
