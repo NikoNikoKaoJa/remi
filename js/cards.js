@@ -50,10 +50,11 @@ export function sortHand(hand) {
 // Applies a player's manually-dragged card order (an array of card ids) if
 // one exists; cards not present in it (e.g. a card just drawn this turn)
 // fall back to sortHand and are appended at the end. If pinFirstId is given
-// (the last-drawn card's id), it is unconditionally moved to the front
-// afterwards - this is the single place that rule lives, so a freshly drawn
-// card is always the leftmost card regardless of whether the player has a
-// saved manual order or not.
+// (the last-drawn card's id) and it has no manual position yet, it's moved
+// to the front - this is the single place that rule lives, so a freshly
+// drawn card lands leftmost on arrival. Once the player drags it themselves
+// (which records it in `order`), that manual placement is respected instead
+// of snapping it back - dragging it away is how the player un-pins it.
 export function orderHand(hand, order, pinFirstId) {
   const ord = order || [];
   const byId = new Map(hand.map(c => [c.id, c]));
@@ -61,7 +62,7 @@ export function orderHand(hand, order, pinFirstId) {
   const orderedIds = new Set(ord);
   const fresh = sortHand(hand.filter(c => !orderedIds.has(c.id)));
   const result = known.concat(fresh);
-  if (pinFirstId) {
+  if (pinFirstId && !orderedIds.has(pinFirstId)) {
     const idx = result.findIndex(c => c.id === pinFirstId);
     if (idx > 0) result.unshift(result.splice(idx, 1)[0]);
   }

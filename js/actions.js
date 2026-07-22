@@ -149,6 +149,11 @@ export function advanceTurn(r) {
   r.turnPhase = 'draw';
   r.discardDrawCardId = null;
   r.mustDrawFromStock = false;
+  // The "just drawn" pin/highlight only makes sense for the rest of the
+  // drawing player's own turn - clear it once that turn ends (on discard)
+  // so it doesn't linger on a still-in-hand card until their next draw.
+  r.lastDrawnPlayerId = null;
+  r.lastDrawnCardId = null;
 }
 
 export async function endRoundWithWinner(r, winnerId, handType) {

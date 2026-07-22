@@ -82,12 +82,16 @@ There are two builds of the same game:
   off the table to the BOTTOM of the discard pile, and every player sees a
   dismissible dialog with the four cards highlighted in fluorescent green.
 - **Hand display:** cards sort by value descending (Ace, King, Queen, ... 2,
-  left to right), suit as tie-break; jokers last. A freshly drawn card is
-  ALWAYS the leftmost card, unconditionally - regardless of the player's own
-  manual drag-to-reorder arrangement or sort state (`orderHand` in
-  `js/cards.js` takes `pinFirstId` = the last-drawn card's id and forces it
-  to index 0 as a final step, the one place this rule lives). A run's joker
-  displays in the slot it represents, not trailing.
+  left to right), suit as tie-break; jokers last. A freshly drawn card lands
+  leftmost on arrival (`orderHand` in `js/cards.js` takes `pinFirstId` = the
+  last-drawn card's id and forces it to index 0, the one place this rule
+  lives) - but only until the player drags it themselves; once it has a
+  manual position in `room.handOrders`, that placement is respected instead
+  of snapping back. `room.lastDrawnPlayerId`/`lastDrawnCardId` (and thus the
+  pin + the blue "just drawn" highlight) are cleared in `advanceTurn`
+  (`js/actions.js`) once the drawing player discards, so they don't linger
+  into later turns. A run's joker displays in the slot it represents, not
+  trailing.
 
 ## Code structure (ES modules under `js/`)
 
