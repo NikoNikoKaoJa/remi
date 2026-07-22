@@ -447,22 +447,7 @@ function renderHandAndActions(app) {
   titleRow.appendChild(countLbl);
   handWrap.appendChild(titleRow);
 
-  // Always render this row (even with nothing selected) so its height is
-  // reserved up front - toggling it in/out on selection used to shift the
-  // hand-cards row (and every card in it) down each time a card was picked.
   const selectedCards = getSelectedCards();
-  const selRow = el('div', 'small');
-  selRow.style.textAlign = 'center';
-  selRow.style.marginBottom = '8px';
-  selRow.style.color = 'var(--cream-dim)';
-  if (selectedCards.length > 0) {
-    const sum = computeSelectedSum(selectedCards);
-    selRow.textContent = `Zbir izabranih: ${sum}`;
-  } else {
-    selRow.textContent = ' ';
-    selRow.style.visibility = 'hidden';
-  }
-  handWrap.appendChild(selRow);
 
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
@@ -536,7 +521,12 @@ function renderHandAndActions(app) {
     // hand can never be emptied purely by laying/adding melds (that's the
     // discard action's job, per actionDiscard's own hand.length===0 check).
     const selectingWholeHand = state.selectedIds.size === myHand().length && myHand().length > 0;
-    const layBtn = el('button', 'btn btn-gold', opened ? 'Spusti kombinaciju' : 'Izlozi se (51+)');
+    const layBtn = el('button', 'btn btn-gold');
+    if (opened) {
+      layBtn.textContent = 'Spusti kombinaciju';
+    } else {
+      layBtn.append('Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))), ')');
+    }
     layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
