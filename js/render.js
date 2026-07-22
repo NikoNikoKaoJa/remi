@@ -442,7 +442,7 @@ function renderHandAndActions(app) {
   const sumRow = el('div', 'small');
   sumRow.style.textAlign = 'center';
   sumRow.style.marginBottom = '4px';
-  sumRow.style.color = 'var(--gold-bright)';
+  sumRow.style.color = 'var(--navy-blue)';
   const opened_ = state.room.openedPlayers.includes(state.session.playerId);
   let sumText;
   if (!opened_) {
@@ -454,16 +454,22 @@ function renderHandAndActions(app) {
   sumRow.textContent = sumText;
   handWrap.appendChild(sumRow);
 
+  // Always render this row (even with nothing selected) so its height is
+  // reserved up front - toggling it in/out on selection used to shift the
+  // hand-cards row (and every card in it) down each time a card was picked.
   const selectedCards = getSelectedCards();
+  const selRow = el('div', 'small');
+  selRow.style.textAlign = 'center';
+  selRow.style.marginBottom = '8px';
+  selRow.style.color = 'var(--cream-dim)';
   if (selectedCards.length > 0) {
     const sum = computeSelectedSum(selectedCards);
-    const selRow = el('div', 'small');
-    selRow.style.textAlign = 'center';
-    selRow.style.marginBottom = '8px';
-    selRow.style.color = 'var(--cream-dim)';
     selRow.textContent = `Zbir izabranih: ${sum}`;
-    handWrap.appendChild(selRow);
+  } else {
+    selRow.textContent = ' ';
+    selRow.style.visibility = 'hidden';
   }
+  handWrap.appendChild(selRow);
 
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
