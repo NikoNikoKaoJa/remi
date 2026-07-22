@@ -446,7 +446,7 @@ function renderHandAndActions(app) {
   const opened_ = state.room.openedPlayers.includes(state.session.playerId);
   let sumText;
   if (!opened_) {
-    sumText = `Zbir ruke (mali hand): ${maliHandValue(myHand())}`;
+    sumText = `Zbir karata ako ides na mali hand: ${maliHandValue(myHand())}`;
   } else {
     const standardSum = myHand().reduce((s, c) => s + cardValueStandard(c), 0);
     sumText = `Zbir ruke: ${standardSum}`;
