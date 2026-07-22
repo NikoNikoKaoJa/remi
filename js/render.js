@@ -592,6 +592,7 @@ function renderCutReveal(app) {
   panel.appendChild(el('h2', null, 'Sece se...'));
   const pr = state.room.pendingRound;
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
+  const noUppercase = (elm) => { elm.style.textTransform = 'none'; return elm; };
 
   if (pr && pr.revealedCard) {
     // Cutting exposes two cards: the cut card itself, and the card directly
@@ -605,13 +606,13 @@ function renderCutReveal(app) {
 
     const cutWrap = el('div', 'special-card-wrap');
     cutWrap.appendChild(cardEl(pr.revealedCard, {}));
-    cutWrap.appendChild(el('div', 'pile-label', 'Presecena karta'));
+    cutWrap.appendChild(noUppercase(el('div', 'pile-label', 'Presecena karta')));
     cardsRow.appendChild(cutWrap);
 
     if (pr.belowCutCard) {
       const belowWrap = el('div', 'special-card-wrap');
       belowWrap.appendChild(cardEl(pr.belowCutCard, {}));
-      belowWrap.appendChild(el('div', 'pile-label', 'Donja karta'));
+      belowWrap.appendChild(noUppercase(el('div', 'pile-label', 'Donja karta')));
       cardsRow.appendChild(belowWrap);
     }
 
