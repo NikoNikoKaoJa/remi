@@ -539,14 +539,14 @@ function renderHandAndActions(app) {
     bar.appendChild(layBtn);
 
     if (opened) {
-      const addBtn = el('button', 'btn btn-ghost', 'Dodaj na kombinaciju (klikni na sto)');
+      const addBtn = el('button', 'btn btn-outline-gold', 'Dodaj na kombinaciju (klikni na sto)');
       addBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
       addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
       bar.appendChild(addBtn);
     }
 
     const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-ghost', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
+    const clearBtn = el('button', 'btn btn-outline-gold', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
     clearBtn.onclick = () => {
       if (hasSelection) {
         state.selectedIds.clear();
@@ -589,7 +589,7 @@ function renderGame(app) {
 function renderScoreHistoryButton(app) {
   const wrap = el('div', 'center');
   wrap.style.marginTop = '10px';
-  const btn = el('button', 'btn btn-ghost', 'Rezultat');
+  const btn = el('button', 'btn btn-outline-gold', 'Rezultat');
   btn.onclick = () => showScoreHistoryModal(state.room);
   wrap.appendChild(btn);
   app.appendChild(wrap);
@@ -696,7 +696,7 @@ function renderRoundScores(app) {
 
   const isHost = state.room.players[0] && state.room.players[0].id === myId;
   if (isHost) {
-    const forceBtn = el('button', 'btn btn-ghost', 'Podeli ionako');
+    const forceBtn = el('button', 'btn btn-outline-gold', 'Podeli ionako');
     forceBtn.style.width = '100%';
     forceBtn.style.marginTop = '8px';
     forceBtn.onclick = actionForceNextRound;
