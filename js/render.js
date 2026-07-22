@@ -1,5 +1,5 @@
 import { state, APP_VERSION } from './state.js';
-import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
+import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
 import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryTable } from './ui.js';
@@ -436,7 +436,11 @@ function renderHandAndActions(app) {
   const opened_ = state.room.openedPlayers.includes(state.session.playerId);
   let sumText;
   if (!opened_) {
-    sumText = `Zbir karata ako ides na mali hand: ${maliHandValue(myHand())}`;
+    // Mali hand only ever ends with 14 cards (the 15th gets discarded) - preview
+    // the sum for the best 14 (i.e. drop the single highest-value card) rather
+    // than the full hand, which may still hold that soon-to-be-discarded card.
+    const smallest14 = myHand().slice().sort((a, b) => cardValueMaliHand(a) - cardValueMaliHand(b)).slice(0, 14);
+    sumText = `Zbir 14 karata ako ides na mali hand: ${maliHandValue(smallest14)}`;
   } else {
     const standardSum = myHand().reduce((s, c) => s + cardValueStandard(c), 0);
     sumText = `Zbir ruke: ${standardSum}`;
@@ -483,7 +487,7 @@ function renderHandAndActions(app) {
   if (state.room.phase === 'playing') {
     const cur = state.room.players[state.room.currentPlayerIndex];
     if (myTurn) {
-      banner.textContent = state.room.turnPhase === 'draw' ? 'Tvoj red - vuci kartu' : 'Tvoj red - odigraj i odbaci';
+      banner.textContent = state.room.turnPhase === 'draw' ? 'Tvoj red - vuci kartu' : 'Tvoj red - odigraj i baci';
     } else {
       banner.textContent = `Na potezu: ${cur.name}`;
     }
@@ -491,7 +495,7 @@ function renderHandAndActions(app) {
   app.appendChild(banner);
 
   if (myTurn && state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-    const warn = el('div', 'small center', '⚠️ Imas dzokera (zlatno oivicen u ruci) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto odbacis kartu.');
+    const warn = el('div', 'small center', '⚠️ Imas dzokera (zlatno oivicen u ruci) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
     warn.style.color = 'var(--gold-bright)';
     warn.style.marginBottom = '10px';
     app.appendChild(warn);
@@ -523,10 +527,14 @@ function renderHandAndActions(app) {
     const layBtn = el('button', 'btn btn-gold');
     if (opened) {
       layBtn.textContent = 'Spusti kombinaciju';
+      layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     } else {
-      layBtn.append('Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))), ')');
+      layBtn.append(
+        'Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))),
+        ') [', el('span', 'lay-btn-sum', String(maliHandValue(selectedCards))), ']'
+      );
+      layBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
     }
-    layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
@@ -538,7 +546,7 @@ function renderHandAndActions(app) {
     }
 
     const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-ghost', hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
+    const clearBtn = el('button', 'btn btn-ghost', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
     clearBtn.onclick = () => {
       if (hasSelection) {
         state.selectedIds.clear();
@@ -551,7 +559,7 @@ function renderHandAndActions(app) {
 
     const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
     const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
-    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Odbaci izabranu kartu');
+    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Baci izabranu kartu');
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
