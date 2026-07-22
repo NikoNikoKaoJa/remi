@@ -60,17 +60,16 @@ There are two builds of the same game:
   of the card it substitutes.
 - **Melds:** run (3+ same suit consecutive, no wrap around K-A-2) or set (3-4 same
   rank, distinct suits). Jokers can fill.
-- **Three kinds of "hand" (going out in one move, only if never opened before):**
+- **Two kinds of "hand" (going out in one move, only if never opened before):**
   - **Mali hand:** whole 14-card hand sums to < 51, with joker=0 and ace=1.
   - **Veliki hand:** entire hand laid down as valid melds in one move.
-  - **4 jokers / 8 identical cards:** highest tier.
 - **Scoring at end of round:**
   - Winner (went out): **−10**.
   - A player who never opened: **+100**.
   - A player who opened but didn't go out: **sum of cards left in hand**, where
     Ace = 10, Joker = 20, J/Q/K = 10, others = face.
-  - **Multiplier** if the winner went out with a hand: mali/veliki = **×2**,
-    4-jokers/8-identical = **×3** (applies to everyone's round score).
+  - **Multiplier** if the winner went out with a hand (mali/veliki): **×2**
+    (applies to everyone's round score).
 - **Drawing from discard** is only allowed if the drawn card can be laid down
   somewhere that same turn (not just kept in hand).
 - **Joker replacement:** a player may swap a joker that's exposed in a table meld
@@ -102,7 +101,7 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
 2. **`js/engine.js`** — pure rules engine + round engine (no DOM, no app
    state): `makeDeck`, `shuffle`, card values, `resolveMeld` (→ `trySet` /
    `tryRun`), `isValidMeld`, `sumOpeningValue`, `maliHandValue`,
-   `findPartition`, `findFourJokerOrEightSame`, `enumerateSingleJokerRunWindows`,
+   `findPartition`, `enumerateSingleJokerRunWindows`,
    `computeSelectedSum`/`guessJokerRankValue`, `setupRound`, `scoreRound`,
    `sweepCompletedQuads`. `canUseDiscardCard` takes the table melds as an
    explicit parameter (`tableMelds`) rather than reading app state, to keep
@@ -127,7 +126,7 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    (`applyPendingRound`, `actionReadyForScores`/`actionReadyForNextRound`/
    `actionForceNextRound`) + all `actionDrawStock`/`actionDrawDiscard`/
    `actionDiscard`/`actionLayMultipleSelected`/`actionAddToMeld`/
-   `actionReplaceJoker`/`actionDeclare{Mali,Veliki,FourJoker}Hand`/
+   `actionReplaceJoker`/`actionDeclare{Mali,Veliki}Hand`/
    `actionTryBottomCard`.
 8. **`js/render.js`** — `el()` DOM helper, `render` dispatcher, and all
    `render*` view functions.

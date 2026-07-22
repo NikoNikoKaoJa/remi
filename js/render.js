@@ -7,7 +7,7 @@ import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
   actionAddToMeld, actionLayMultipleSelected, actionDeclareMaliHand,
-  actionDeclareVelikiHand, actionDeclareFourJokerHand, actionDiscard,
+  actionDeclareVelikiHand, actionDiscard,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
 } from './actions.js';
@@ -556,10 +556,6 @@ function renderHandAndActions(app) {
       const velikiBtn = el('button', 'btn btn-ghost', 'Veliki Hand');
       velikiBtn.onclick = actionDeclareVelikiHand;
       bar.appendChild(velikiBtn);
-
-      const fourJBtn = el('button', 'btn btn-ghost', '4 Dzokera / 8 Istih');
-      fourJBtn.onclick = actionDeclareFourJokerHand;
-      bar.appendChild(fourJBtn);
     }
 
     const clearBtn = el('button', 'btn btn-ghost', 'Ponisti izbor');
@@ -630,7 +626,7 @@ function renderRoundAnnounce(app) {
   const panel = el('div', 'card-panel');
   panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
-  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
+  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 
@@ -670,7 +666,7 @@ function renderRoundScores(app) {
   const panel = el('div', 'card-panel');
   panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
-  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand', fourJoker: '4 Dzokera / 8 Istih' }[state.room.roundWinType] || 'regularno';
+  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 

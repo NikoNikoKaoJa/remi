@@ -2,7 +2,7 @@ import { state, saveDismissedQuadAnnouncements } from './state.js';
 import {
   setupRound, scoreRound, sweepCompletedQuads, isValidMeld, sumOpeningValue,
   findPartition, enumerateSingleJokerRunWindows, sequenceLabel, resolveMeld,
-  findFourJokerOrEightSame, maliHandValue, shuffle,
+  maliHandValue, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel } from './cards.js';
 import { loadRoom, saveRoom } from './storage.js';
@@ -160,7 +160,7 @@ export async function endRoundWithWinner(r, winnerId, handType) {
   r.roundWinType = handType;
   r.lastDeltas = deltas;
   r.phase = 'round_end';
-  const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : handType === 'fourJoker' ? 'handom (4 dzokera/8 istih)' : 'regularno';
+  const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : 'regularno';
   r.log.push(`${r.players.find(p => p.id === winnerId).name} je zavrsio rundu (${label})!`);
 }
 
@@ -441,25 +441,6 @@ export async function actionDeclareVelikiHand() {
   render();
 }
 
-export async function actionDeclareFourJokerHand() {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (state.room.openedPlayers.includes(state.session.playerId)) { showToast('Ovaj hand vazi samo ako se jos nisi izlagao ove runde.'); return; }
-  const hand = state.room.hands[state.session.playerId];
-  const found = findFourJokerOrEightSame(hand);
-  if (!found) { showToast('Nemas 4 dzokera ni 8 istih karata u ruci.'); return; }
-  state.busy = true;
-  state.room.melds.push({ ownerId: state.session.playerId, cards: found });
-  found.forEach(c => {
-    const idx = hand.findIndex(h => h.id === c.id);
-    if (idx !== -1) hand.splice(idx, 1);
-  });
-  if (!state.room.openedPlayers.includes(state.session.playerId)) state.room.openedPlayers.push(state.session.playerId);
-  await endRoundWithWinner(state.room, state.session.playerId, 'fourJoker');
-  await saveRoom(state.room);
-  state.busy = false;
-  render();
-}
-
 export async function actionTryBottomCard() {
   if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
   if (!state.room.specialBottomCard || state.room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
@@ -467,23 +448,20 @@ export async function actionTryBottomCard() {
   const hypothetical = myHand().concat([card]);
   // Check if drawing this card immediately enables ANY hand declaration.
   let handType = null;
-  if (findFourJokerOrEightSame(hypothetical)) handType = 'fourJoker';
+  let velikiOk = false;
+  for (let i = 0; i < hypothetical.length && !velikiOk; i++) {
+    const rest = hypothetical.filter((c, idx) => idx !== i);
+    if (findPartition(rest)) velikiOk = true;
+  }
+  if (velikiOk) handType = 'veliki';
   else {
-    let velikiOk = false;
-    for (let i = 0; i < hypothetical.length && !velikiOk; i++) {
+    // mali hand: need some discard leaving 14 with sum<51
+    let maliOk = false;
+    for (let i = 0; i < hypothetical.length && !maliOk; i++) {
       const rest = hypothetical.filter((c, idx) => idx !== i);
-      if (findPartition(rest)) velikiOk = true;
+      if (rest.length === 14 && maliHandValue(rest) < 51) maliOk = true;
     }
-    if (velikiOk) handType = 'veliki';
-    else {
-      // mali hand: need some discard leaving 14 with sum<51
-      let maliOk = false;
-      for (let i = 0; i < hypothetical.length && !maliOk; i++) {
-        const rest = hypothetical.filter((c, idx) => idx !== i);
-        if (rest.length === 14 && maliHandValue(rest) < 51) maliOk = true;
-      }
-      if (maliOk) handType = 'mali';
-    }
+    if (maliOk) handType = 'mali';
   }
   if (!handType) { showToast('Sa tom kartom ne mozes odmah da napravis hand.'); return; }
   state.busy = true;

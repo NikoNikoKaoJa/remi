@@ -264,24 +264,6 @@ export function combinations(arr, k) {
   return results;
 }
 
-// ---- 4-joker / 8-same-rank hand ----
-export function findFourJokerOrEightSame(hand) {
-  const jokers = hand.filter(c => c.joker);
-  if (jokers.length >= 4) return jokers.slice(0, 4);
-  const byRank = {};
-  hand.filter(c => !c.joker).forEach(c => { (byRank[c.rank] = byRank[c.rank] || []).push(c); });
-  let best = null;
-  for (const rank in byRank) {
-    const cards = byRank[rank];
-    const need = 8 - cards.length;
-    if (need >= 0 && need <= jokers.length && cards.length >= 1) {
-      const candidate = cards.concat(jokers.slice(0, need));
-      if (!best || candidate.length > best.length) best = candidate;
-    }
-  }
-  return best;
-}
-
 // For the "selected cards" sum display: Ace always counts as 10, and a joker
 // takes the value of whatever card it represents. If the selected cards form
 // a resolvable meld (run/set), the joker's represented card is known exactly.
@@ -410,7 +392,7 @@ export function setupRound(players, dealerIndex) {
     currentPlayerIndex: firstPlayerIdx,
     turnPhase: 'meld', // first player already has 15 cards, skips draw
     roundWinner: null,
-    roundWinType: null, // null|'mali'|'veliki'|'fourJoker'
+    roundWinType: null, // null|'mali'|'veliki'
     pendingJokerToPlace: null,
     discardDrawCardId: null,
     mustDrawFromStock: false,
@@ -419,7 +401,7 @@ export function setupRound(players, dealerIndex) {
 }
 
 export function scoreRound(r, winnerId, handType) {
-  const mult = handType === 'fourJoker' ? 3 : (handType ? 2 : 1);
+  const mult = handType ? 2 : 1;
   const deltas = {};
   r.players.forEach(p => {
     if (p.id === winnerId) {
