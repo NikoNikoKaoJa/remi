@@ -2,7 +2,8 @@
 
 Context for Claude Code. This project is a browser-based multiplayer card game
 implementing a specific Serbian variant of Rummy ("Remi"). Written by/for Niko,
-a Serbian speaker. **Communicate with the user in Serbian.**
+a Serbian speaker. **Communicate with the user in English.** Niko may write to
+you in either English or Serbian — reply in English regardless.
 
 ## What this is
 
