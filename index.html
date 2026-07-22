@@ -204,7 +204,7 @@ KORAK 5 - Prvo otvaranje
      otherwise carry the card's bottom edge away from a stationary cursor,
      causing mouseleave/mouseenter to oscillate every frame (flicker). */
   .card-slot{display:inline-flex;align-items:flex-end;}
-  .card-slot:hover .card.clickable{transform:translateY(-25%);}
+  .card-slot:hover .card.clickable:not(.selected){transform:translateY(-25%);}
   .card.mini{width:58px;height:80px;}
   .card.mini .rank{font-size:20px;}
   .card.mini .suit-sym{font-size:24px;}
