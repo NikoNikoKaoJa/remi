@@ -6,8 +6,7 @@ import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHist
 import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
-  actionAddToMeld, actionLayMultipleSelected, actionDeclareMaliHand,
-  actionDeclareVelikiHand, actionDiscard,
+  actionAddToMeld, actionLayMultipleSelected, actionDiscard,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
 } from './actions.js';
@@ -536,16 +535,6 @@ function renderHandAndActions(app) {
       addBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
       addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
       bar.appendChild(addBtn);
-    }
-
-    if (!opened) {
-      const maliBtn = el('button', 'btn btn-ghost', 'Mali Hand');
-      maliBtn.onclick = actionDeclareMaliHand;
-      bar.appendChild(maliBtn);
-
-      const velikiBtn = el('button', 'btn btn-ghost', 'Veliki Hand');
-      velikiBtn.onclick = actionDeclareVelikiHand;
-      bar.appendChild(velikiBtn);
     }
 
     const clearBtn = el('button', 'btn btn-ghost', 'Ponisti izbor');

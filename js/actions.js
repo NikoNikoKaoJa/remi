@@ -248,12 +248,35 @@ export async function actionLayMultipleSelected() {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   const cards = getSelectedCards();
   if (cards.length < 3) { showToast('Izaberi karte za izlaganje.'); return; }
-  if (cards.length === state.room.hands[state.session.playerId].length) {
+  const hand = state.room.hands[state.session.playerId];
+  if (cards.length === hand.length) {
     showToast('Moras zadrzati bar jednu kartu za bacanje - ne mozes spustiti sve karte odjednom.');
     return;
   }
+  const opened = state.room.openedPlayers.includes(state.session.playerId);
+  // Selecting everything but one card (never having opened before) is a
+  // going-out attempt: try Veliki Hand (whole selection melds validly) then
+  // Mali Hand (whole selection sums under 51) before falling back to a
+  // regular partial opening lay.
+  const goingOutAttempt = !opened && cards.length === hand.length - 1;
+  const leftoverCard = goingOutAttempt ? hand.find(c => !state.selectedIds.has(c.id)) : null;
+
   const partition = findPartition(cards);
-  if (!partition) { showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.'); return; }
+  if (!partition) {
+    if (goingOutAttempt && maliHandValue(cards) < 51) {
+      state.busy = true;
+      hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
+      state.room.discard.push(leftoverCard);
+      state.selectedIds.clear();
+      await endRoundWithWinner(state.room, state.session.playerId, 'mali');
+      await saveRoom(state.room);
+      state.busy = false;
+      render();
+      return;
+    }
+    showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.');
+    return;
+  }
   for (const group of partition) {
     const opts = enumerateSingleJokerRunWindows(group);
     if (opts) {
@@ -266,13 +289,31 @@ export async function actionLayMultipleSelected() {
       return;
     }
   }
-  const opened = state.room.openedPlayers.includes(state.session.playerId);
+
+  if (goingOutAttempt) {
+    state.busy = true;
+    cards.forEach(c => {
+      const idx = hand.findIndex(h => h.id === c.id);
+      if (idx !== -1) hand.splice(idx, 1);
+    });
+    partition.forEach(group => state.room.melds.push({ ownerId: state.session.playerId, cards: group }));
+    hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
+    state.room.discard.push(leftoverCard);
+    state.room.openedPlayers.push(state.session.playerId);
+    state.selectedIds.clear();
+    sweepCompletedQuads(state.room);
+    await endRoundWithWinner(state.room, state.session.playerId, 'veliki');
+    await saveRoom(state.room);
+    state.busy = false;
+    render();
+    return;
+  }
+
   if (!opened) {
     const val = sumOpeningValue(partition);
     if (val < 51) { showToast(`Ukupno ${val} poena - treba 51+ za prvo izlaganje.`); return; }
   }
   state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
   cards.forEach(c => {
     const idx = hand.findIndex(h => h.id === c.id);
     if (idx !== -1) hand.splice(idx, 1);
@@ -391,51 +432,6 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
-  await saveRoom(state.room);
-  state.busy = false;
-  render();
-}
-
-export async function actionDeclareMaliHand() {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  const cards = getSelectedCards();
-  if (cards.length !== 1) { showToast('Izaberi tacno jednu kartu koju bi odbacio, pa probaj Mali Hand.'); return; }
-  const hand = state.room.hands[state.session.playerId];
-  const remaining = hand.filter(c => !state.selectedIds.has(c.id));
-  if (remaining.length !== 14) { showToast('Mali hand se proverava sa 14 preostalih karata.'); return; }
-  const val = maliHandValue(remaining);
-  if (val >= 51) { showToast(`Zbir ruke je ${val} - mora biti ispod 51 za Mali Hand.`); return; }
-  state.busy = true;
-  const discardCard = cards[0];
-  const idx = hand.findIndex(c => c.id === discardCard.id);
-  hand.splice(idx, 1);
-  state.room.discard.push(discardCard);
-  state.selectedIds.clear();
-  await endRoundWithWinner(state.room, state.session.playerId, 'mali');
-  await saveRoom(state.room);
-  state.busy = false;
-  render();
-}
-
-export async function actionDeclareVelikiHand() {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (state.room.openedPlayers.includes(state.session.playerId)) { showToast('Veliki hand vazi samo ako se jos nisi izlagao ove runde.'); return; }
-  const hand = state.room.hands[state.session.playerId];
-  let found = null;
-  for (let i = 0; i < hand.length; i++) {
-    const leftover = hand[i];
-    const rest = hand.filter((c, idx) => idx !== i);
-    const partition = findPartition(rest);
-    if (partition) { found = { leftover, partition }; break; }
-  }
-  if (!found) { showToast('Nemas validan Veliki Hand sa trenutnom rukom.'); return; }
-  state.busy = true;
-  found.partition.forEach(group => state.room.melds.push({ ownerId: state.session.playerId, cards: group }));
-  state.room.discard.push(found.leftover);
-  state.room.hands[state.session.playerId] = [];
-  if (!state.room.openedPlayers.includes(state.session.playerId)) state.room.openedPlayers.push(state.session.playerId);
-  state.selectedIds.clear();
-  await endRoundWithWinner(state.room, state.session.playerId, 'veliki');
   await saveRoom(state.room);
   state.busy = false;
   render();
