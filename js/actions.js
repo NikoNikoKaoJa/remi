@@ -118,6 +118,7 @@ export async function hostResetGame() {
   state.room.melds = [];
   state.room.openedPlayers = [];
   state.room.scores = {};
+  state.room.scoreHistory = [];
   state.room.log = [];
   state.room.specialBottomCard = null;
   state.room.currentPlayerIndex = 0;
@@ -153,6 +154,8 @@ export function advanceTurn(r) {
 export async function endRoundWithWinner(r, winnerId, handType) {
   const deltas = scoreRound(r, winnerId, handType);
   r.players.forEach(p => { r.scores[p.id] = (r.scores[p.id] || 0) + deltas[p.id]; });
+  if (!r.scoreHistory) r.scoreHistory = [];
+  r.scoreHistory.push({ round: r.round, totals: { ...r.scores } });
   r.roundWinner = winnerId;
   r.roundWinType = handType;
   r.lastDeltas = deltas;

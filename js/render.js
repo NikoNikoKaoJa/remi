@@ -2,7 +2,7 @@ import { state, APP_VERSION } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, computeSelectedSum } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
-import { showToast, checkQuadAnnouncement } from './ui.js';
+import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryTable } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
@@ -592,7 +592,17 @@ function renderGame(app) {
   renderCenterTable(panel);
   renderHandAndActions(panel);
   app.appendChild(panel);
+  renderScoreHistoryButton(app);
   renderResetControl(app);
+}
+
+function renderScoreHistoryButton(app) {
+  const wrap = el('div', 'center');
+  wrap.style.marginTop = '10px';
+  const btn = el('button', 'btn btn-ghost', 'Istorija skorova');
+  btn.onclick = () => showScoreHistoryModal(state.room);
+  wrap.appendChild(btn);
+  app.appendChild(wrap);
 }
 
 function renderResetControl(app) {
@@ -664,16 +674,23 @@ function renderRoundScores(app) {
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 
-  const table = document.createElement('table');
-  table.className = 'score-table';
-  table.innerHTML = '<tr><th>Igrac</th><th>Runda</th><th>Ukupno</th></tr>';
+  const deltaTable = document.createElement('table');
+  deltaTable.className = 'score-table';
+  deltaTable.innerHTML = '<tr><th>Igrac</th><th>Runda</th><th>Ukupno</th></tr>';
   state.room.players.forEach(p => {
     const tr = document.createElement('tr');
     const delta = (state.room.lastDeltas && state.room.lastDeltas[p.id]) || 0;
     tr.innerHTML = `<td class="name">${p.name}</td><td>${delta > 0 ? '+' : ''}${delta}</td><td>${state.room.scores[p.id] || 0}</td>`;
-    table.appendChild(tr);
+    deltaTable.appendChild(tr);
   });
-  panel.appendChild(table);
+  panel.appendChild(deltaTable);
+
+  panel.appendChild(el('div', 'divider'));
+
+  panel.appendChild(el('div', 'small center', 'Istorija po rundama'));
+  const historyWrap = el('div', 'score-history-wrap');
+  historyWrap.appendChild(buildScoreHistoryTable(state.room));
+  panel.appendChild(historyWrap);
 
   panel.appendChild(el('div', 'divider'));
 

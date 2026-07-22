@@ -18,6 +18,7 @@ export async function loadRoom(code) {
 // of the app never has to special-case null vs {} vs [].
 export function hydrateRoom(r) {
   if (!r.scores) r.scores = {};
+  if (!r.scoreHistory) r.scoreHistory = [];
   if (!r.players) r.players = [];
   if (!r.hands) r.hands = {};
   if (!r.stock) r.stock = [];

@@ -61,6 +61,55 @@ export function showQuadAnnouncementModal(announcement) {
   document.getElementById('remi-root').appendChild(overlay);
 }
 
+// Builds the "paper scoresheet" style table: one row per finished round, one
+// column per player, showing the CUMULATIVE total after that round (not the
+// round's delta - matches how players track scores by hand on paper). A
+// thicker top border marks the start of a new "krug" (every player has dealt
+// once) - purely informational, no effect on scoring.
+export function buildScoreHistoryTable(room) {
+  const table = document.createElement('table');
+  table.className = 'score-table score-history-table';
+  const n = room.players.length;
+  const headRow = document.createElement('tr');
+  headRow.innerHTML = '<th>#</th>' + room.players.map(p => `<th>${p.name}</th>`).join('');
+  table.appendChild(headRow);
+  (room.scoreHistory || []).forEach(entry => {
+    const tr = document.createElement('tr');
+    if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
+    tr.innerHTML = `<td class="name">${entry.round}</td>` +
+      room.players.map(p => `<td>${entry.totals[p.id] ?? 0}</td>`).join('');
+    table.appendChild(tr);
+  });
+  return table;
+}
+
+export function showScoreHistoryModal(room) {
+  const existing = document.getElementById('score-history-modal');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'score-history-modal';
+  overlay.className = 'modal-overlay';
+  const box = document.createElement('div');
+  box.className = 'modal-box modal-box-wide';
+  const h = document.createElement('h3');
+  h.textContent = 'Istorija skorova';
+  h.style.marginBottom = '10px';
+  box.appendChild(h);
+  const wrap = document.createElement('div');
+  wrap.className = 'score-history-wrap';
+  wrap.appendChild(buildScoreHistoryTable(room));
+  box.appendChild(wrap);
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-ghost';
+  closeBtn.textContent = 'Zatvori';
+  closeBtn.style.width = '100%';
+  closeBtn.style.marginTop = '14px';
+  closeBtn.onclick = () => overlay.remove();
+  box.appendChild(closeBtn);
+  overlay.appendChild(box);
+  document.getElementById('remi-root').appendChild(overlay);
+}
+
 export function showChoiceModal(title, options, onPick) {
   const existing = document.getElementById('choice-modal');
   if (existing) existing.remove();
