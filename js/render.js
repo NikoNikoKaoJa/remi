@@ -605,7 +605,7 @@ function renderGame(app) {
 function renderScoreHistoryButton(app) {
   const wrap = el('div', 'center');
   wrap.style.marginTop = '10px';
-  const btn = el('button', 'btn btn-ghost', 'Istorija skorova');
+  const btn = el('button', 'btn btn-ghost', 'Rezultat');
   btn.onclick = () => showScoreHistoryModal(state.room);
   wrap.appendChild(btn);
   app.appendChild(wrap);

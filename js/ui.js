@@ -76,7 +76,7 @@ export function buildScoreHistoryTable(room) {
   (room.scoreHistory || []).forEach(entry => {
     const tr = document.createElement('tr');
     if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
-    tr.innerHTML = `<td class="name">${entry.round}</td>` +
+    tr.innerHTML = `<td class="name round-num">${entry.round}</td>` +
       room.players.map(p => `<td>${entry.totals[p.id] ?? 0}</td>`).join('');
     table.appendChild(tr);
   });
@@ -92,7 +92,7 @@ export function showScoreHistoryModal(room) {
   const box = document.createElement('div');
   box.className = 'modal-box modal-box-wide';
   const h = document.createElement('h3');
-  h.textContent = 'Istorija skorova';
+  h.textContent = 'Rezultat';
   h.style.marginBottom = '10px';
   box.appendChild(h);
   const wrap = document.createElement('div');
@@ -100,7 +100,7 @@ export function showScoreHistoryModal(room) {
   wrap.appendChild(buildScoreHistoryTable(room));
   box.appendChild(wrap);
   const closeBtn = document.createElement('button');
-  closeBtn.className = 'btn btn-ghost';
+  closeBtn.className = 'btn btn-gold';
   closeBtn.textContent = 'Zatvori';
   closeBtn.style.width = '100%';
   closeBtn.style.marginTop = '14px';
