@@ -64,9 +64,9 @@ KORAK 5 - Prvo otvaranje
     --panel-line:rgba(233,226,207,0.14);
     --danger:#c0483a;
     --good:#5fae72;
-    --font-display:'Fraunces', serif;
+    --font-display:'Inter', system-ui, sans-serif;
     --font-body:'Inter', system-ui, sans-serif;
-    --font-mono:'JetBrains Mono', monospace;
+    --font-mono:'Inter', system-ui, sans-serif;
   }
   *{box-sizing:border-box;}
   #remi-root{
@@ -192,7 +192,7 @@ KORAK 5 - Prvo otvaranje
   .card.back::after{
     content:'';position:absolute;inset:5px;border:1px solid rgba(201,162,39,0.35);border-radius:4px;
   }
-  .card.selected{box-shadow:0 0 0 3px var(--gold-bright);transform:translateY(-50%);}
+  .card.selected{box-shadow:0 0 0 3px var(--gold-bright);transform:translateY(-25%);}
   .card.just-drawn{box-shadow:0 0 0 4.5px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
   .card.selected.just-drawn{box-shadow:0 0 0 3px var(--gold-bright), 0 0 0 7.5px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
   .card.joker-replaceable{outline:2px dashed var(--gold-bright);outline-offset:1px;}

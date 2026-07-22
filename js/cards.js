@@ -33,24 +33,37 @@ export function cardBackEl(mini) {
   div.className = 'card back' + (mini ? ' mini' : '');
   return div;
 }
+// Suit tie-break order when two cards share a rank - matches SUIT_SYM's
+// declaration order (S, H, D, C).
+const SUIT_ORDER = { S: 0, H: 1, D: 2, C: 3 };
 export function sortHand(hand) {
   return hand.slice().sort((a, b) => {
     if (a.joker && b.joker) return 0;
     if (a.joker) return 1;
     if (b.joker) return -1;
-    if (a.suit !== b.suit) return a.suit.localeCompare(b.suit);
     const ra = a.rank === 1 ? 14 : a.rank;
     const rb = b.rank === 1 ? 14 : b.rank;
-    return ra - rb;
+    if (ra !== rb) return rb - ra; // value descending: A, K, Q, J, 10 ... 2 (left to right)
+    return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
   });
 }
 // Applies a player's manually-dragged card order (an array of card ids) if
 // one exists; cards not present in it (e.g. a card just drawn this turn)
-// fall back to sortHand and are appended at the end.
-export function orderHand(hand, order) {
-  if (!order || order.length === 0) return sortHand(hand);
+// fall back to sortHand and are appended at the end. If pinFirstId is given
+// (the last-drawn card's id), it is unconditionally moved to the front
+// afterwards - this is the single place that rule lives, so a freshly drawn
+// card is always the leftmost card regardless of whether the player has a
+// saved manual order or not.
+export function orderHand(hand, order, pinFirstId) {
+  const ord = order || [];
   const byId = new Map(hand.map(c => [c.id, c]));
-  const ordered = order.map(id => byId.get(id)).filter(Boolean);
-  const orderedIds = new Set(order);
-  return ordered.concat(sortHand(hand.filter(c => !orderedIds.has(c.id))));
+  const known = ord.map(id => byId.get(id)).filter(Boolean);
+  const orderedIds = new Set(ord);
+  const fresh = sortHand(hand.filter(c => !orderedIds.has(c.id)));
+  const result = known.concat(fresh);
+  if (pinFirstId) {
+    const idx = result.findIndex(c => c.id === pinFirstId);
+    if (idx > 0) result.unshift(result.splice(idx, 1)[0]);
+  }
+  return result;
 }

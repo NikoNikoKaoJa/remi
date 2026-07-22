@@ -434,15 +434,6 @@ function sortMeldForDisplay(cards) {
 function renderHandAndActions(app) {
   const handWrap = el('div', 'hand-area');
   const titleRow = el('div', 'hand-title-row');
-  titleRow.appendChild(el('h3', null, 'Tvoja ruka'));
-  const countLbl = el('div', 'small', myHand().length + ' karata');
-  titleRow.appendChild(countLbl);
-  handWrap.appendChild(titleRow);
-
-  const sumRow = el('div', 'small');
-  sumRow.style.textAlign = 'center';
-  sumRow.style.marginBottom = '4px';
-  sumRow.style.color = 'var(--navy-blue)';
   const opened_ = state.room.openedPlayers.includes(state.session.playerId);
   let sumText;
   if (!opened_) {
@@ -451,8 +442,10 @@ function renderHandAndActions(app) {
     const standardSum = myHand().reduce((s, c) => s + cardValueStandard(c), 0);
     sumText = `Zbir ruke: ${standardSum}`;
   }
-  sumRow.textContent = sumText;
-  handWrap.appendChild(sumRow);
+  titleRow.appendChild(el('div', 'small', sumText));
+  const countLbl = el('div', 'small', myHand().length + ' karata');
+  titleRow.appendChild(countLbl);
+  handWrap.appendChild(titleRow);
 
   // Always render this row (even with nothing selected) so its height is
   // reserved up front - toggling it in/out on selection used to shift the
@@ -478,7 +471,8 @@ function renderHandAndActions(app) {
   // .card-slot:hover and would otherwise overlap the "Zbir ruke" text above.
   const cardsRow = el('div', 'hand-cards' + ((canPick || selectedCards.length > 0) ? ' has-selection' : ''));
   const myHandOrder = (state.room.handOrders || {})[state.session.playerId] || null;
-  orderHand(myHand(), myHandOrder).forEach(c => {
+  const myDrawnCardId = state.room.lastDrawnPlayerId === state.session.playerId ? state.room.lastDrawnCardId : null;
+  orderHand(myHand(), myHandOrder, myDrawnCardId).forEach(c => {
     const selected = state.selectedIds.has(c.id);
     const drawn = state.room.lastDrawnPlayerId === state.session.playerId && state.room.lastDrawnCardId === c.id;
     const pending = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId && state.room.pendingJokerToPlace.jokerCardId === c.id;
