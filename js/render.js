@@ -537,9 +537,16 @@ function renderHandAndActions(app) {
       bar.appendChild(addBtn);
     }
 
-    const clearBtn = el('button', 'btn btn-ghost', 'Ponisti izbor');
-    clearBtn.disabled = state.selectedIds.size === 0;
-    clearBtn.onclick = () => { state.selectedIds.clear(); render(); };
+    const hasSelection = state.selectedIds.size > 0;
+    const clearBtn = el('button', 'btn btn-ghost', hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
+    clearBtn.onclick = () => {
+      if (hasSelection) {
+        state.selectedIds.clear();
+      } else {
+        myHand().forEach(c => state.selectedIds.add(c.id));
+      }
+      render();
+    };
     bar.appendChild(clearBtn);
 
     const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
