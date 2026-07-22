@@ -440,7 +440,7 @@ function renderHandAndActions(app) {
     // the sum for the best 14 (i.e. drop the single highest-value card) rather
     // than the full hand, which may still hold that soon-to-be-discarded card.
     const smallest14 = myHand().slice().sort((a, b) => cardValueMaliHand(a) - cardValueMaliHand(b)).slice(0, 14);
-    sumText = `Zbir 14 karata ako ides na mali hand: ${maliHandValue(smallest14)}`;
+    sumText = `Zbir 14 karata ako ides na mali hand [ ${maliHandValue(smallest14)} ]`;
   } else {
     const standardSum = myHand().reduce((s, c) => s + cardValueStandard(c), 0);
     sumText = `Zbir ruke: ${standardSum}`;
