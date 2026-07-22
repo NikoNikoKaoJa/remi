@@ -47,19 +47,6 @@ Use `AskUserQuestion` (one question, in Serbian):
   confirmation, commit, push, and build-wait, and opens the live site in
   Safari on success.
 
-## Step 5 - After remi-ship succeeds, also open Chrome
-
-`remi-ship` already opens `https://nikonikokaoja.github.io/remi/` in both
-Safari and Chrome once the GitHub Pages build completes:
-```
-open -a "Google Chrome" "https://nikonikokaoja.github.io/remi/"
-```
-This skill's job is just to make sure that happens as part of the
-test -> ship loop below - `remi-ship` itself owns the actual open calls.
-
-If `remi-ship` reports the build failed, stop here - don't open either
-browser, that's already handled by `remi-ship`'s own failure path.
-
 ## Notes
 
 - Never skip straight to `remi-ship` without running the test loop first -
