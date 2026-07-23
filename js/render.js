@@ -427,9 +427,10 @@ function sortMeldForDisplay(cards) {
     const jokers = cards.filter(c => c.joker);
     return normal.slice().sort((a, b) => a.rank - b.rank).concat(jokers);
   }
-  // Runs: resolved.cards is already in ascending sequence order - place each
-  // joker at the exact slot of the card it substitutes instead of trailing.
-  return resolved.cards.map(item => {
+  // Runs: resolved.cards is in ascending sequence order - reverse it so the
+  // run displays highest-to-lowest, and place each joker at the exact slot
+  // of the card it substitutes instead of trailing.
+  return resolved.cards.slice().reverse().map(item => {
     if (item.isJoker) return cards.find(c => c.id === item.jokerCardId) || cards.find(c => c.joker);
     return cards.find(c => c.id === item.card.id) || item.card;
   });
