@@ -4,12 +4,28 @@ export const RANK_SYM = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
 export function rankLabel(r) { return RANK_SYM[r] || String(r); }
 export function isRedSuit(s) { return s === 'H' || s === 'D'; }
 
+// Cap-and-bells jester icon standing in for the joker's suit symbol - three
+// curled points of the hat each tipped with a bell, above a smiling face.
+const JOKER_ICON_SVG = `<svg class="joker-icon" viewBox="0 0 64 64" aria-hidden="true">
+  <path d="M20 26 C10 22 6 10 12 3 C17 11 22 19 27 25 Z" fill="var(--red)"/>
+  <path d="M28 21 C26 10 30 1 36 1 C36 11 33 19 30 24 Z" fill="var(--red)"/>
+  <path d="M44 26 C54 22 58 10 52 3 C47 11 42 19 37 25 Z" fill="var(--red)"/>
+  <circle cx="12" cy="4" r="3.4" fill="var(--gold-bright)"/>
+  <circle cx="36" cy="2" r="3.4" fill="var(--gold-bright)"/>
+  <circle cx="52" cy="4" r="3.4" fill="var(--gold-bright)"/>
+  <path d="M17 26 Q32 34 47 26 L47 30 Q32 39 17 30 Z" fill="var(--red)"/>
+  <circle cx="32" cy="40" r="13" fill="var(--cream)" stroke="var(--ink)" stroke-width="1.5"/>
+  <circle cx="27" cy="39" r="1.8" fill="var(--ink)"/>
+  <circle cx="37" cy="39" r="1.8" fill="var(--ink)"/>
+  <path d="M25 44 Q32 50 39 44" stroke="var(--ink)" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>`;
+
 export function cardEl(card, opts) {
   opts = opts || {};
   const div = document.createElement('div');
   div.className = 'card' + (card.joker ? ' joker' : (isRedSuit(card.suit) ? ' red' : '')) + (opts.mini ? ' mini' : '') + (opts.clickable ? ' clickable' : '') + (opts.selected ? ' selected' : '');
   if (card.joker) {
-    div.innerHTML = '<div class="rank">DZOKER</div><div class="suit-sym">★</div>';
+    div.innerHTML = `<div class="rank">Joker</div>${JOKER_ICON_SVG}`;
   } else {
     div.innerHTML = `<div class="rank">${rankLabel(card.rank)}</div><div class="suit-sym">${SUIT_SYM[card.suit]}</div>`;
   }
