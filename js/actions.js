@@ -228,6 +228,11 @@ export async function actionDiscard(cardId) {
   const hand = state.room.hands[state.session.playerId];
   const idx = hand.findIndex(c => c.id === cardId);
   if (idx === -1) { state.busy = false; return; }
+  if (hand[idx].joker && hand.length > 1 && !isReturningDiscardDraw) {
+    showToast('Dzokera mozes baciti samo ako ti je to jedina karta u ruci.');
+    state.busy = false;
+    return;
+  }
   const [card] = hand.splice(idx, 1);
   state.room.discard.push(card);
   state.selectedIds.clear();
