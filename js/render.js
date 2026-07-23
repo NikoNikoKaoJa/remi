@@ -322,7 +322,7 @@ function renderOpponents(app) {
     c.appendChild(nameLine);
     const handCount = (state.room.hands[p.id] || []).length;
     const meta = el('div', 'meta');
-    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>Izlozen' : 'Nije izlozen') + ` • ${handCount} karata`;
+    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ` ${handCount} karata`;
     c.appendChild(meta);
     if (i === state.room.dealerIndex) {
       const b = el('span', 'dealer-badge', 'DELI');
@@ -517,7 +517,7 @@ function renderHandAndActions(app) {
     const selectingWholeHand = state.selectedIds.size === myHand().length && myHand().length > 0;
     const layBtn = el('button', 'btn btn-gold');
     if (opened) {
-      layBtn.textContent = 'Spusti kombinaciju';
+      layBtn.textContent = 'Izlozi se';
       layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     } else {
       layBtn.append(
@@ -530,14 +530,17 @@ function renderHandAndActions(app) {
     bar.appendChild(layBtn);
 
     if (opened) {
-      const addBtn = el('button', 'btn btn-outline-gold', 'Dodaj na kombinaciju (klikni na sto)');
+      const addBtn = el('button', 'btn btn-outline-gold', 'Krpi se');
       addBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
       addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
       bar.appendChild(addBtn);
     }
 
     const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
+    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', opened || hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
+    if (opened) {
+      clearBtn.disabled = !hasSelection;
+    }
     clearBtn.onclick = () => {
       if (hasSelection) {
         state.selectedIds.clear();
