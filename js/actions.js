@@ -338,8 +338,10 @@ export async function actionLayMultipleSelected() {
   partition.forEach(group => state.room.melds.push({ ownerId: state.session.playerId, cards: group }));
   if (!opened) state.room.openedPlayers.push(state.session.playerId);
   state.selectedIds.clear();
+  // Jokers are fungible - laying down ANY joker satisfies the requirement to
+  // place the one freed by actionReplaceJoker, not just that exact card id.
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
-      && !hand.some(c => c.id === state.room.pendingJokerToPlace.jokerCardId)) {
+      && cards.some(c => c.joker)) {
     state.room.pendingJokerToPlace = null;
   }
   if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
@@ -383,8 +385,10 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   meld.cards = combined;
   state.selectedIds.clear();
   state.addToMeldTarget = null;
+  // Jokers are fungible - laying down ANY joker satisfies the requirement to
+  // place the one freed by actionReplaceJoker, not just that exact card id.
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
-      && !hand.some(c => c.id === state.room.pendingJokerToPlace.jokerCardId)) {
+      && cards.some(c => c.joker)) {
     state.room.pendingJokerToPlace = null;
   }
   if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
