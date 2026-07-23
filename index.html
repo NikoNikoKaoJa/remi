@@ -179,7 +179,7 @@ KORAK 5 - Prvo otvaranje
   }
   .stock-discard-row{display:flex;justify-content:center;gap:26px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
   .pile-label{font-size:15px;color:var(--cream-dim);text-align:center;margin-top:5px;text-transform:uppercase;letter-spacing:0.8px;line-height:3.25;}
-  .pile-stack{position:relative;width:56px;height:78px;cursor:pointer;}
+  .pile-stack{position:relative;cursor:pointer;}
   .pile-stack.disabled{cursor:not-allowed;opacity:0.5;}
 
   .card{
@@ -220,9 +220,6 @@ KORAK 5 - Prvo otvaranje
      causing mouseleave/mouseenter to oscillate every frame (flicker). */
   .card-slot{display:inline-flex;align-items:flex-end;}
   .card-slot:hover .card.clickable:not(.selected){transform:translateY(-25%);}
-  .card.mini{width:58px;height:80px;}
-  .card.mini .rank{font-size:20px;}
-  .card.mini .suit-sym{font-size:24px;}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
   /* The "ispod talona" card pokes out sideways (rotated 90deg) from behind
