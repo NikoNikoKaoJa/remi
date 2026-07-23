@@ -566,6 +566,9 @@ function renderHandAndActions(app) {
 function renderGame(app) {
   const panel = el('div', 'card-panel table-area');
   renderOpponents(panel);
+  const toastAnchor = el('div', 'toast-anchor');
+  toastAnchor.id = 'toast-anchor';
+  panel.appendChild(toastAnchor);
   renderCenterTable(panel);
   renderHandAndActions(panel);
   app.appendChild(panel);

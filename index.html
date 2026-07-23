@@ -264,11 +264,20 @@ KORAK 5 - Prvo otvaranje
     text-align:center;font-family:var(--font-display);font-size:23px;color:var(--gold-bright);
     margin-bottom:10px;letter-spacing:0.3px;
   }
+  /* Sits inside #toast-anchor (a zero-height marker just above the
+     talon/otpad piles) so it floats right above the piles instead of
+     pinned to the page's bottom edge, where it's easy to miss. */
+  .toast-anchor{position:relative;height:0;}
   .toast{
-    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    position:absolute;left:50%;top:0;transform:translate(-50%,-100%);
+    margin-top:-10px;
     background:var(--ink);color:var(--cream);padding:11px 18px;border-radius:9px;
     font-size:18px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:50;
     border:1px solid var(--gold);max-width:90%;text-align:center;
+  }
+  /* Fallback for screens with no #toast-anchor (lobby, join, etc). */
+  .toast.toast-fixed{
+    position:fixed;left:50%;top:auto;bottom:26px;transform:translateX(-50%);margin-top:0;
   }
 
   /* Fixed to the page's bottom-right corner (viewport, not any one panel);

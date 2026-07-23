@@ -8,7 +8,13 @@ export function showToast(msg, ms) {
   if (el) el.remove();
   const t = document.createElement('div');
   t.id = 'toast'; t.className = 'toast'; t.textContent = msg;
-  document.getElementById('remi-root').appendChild(t);
+  // On the game screen, anchor the toast just above the talon/otpad piles
+  // (where attention already is) instead of the page's fixed bottom edge,
+  // which is easy to miss. Other screens (lobby, etc.) have no anchor, so
+  // they keep the old fixed-to-viewport placement.
+  const anchor = document.getElementById('toast-anchor');
+  if (anchor) anchor.appendChild(t);
+  else { t.classList.add('toast-fixed'); document.getElementById('remi-root').appendChild(t); }
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => t.remove(), ms || 2600);
 }
