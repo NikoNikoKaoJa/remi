@@ -149,12 +149,12 @@ export function render() {
   } else if (state.room.phase === 'cutting') {
     renderCutReveal(app);
   }
+  app.appendChild(versionBadge());
   checkQuadAnnouncement();
 }
 
 function renderDbSetup(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Podesavanje (samo prvi put)'));
   panel.appendChild(el('div', 'small', 'Ova igra cuva stanje partije u besplatnoj Firebase bazi (ne treba Claude nalog). Ako je host vec podesio bazu i poslao ti link, samo otvori taj link - ovaj korak ce se preskociti automatski. Ako si host i tek podesavas, nalepi ovde "Database URL" tvog Firebase Realtime Database projekta.'));
   const field = el('div', 'field');
@@ -181,7 +181,6 @@ function renderDbSetup(app) {
 
 function renderLanding(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   const nameField = el('div', 'field');
   nameField.innerHTML = '<label>Tvoje ime</label>';
   const nameInput = document.createElement('input');
@@ -242,7 +241,6 @@ function renderLanding(app) {
 
 function renderLobby(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Cekaonica'));
   panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima igracim - kad ga otvore, sve je vec podeseno'));
 
@@ -309,6 +307,14 @@ function renderLobby(app) {
 
 function renderOpponents(app) {
   const rowEl = el('div', 'opponents-row');
+  rowEl.style.position = 'relative';
+  const stanjeBtn = el('button', 'btn btn-outline-gold', 'Stanje');
+  stanjeBtn.style.position = 'absolute';
+  stanjeBtn.style.left = '0';
+  stanjeBtn.style.top = '50%';
+  stanjeBtn.style.transform = 'translateY(-50%)';
+  stanjeBtn.onclick = () => showScoreHistoryModal(state.room);
+  rowEl.appendChild(stanjeBtn);
   state.room.players.forEach((p, i) => {
     if (p.id === state.session.playerId) return;
     const c = el('div', 'opp-card' + (state.room.currentPlayerIndex === i ? ' active' : ''));
@@ -501,14 +507,6 @@ function renderHandAndActions(app) {
     app.appendChild(warn);
   }
 
-  const discardDrawPending = myTurn && state.room.discardDrawCardId && myHand().some(c => c.id === state.room.discardDrawCardId);
-  if (discardDrawPending) {
-    const warn = el('div', 'small center', '⚠️ Kartu koju si uzeo sa otpada moras da izlozis ili odigras u hand ovog poteza - ili je izaberi i klikni "Vrati kartu na otpad".');
-    warn.style.color = 'var(--gold-bright)';
-    warn.style.marginBottom = '10px';
-    app.appendChild(warn);
-  }
-
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
@@ -539,7 +537,7 @@ function renderHandAndActions(app) {
     }
 
     const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
+    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
     clearBtn.onclick = () => {
       if (hasSelection) {
         state.selectedIds.clear();
@@ -556,36 +554,20 @@ function renderHandAndActions(app) {
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
-  } else if (myTurn && state.room.turnPhase === 'draw') {
-    const msg = state.room.mustDrawFromStock ? 'Vratio si kartu na otpad - vuci kartu sa talona da nastavis.' : 'Vuci kartu sa talona ili otpada da nastavis.';
-    bar.appendChild(el('div', 'small center', msg));
+  } else if (myTurn && state.room.turnPhase === 'draw' && state.room.mustDrawFromStock) {
+    bar.appendChild(el('div', 'small center', 'Vratio si kartu na otpad - vuci kartu sa talona da nastavis.'));
   }
 
   app.appendChild(bar);
-
-  const log = el('div', 'log-box');
-  (state.room.log || []).slice(-8).forEach(l => log.appendChild(el('div', null, l)));
-  app.appendChild(log);
 }
 
 function renderGame(app) {
   const panel = el('div', 'card-panel table-area');
-  panel.appendChild(versionBadge());
   renderOpponents(panel);
   renderCenterTable(panel);
   renderHandAndActions(panel);
   app.appendChild(panel);
-  renderScoreHistoryButton(app);
   renderResetControl(app);
-}
-
-function renderScoreHistoryButton(app) {
-  const wrap = el('div', 'center');
-  wrap.style.marginTop = '10px';
-  const btn = el('button', 'btn btn-outline-gold', 'Rezultat');
-  btn.onclick = () => showScoreHistoryModal(state.room);
-  wrap.appendChild(btn);
-  app.appendChild(wrap);
 }
 
 function renderResetControl(app) {
@@ -611,7 +593,6 @@ function renderRoundEnd(app) {
 
 function renderRoundAnnounce(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
@@ -651,7 +632,6 @@ function renderRoundAnnounce(app) {
 
 function renderRoundScores(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
   panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
@@ -701,7 +681,6 @@ function renderRoundScores(app) {
 
 function renderCutReveal(app) {
   const panel = el('div', 'card-panel');
-  panel.appendChild(versionBadge());
   panel.appendChild(el('h2', null, 'Sece se...'));
   const pr = state.room.pendingRound;
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));

@@ -220,7 +220,7 @@ export async function actionDiscard(cardId) {
     return;
   }
   if (state.room.discardDrawCardId && state.room.discardDrawCardId !== cardId) {
-    showToast('Kartu koju si uzeo sa otpada moras da iskoristis (izlozis) ovog poteza, ili je vratis nazad na otpad.');
+    showToast('⚠️ Kartu koju si uzeo sa otpada moras da izlozis/handiras ili je izaberi i klikni "Vrati kartu na otpad".');
     return;
   }
   const isReturningDiscardDraw = state.room.discardDrawCardId === cardId;
@@ -316,7 +316,7 @@ export async function actionLayMultipleSelected() {
 
   if (!opened) {
     const val = sumOpeningValue(partition);
-    if (val < 51) { showToast(`Ukupno ${val} poena - treba 51+ za prvo izlaganje.`); return; }
+    if (val < 51) { showToast(`Ukupno ${val} poena - treba bar 51 za prvo izlaganje.`); return; }
   }
   state.busy = true;
   cards.forEach(c => {
@@ -341,7 +341,7 @@ export async function actionLayMultipleSelected() {
 
 export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (!state.room.openedPlayers.includes(state.session.playerId)) { showToast('Prvo se moras izloziti (51+ poena) da bi dodavao karte.'); return; }
+  if (!state.room.openedPlayers.includes(state.session.playerId)) { showToast('Prvo se moras izloziti da bi dodavao karte.'); return; }
   const cards = getSelectedCards();
   if (cards.length === 0) { showToast('Izaberi karte iz ruke koje zelis da dodas.'); return; }
   if (cards.length === state.room.hands[state.session.playerId].length) {
