@@ -81,13 +81,23 @@ There are two builds of the same game:
 - **Completed real 4-of-a-kind** (four identical real cards, no joker) is swept
   off the table to the BOTTOM of the discard pile, and every player sees a
   dismissible dialog with the four cards highlighted in fluorescent green.
-- **Hand display:** cards sort by value descending (Ace, King, Queen, ... 2,
-  left to right), suit as tie-break; jokers last. A freshly drawn card lands
-  leftmost on arrival (`orderHand` in `js/cards.js` takes `pinFirstId` = the
-  last-drawn card's id and forces it to index 0, the one place this rule
-  lives) - but only until the player drags it themselves; once it has a
-  manual position in `room.handOrders`, that placement is respected instead
-  of snapping back. `room.lastDrawnPlayerId`/`lastDrawnCardId` (and thus the
+- **Hand display:** the freshly-dealt opening hand is sorted by value
+  descending (Ace, King, Queen, ... 2, left to right), suit as tie-break,
+  jokers last (`sortHand` in `js/cards.js`) - but that's a ONE-TIME seed:
+  `applyPendingRound` (`js/actions.js`) writes that sorted order straight
+  into `room.handOrders` at deal time. From then on the hand is NEVER
+  auto-resorted - any card drawn afterward is just appended in natural
+  draw order (`orderHand` in `js/cards.js` no longer calls `sortHand` on
+  not-yet-manually-placed cards). This is deliberate: auto-resorting the
+  whole hand on every change shifted other cards' positions each time,
+  which players found disorienting; sorting only the initial deal avoids
+  that while still giving a tidy starting hand. `sortHand` is also still
+  used as-is for the read-only round-end reveal of the winner's hand
+  (`js/render.js`). A freshly drawn card lands leftmost on arrival (`orderHand` takes
+  `pinFirstId` = the last-drawn card's id and forces it to index 0, the one
+  place this rule lives) - but only until the player drags it themselves;
+  once it has a manual position in `room.handOrders`, that placement is
+  respected instead of snapping back. `room.lastDrawnPlayerId`/`lastDrawnCardId` (and thus the
   pin + the blue "just drawn" highlight) are cleared in `advanceTurn`
   (`js/actions.js`) once the drawing player discards, so they don't linger
   into later turns. A run's joker displays in the slot it represents, not

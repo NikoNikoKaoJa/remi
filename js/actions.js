@@ -4,7 +4,7 @@ import {
   findPartition, enumerateSingleJokerRunWindows, sequenceLabel, resolveMeld,
   maliHandValue, shuffle,
 } from './engine.js';
-import { SUIT_SYM, rankLabel } from './cards.js';
+import { SUIT_SYM, rankLabel, sortHand } from './cards.js';
 import { loadRoom, saveRoom } from './storage.js';
 import { showToast, showChoiceModal } from './ui.js';
 import { render } from './render.js';
@@ -53,7 +53,14 @@ export function applyPendingRound(r) {
   if (!pr.stock) pr.stock = [];
   Object.assign(r, pr);
   r.round = (r.round || 0) + 1;
-  r.handOrders = {}; // fresh deck each round means old card ids (and thus old order) never match anyway
+  // Seed each player's order with their freshly-dealt hand pre-sorted, so the
+  // opening hand reads nicely - but from here on this is just a regular
+  // manual `handOrders` entry, so any card drawn afterward is only appended
+  // (see orderHand in js/cards.js), never auto-resorted alongside it.
+  r.handOrders = {};
+  r.players.forEach(p => {
+    r.handOrders[p.id] = sortHand(r.hands[p.id] || []).map(c => c.id);
+  });
   r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
   r.pendingRound = null;
   r.cutRevealedAt = null;

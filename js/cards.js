@@ -66,7 +66,9 @@ export function sortHand(hand) {
 }
 // Applies a player's manually-dragged card order (an array of card ids) if
 // one exists; cards not present in it (e.g. a card just drawn this turn)
-// fall back to sortHand and are appended at the end. If pinFirstId is given
+// keep the hand's natural (deal/draw) order instead of being auto-sorted -
+// players found an automatic re-sort disorienting since it shifts other
+// cards' positions every time the hand changes. If pinFirstId is given
 // (the last-drawn card's id) and it has no manual position yet, it's moved
 // to the front - this is the single place that rule lives, so a freshly
 // drawn card lands leftmost on arrival. Once the player drags it themselves
@@ -77,7 +79,7 @@ export function orderHand(hand, order, pinFirstId) {
   const byId = new Map(hand.map(c => [c.id, c]));
   const known = ord.map(id => byId.get(id)).filter(Boolean);
   const orderedIds = new Set(ord);
-  const fresh = sortHand(hand.filter(c => !orderedIds.has(c.id)));
+  const fresh = hand.filter(c => !orderedIds.has(c.id));
   const result = known.concat(fresh);
   if (pinFirstId && !orderedIds.has(pinFirstId)) {
     const idx = result.findIndex(c => c.id === pinFirstId);
