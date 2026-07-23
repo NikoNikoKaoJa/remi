@@ -315,6 +315,16 @@ function renderOpponents(app) {
   stanjeBtn.style.transform = 'translateY(-50%)';
   stanjeBtn.onclick = () => showScoreHistoryModal(state.room);
   rowEl.appendChild(stanjeBtn);
+  const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
+  if (isHost) {
+    const resetBtn = el('button', 'btn btn-danger', 'Reset');
+    resetBtn.style.position = 'absolute';
+    resetBtn.style.right = '0';
+    resetBtn.style.top = '50%';
+    resetBtn.style.transform = 'translateY(-50%)';
+    resetBtn.onclick = hostResetGame;
+    rowEl.appendChild(resetBtn);
+  }
   state.room.players.forEach((p, i) => {
     if (p.id === state.session.playerId) return;
     const c = el('div', 'opp-card' + (state.room.currentPlayerIndex === i ? ' active' : ''));
@@ -583,7 +593,6 @@ function renderGame(app) {
   renderCenterTable(panel);
   renderHandAndActions(panel);
   app.appendChild(panel);
-  renderResetControl(app);
 }
 
 function renderResetControl(app) {
@@ -591,7 +600,7 @@ function renderResetControl(app) {
   if (!isHost) return;
   const wrap = el('div', 'center');
   wrap.style.marginTop = '14px';
-  const btn = el('button', 'btn btn-danger', 'Prekini igru i resetuj');
+  const btn = el('button', 'btn btn-danger', 'Reset');
   btn.onclick = hostResetGame;
   wrap.appendChild(btn);
   app.appendChild(wrap);
