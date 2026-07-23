@@ -717,7 +717,7 @@ function renderRoundScores(app) {
 
   const isHost = state.room.players[0] && state.room.players[0].id === myId;
   if (isHost) {
-    const forceBtn = el('button', 'btn btn-outline-gold', 'Podeli ionako');
+    const forceBtn = el('button', 'btn btn-outline-gold', 'Podeli Sada - bez cekanja');
     forceBtn.style.width = '100%';
     forceBtn.style.marginTop = '8px';
     forceBtn.onclick = actionForceNextRound;
