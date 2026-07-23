@@ -61,6 +61,8 @@ KORAK 5 - Prvo otvaranje
     --cream-dim:#e9e2cf;
     --ink:#1c1a14;
     --red:#a3273a;
+    --jester-red:#e0293f;
+    --jester-gold:#f4c430;
     --panel:#1c4a35;
     --panel-line:rgba(233,226,207,0.14);
     --danger:#c0483a;
@@ -91,7 +93,7 @@ KORAK 5 - Prvo otvaranje
     overflow-x:hidden;
   }
   #remi-root *{box-sizing:border-box;}
-  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 40px;}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px;}
   h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
   .brand{
     display:flex;align-items:baseline;gap:10px;justify-content:center;
@@ -195,8 +197,8 @@ KORAK 5 - Prvo otvaranje
   .card .rank{font-size:29px;line-height:1;}
   .card .suit-sym{font-size:34px;line-height:1;margin-top:3px;}
   .card.joker{border-color:var(--red);}
-  .card.joker .rank{font-size:11px;letter-spacing:0.5px;color:var(--red);margin-bottom:1px;}
-  .card.joker .joker-icon{width:52px;height:52px;}
+  .card.joker .rank{font-size:18px;letter-spacing:0.5px;color:#e8720f;margin-bottom:1px;}
+  .card.joker .joker-icon{width:56px;height:56px;}
   .card.back{
     border:1px solid rgba(201,162,39,0.4);
   }
@@ -246,15 +248,16 @@ KORAK 5 - Prvo otvaranje
   .meld-cards .card{margin-left:0;}
 
   .hand-area{margin-top:18px;}
-  .hand-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-  .hand-cards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:10px 4px;}
+  .hand-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:0px;}
+  .hand-cards{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:2px 4px 10px;margin-top:0px;}
   /* Lets pointerdown+move on a hand card start a reorder drag instead of the
      browser hijacking it as a page scroll (see enableHandReorder in render.js). */
   .hand-cards .card, .hand-cards .card-slot{touch-action:none;}
-  /* Selected cards lift transform:translateY(-50%) (see .card.selected) without
-     reserving layout space, so leave room above the row to keep that lift from
+  /* Selected/hovered cards lift transform:translateY(-25%) (see .card.selected)
+     without reserving layout space, so leave just enough room above the row -
+     card height minus the negative margin-top above - to keep that lift from
      painting over the "Zbir ruke" text above it. */
-  .hand-cards.has-selection{padding-top:50px;}
+  .hand-cards.has-selection{padding-top:32px;}
 
   .action-bar{
     display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;
@@ -317,10 +320,10 @@ KORAK 5 - Prvo otvaranje
     .card{width:46px;height:64px;}
     .card .rank{font-size:18px;}
     .card .suit-sym{font-size:22px;}
-    .card.joker .rank{font-size:9px;}
-    .card.joker .joker-icon{width:38px;height:38px;}
+    .card.joker .rank{font-size:14px;}
+    .card.joker .joker-icon{width:40px;height:40px;}
     .meld-cards .card{margin-left:0;}
-    .hand-cards.has-selection{padding-top:40px;}
+    .hand-cards.has-selection{padding-top:26px;}
     .pile-stack.talon-stack{width:109px;height:64px;}
     .talon-peek-wrap{left:45px;top:9px;width:64px;height:46px;}
   }
