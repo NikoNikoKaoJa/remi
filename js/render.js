@@ -399,9 +399,16 @@ function renderMeldsForPlayers(container, { clickable }) {
       const groupDiv = el('div', 'meld-group' + (canTarget ? ' targetable' : ''));
       const cardsDiv = el('div', 'meld-cards');
       const canReplaceJoker = clickable && isMyTurn() && state.room.turnPhase === 'meld' && !state.room.pendingJokerToPlace && state.selectedIds.size === 1;
+      // A set's joker only has an unambiguous identity (and so can be
+      // exchanged) once 3 real cards of that rank are already down, leaving
+      // exactly one missing suit - with only 2 real cards it could stand for
+      // either remaining suit, so it isn't offered as a replace target yet.
+      const meldResolved = resolveMeld(m.cards);
+      const jokerReplaceEligible = canReplaceJoker &&
+        (!meldResolved || meldResolved.type !== 'set' || m.cards.filter(cc => !cc.joker).length >= 3);
       sortMeldForDisplay(m.cards).forEach(c => {
         const cardElement = cardEl(c, { mini: true });
-        if (c.joker && canReplaceJoker) {
+        if (c.joker && jokerReplaceEligible) {
           cardElement.classList.add('clickable');
           cardElement.classList.add('joker-replaceable');
           cardElement.onclick = (e) => { e.stopPropagation(); actionReplaceJoker(idx, c.id); };

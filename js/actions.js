@@ -414,8 +414,15 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   if (candidate.joker) { showToast('Ne mozes zameniti dzokera drugim dzokerom.'); return; }
   const targetRank = item.substitutes.rank;
   if (resolved.type === 'set') {
-    // In a set the joker can stand for any of the rank's missing suits, so the
-    // candidate just needs the right rank and a suit not already on the table.
+    // A set's joker only stands for a specific card once there's exactly one
+    // missing suit left to fill - i.e. 3 real cards + this 1 joker. With only
+    // 2 real cards (2 missing suits), the joker's identity is ambiguous
+    // (it could represent either remaining suit), so it can't be exchanged yet.
+    const realCount = meld.cards.filter(c => !c.joker).length;
+    if (realCount < 3) {
+      showToast('Dzoker jos nema jasno odredjenu boju - treba 3 prave karte tog ranga u grupi da bi se zamenio.');
+      return;
+    }
     if (candidate.rank !== targetRank) {
       showToast(`Ta karta ne odgovara mestu dzokera (treba ${rankLabel(targetRank)}).`);
       return;
