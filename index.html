@@ -124,6 +124,10 @@ KORAK 5 - Prvo otvaranje
   .btn-outline-gold:hover{background:rgba(212,175,55,0.12);}
   .btn-danger{background:var(--danger);color:var(--cream);}
   .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
+  /* Sized for the longest of the two labels this button toggles between
+     ("Izaberi svih 15 karata" / "Ponisti izbor") so it doesn't resize the
+     action bar when its text swaps. */
+  .btn-clear-toggle{min-width:230px;}
   .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
   .row{display:flex;gap:10px;}
   .row > *{flex:1;}

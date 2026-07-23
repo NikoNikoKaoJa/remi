@@ -509,13 +509,6 @@ function renderHandAndActions(app) {
     app.appendChild(warn);
   }
 
-  if (myTurn && state.room.turnPhase === 'meld' && state.selectedIds.size === myHand().length && myHand().length > 0) {
-    const warn = el('div', 'small center', '⚠️ Moras zadrzati bar jednu kartu da je baci na otpad - ne mozes spustiti/dodati sve karte odjednom.');
-    warn.style.color = 'var(--gold-bright)';
-    warn.style.marginBottom = '10px';
-    app.appendChild(warn);
-  }
-
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
@@ -533,7 +526,7 @@ function renderHandAndActions(app) {
         'Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))),
         ') [', el('span', 'lay-btn-sum', String(maliHandValue(selectedCards))), ']'
       );
-      layBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
+      layBtn.disabled = state.selectedIds.size === 0;
     }
     layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
@@ -546,7 +539,7 @@ function renderHandAndActions(app) {
     }
 
     const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-outline-gold', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
+    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', hasSelection ? 'Ponisti izbor' : 'Izaberi svih 15 karata');
     clearBtn.onclick = () => {
       if (hasSelection) {
         state.selectedIds.clear();

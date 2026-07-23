@@ -255,7 +255,7 @@ export async function actionLayMultipleSelected() {
   if (cards.length < 3) { showToast('Izaberi karte za izlaganje.'); return; }
   const hand = state.room.hands[state.session.playerId];
   if (cards.length === hand.length) {
-    showToast('Moras zadrzati bar jednu kartu za bacanje - ne mozes spustiti sve karte odjednom.');
+    showToast('⚠️ Moras zadrzati bar jednu kartu da je bacis na otpad - ne mozes spustiti/dodati sve karte odjednom.');
     return;
   }
   const opened = state.room.openedPlayers.includes(state.session.playerId);
