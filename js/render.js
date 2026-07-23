@@ -607,15 +607,25 @@ function renderRoundEnd(app) {
   renderResetControl(app);
 }
 
+// The viewer sees a first-person congratulation when they're the one who
+// won, instead of reading their own name back in the third person.
+function winnerBannerText(winner) {
+  if (state.room.roundWinner === state.session.playerId) {
+    return '🏆 Bravo! Tvoja pobeda!';
+  }
+  return `🏆 ${winner ? winner.name : '?'} pobedjuje!`;
+}
+
 function renderRoundAnnounce(app) {
   const panel = el('div', 'card-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
-  panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
+  panel.appendChild(el('div', 'winner-banner', winnerBannerText(winner)));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 
   const discardWrap = el('div', 'special-card-wrap');
-  const discardStack = el('div', 'pile-stack disabled');
+  const discardStack = el('div', 'pile-stack');
+  discardStack.style.cursor = 'default'; // read-only display here, not a clickable pile
   if (state.room.discard.length > 0) {
     discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
   } else {
@@ -623,7 +633,9 @@ function renderRoundAnnounce(app) {
     discardStack.appendChild(d);
   }
   discardWrap.appendChild(discardStack);
-  discardWrap.appendChild(el('div', 'pile-label', 'Poslednja odbacena karta'));
+  const discardLabel = el('div', 'pile-label', 'Poslednja bacena karta');
+  discardLabel.style.textTransform = 'none';
+  discardWrap.appendChild(discardLabel);
   panel.appendChild(discardWrap);
 
   renderMeldsForPlayers(panel, { clickable: false });
@@ -634,6 +646,26 @@ function renderRoundAnnounce(app) {
     sortHand(state.room.hands[state.room.roundWinner] || []).forEach(c => {
       row.appendChild(cardEl(c, { mini: true }));
     });
+    panel.appendChild(row);
+  }
+
+  // Show the viewer's own leftover hand too - unless it was just shown above
+  // as the mali-hand winner's hand (that's the same cards, would duplicate).
+  const shownAsMaliWinner = state.room.roundWinType === 'mali' && state.room.roundWinner === state.session.playerId;
+  const myLeftover = myHand();
+  if (!shownAsMaliWinner && myLeftover.length > 0) {
+    const sum = myLeftover.reduce((s, c) => s + cardValueStandard(c), 0);
+    const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
+    const label = wentOutWithHand
+      ? `Vrednost karata u tvojo ruci je ${sum}, bio hand to je ${sum * 2}`
+      : `Vrednost karata u tvojo ruci je ${sum}`;
+    const labelEl = el('div', 'small center', label);
+    labelEl.style.color = 'var(--gold-bright)';
+    labelEl.style.marginTop = '20px'; // same as .card's height, for a clean section break
+    labelEl.style.marginBottom = '14px';
+    panel.appendChild(labelEl);
+    const row = el('div', 'hand-cards');
+    sortHand(myLeftover).forEach(c => row.appendChild(cardEl(c, { mini: true })));
     panel.appendChild(row);
   }
 
@@ -650,7 +682,7 @@ function renderRoundScores(app) {
   const panel = el('div', 'card-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
-  panel.appendChild(el('div', 'winner-banner', `🏆 ${winner ? winner.name : '?'} pobedjuje!`));
+  panel.appendChild(el('div', 'winner-banner', winnerBannerText(winner)));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 
   const deltaTable = document.createElement('table');
