@@ -12,12 +12,12 @@ export function makeDeck() {
   for (let d = 0; d < 2; d++) {
     for (const suit of SUITS) {
       for (let rank = 1; rank <= 13; rank++) {
-        cards.push({ id: 'c' + (idc++), suit, rank });
+        cards.push({ id: 'c' + (idc++), suit, rank, deck: d });
       }
     }
     // 2 jokers per physical deck => 4 total
-    cards.push({ id: 'c' + (idc++), joker: true });
-    cards.push({ id: 'c' + (idc++), joker: true });
+    cards.push({ id: 'c' + (idc++), joker: true, deck: d });
+    cards.push({ id: 'c' + (idc++), joker: true, deck: d });
   }
   return cards;
 }

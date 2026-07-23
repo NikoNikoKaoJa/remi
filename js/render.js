@@ -353,7 +353,7 @@ function renderCenterTable(app) {
     if (!stockClickable) peekWrap.style.cursor = 'not-allowed';
     stockStack.appendChild(peekWrap);
   }
-  const frontCard = state.room.stock.length > 0 ? cardBackEl() : (() => { const d = el('div', 'card back'); d.style.opacity = '0.3'; return d; })();
+  const frontCard = state.room.stock.length > 0 ? cardBackEl(false, state.room.stock[0]) : (() => { const d = el('div', 'card back deck-0'); d.style.opacity = '0.3'; return d; })();
   if (hasPeek) frontCard.classList.add('talon-front');
   frontCard.onclick = stockClickable ? actionDrawStock : null;
   if (!stockClickable) stockStack.classList.add('disabled');

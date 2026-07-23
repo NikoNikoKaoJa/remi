@@ -28,9 +28,10 @@ export function wrapHoverSlot(cardNode) {
   return slot;
 }
 
-export function cardBackEl(mini) {
+export function cardBackEl(mini, card) {
   const div = document.createElement('div');
-  div.className = 'card back' + (mini ? ' mini' : '');
+  const deckCls = card && card.deck === 1 ? ' deck-1' : ' deck-0';
+  div.className = 'card back' + deckCls + (mini ? ' mini' : '');
   return div;
 }
 // Suit tie-break order when two cards share a rank - matches SUIT_SYM's
