@@ -340,28 +340,27 @@ function renderCenterTable(app) {
 
   const pilesRow = el('div', 'stock-discard-row');
 
-  // Stock
+  // Stock (with the special bottom card, if any, peeking out from behind it)
   const stockWrap = el('div', 'special-card-wrap');
   const stockClickable = isMyTurn() && state.room.turnPhase === 'draw';
-  const stockStack = el('div', 'pile-stack' + (stockClickable ? '' : ' disabled'));
-  if (state.room.stock.length > 0) stockStack.appendChild(cardBackEl());
-  else stockStack.appendChild((() => { const d = el('div', 'card back'); d.style.opacity = '0.3'; return d; })());
-  stockStack.onclick = stockClickable ? actionDrawStock : null;
+  const hasPeek = state.room.specialBottomCard && !state.room.specialBottomCard.taken;
+  const stockStack = el('div', 'pile-stack' + (hasPeek ? ' talon-stack' : ''));
+  if (hasPeek) {
+    const peekWrap = el('div', 'talon-peek-wrap');
+    const peekCard = cardEl(state.room.specialBottomCard.card, {});
+    peekWrap.appendChild(peekCard);
+    peekWrap.onclick = stockClickable ? actionTryBottomCard : null;
+    if (!stockClickable) peekWrap.style.cursor = 'not-allowed';
+    stockStack.appendChild(peekWrap);
+  }
+  const frontCard = state.room.stock.length > 0 ? cardBackEl() : (() => { const d = el('div', 'card back'); d.style.opacity = '0.3'; return d; })();
+  if (hasPeek) frontCard.classList.add('talon-front');
+  frontCard.onclick = stockClickable ? actionDrawStock : null;
+  if (!stockClickable) stockStack.classList.add('disabled');
+  stockStack.appendChild(frontCard);
   stockWrap.appendChild(stockStack);
   stockWrap.appendChild(el('div', 'pile-label', `Talon (${state.room.stock.length})`));
   pilesRow.appendChild(stockWrap);
-
-  // Special bottom card
-  if (state.room.specialBottomCard && !state.room.specialBottomCard.taken) {
-    const specWrap = el('div', 'special-card-wrap');
-    const specClickable = isMyTurn() && state.room.turnPhase === 'draw';
-    const wrapDiv = el('div', 'pile-stack' + (specClickable ? '' : ' disabled'));
-    wrapDiv.appendChild(cardEl(state.room.specialBottomCard.card, {}));
-    wrapDiv.onclick = specClickable ? actionTryBottomCard : null;
-    specWrap.appendChild(wrapDiv);
-    specWrap.appendChild(el('div', 'pile-label', 'Ispod talona (samo za hand)'));
-    pilesRow.appendChild(specWrap);
-  }
 
   // Discard
   const discardWrap = el('div', 'special-card-wrap');

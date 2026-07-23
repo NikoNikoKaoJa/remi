@@ -222,6 +222,16 @@ KORAK 5 - Prvo otvaranje
   .card.mini .suit-sym{font-size:24px;}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
+  /* The "ispod talona" card pokes out sideways (rotated 90deg) from behind
+     the stock's card-back, showing most of itself - both share the single
+     "Talon (N)" label above rather than each getting their own pile-label. */
+  .pile-stack.talon-stack{width:146px;height:86px;}
+  .talon-peek-wrap{
+    position:absolute;left:60px;top:12px;width:86px;height:62px;z-index:1;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .talon-peek-wrap .card{transform:rotate(-90deg);}
+  .talon-front{position:absolute;left:0;top:0;z-index:2;}
 
   .melds-area{margin-top:6px;}
   .meld-owner-label{font-size:15px;color:var(--gold-bright);text-transform:uppercase;letter-spacing:0.6px;margin:10px 0 4px;}
@@ -299,6 +309,8 @@ KORAK 5 - Prvo otvaranje
     .card .suit-sym{font-size:22px;}
     .meld-cards .card{margin-left:0;}
     .hand-cards.has-selection{padding-top:40px;}
+    .pile-stack.talon-stack{width:109px;height:64px;}
+    .talon-peek-wrap{left:45px;top:9px;width:64px;height:46px;}
   }
 </style>
 <div id="remi-root">
