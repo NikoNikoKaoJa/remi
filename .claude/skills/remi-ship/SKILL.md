@@ -1,13 +1,12 @@
 ---
 name: remi-ship
-description: This skill should be used when Niko asks to commit and push changes in the Remi project at ~/dev/claude/remi and have the GitHub Pages build watched to completion - phrases like "commit and push", "ship this", "deploy this", "push it and wait for the build". Covers bumping APP_VERSION, committing, pushing to origin main, polling the GitHub Actions pages-build run, and opening the live site in both Safari and Chrome once done.
+description: This skill should be used when Niko asks to commit and push changes in the Remi project at ~/dev/claude/remi - phrases like "commit and push", "ship this", "deploy this". Covers bumping APP_VERSION, committing, and pushing to origin main.
 version: 1.0.0
 ---
 
-# Remi: commit, push, and watch the build
+# Remi: commit and push
 
-End-to-end "ship it" flow for this repo: version bump -> commit -> push ->
-wait for GitHub Pages -> open the live result in Safari.
+End-to-end "ship it" flow for this repo: version bump -> commit -> push.
 
 ## 1. Pre-flight
 
@@ -58,41 +57,10 @@ git push origin main
 Never force-push. If the push is rejected (remote has diverged), stop and
 tell Niko rather than resolving it unilaterally.
 
-## 5. Wait for the GitHub Pages build
-
-Get the pushed commit's short SHA from the push output or `git rev-parse
-HEAD`. Poll:
-
-```
-curl -s "https://api.github.com/repos/NikoNikoKaoJa/remi/actions/runs?branch=main&per_page=1" \
-  | python3 -c "import json,sys; d=json.load(sys.stdin); r=d['workflow_runs'][0]; print(r['head_sha'], r['status'], r['conclusion'], r['name'])"
-```
-
-Confirm `head_sha` matches the commit you just pushed (if it doesn't yet,
-the run list hasn't caught up - check again shortly). Do **not** busy-loop
-with `sleep`: use `ScheduleWakeup` with a 60-90s delay to check back,
-repeating until `status` is `completed`. A pages build typically finishes
-within 1-2 minutes.
-
-## 6. On completion
-
-- If `conclusion` is `success`: open the live site in **both Safari and
-  Chrome**, each showing the live version:
-  ```
-  open -a Safari "https://nikonikokaoja.github.io/remi/"
-  open -a "Google Chrome" "https://nikonikokaoja.github.io/remi/"
-  ```
-  Tell Niko in Serbian that the new version is live. Leave both
-  windows open for him.
-
-- If `conclusion` is anything else (`failure`, `cancelled`, ...): don't open
-  either browser. Report the failed run and point to the Actions log
-  (`https://github.com/NikoNikoKaoJa/remi/actions`) instead of guessing at
-  the cause.
 
 ## Notes
 
 - This flow assumes `remi-smart-testing` (or equivalent verification) has
   already happened *before* this skill runs - this skill does not itself
   re-verify the change, it ships what's already been confirmed good.
-- Communicate with Niko in Serbian throughout, per CLAUDE.md.
+- Communicate with Niko in English throughout, per CLAUDE.md.
