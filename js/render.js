@@ -1,5 +1,5 @@
 import { state, APP_VERSION } from './state.js';
-import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum } from './engine.js';
+import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
 import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryTable } from './ui.js';
@@ -436,23 +436,6 @@ function renderMeldsForPlayers(container, { clickable }) {
   container.appendChild(meldsArea);
 }
 
-function sortMeldForDisplay(cards) {
-  const resolved = resolveMeld(cards);
-  if (!resolved || resolved.type !== 'run') {
-    // Sets: order doesn't matter, keep it simple - reals sorted, jokers trailing.
-    const normal = cards.filter(c => !c.joker);
-    const jokers = cards.filter(c => c.joker);
-    return normal.slice().sort((a, b) => a.rank - b.rank).concat(jokers);
-  }
-  // Runs: resolved.cards is in ascending sequence order - reverse it so the
-  // run displays highest-to-lowest, and place each joker at the exact slot
-  // of the card it substitutes instead of trailing.
-  return resolved.cards.slice().reverse().map(item => {
-    if (item.isJoker) return cards.find(c => c.id === item.jokerCardId) || cards.find(c => c.joker);
-    return cards.find(c => c.id === item.card.id) || item.card;
-  });
-}
-
 function renderHandAndActions(app) {
   const handWrap = el('div', 'hand-area');
   const titleRow = el('div', 'hand-title-row');
@@ -663,10 +646,14 @@ function renderRoundAnnounce(app) {
   const shownAsMaliWinner = state.room.roundWinType === 'mali' && state.room.roundWinner === state.session.playerId;
   const myLeftover = myHand();
   if (!shownAsMaliWinner && myLeftover.length > 0) {
-    const sum = myLeftover.reduce((s, c) => s + cardValueStandard(c), 0);
+    // A player who never opened takes a flat 100-point penalty regardless of
+    // what's in their hand (see scoreRound in js/engine.js) - only an opened
+    // player's score is the actual sum of their leftover cards.
+    const neverOpened = !state.room.openedPlayers.includes(state.session.playerId);
+    const sum = neverOpened ? 100 : myLeftover.reduce((s, c) => s + cardValueStandard(c), 0);
     const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
     const label = wentOutWithHand
-      ? `Vrednost karata u tvojo ruci je ${sum}, bio hand to je ${sum * 2}`
+      ? `Vrednost karata u tvojo ruci je ${sum}, bio  je hand, to je duplo ${sum * 2}`
       : `Vrednost karata u tvojo ruci je ${sum}`;
     const labelEl = el('div', 'small center', label);
     labelEl.style.color = 'var(--gold-bright)';

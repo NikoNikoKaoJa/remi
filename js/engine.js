@@ -1,4 +1,4 @@
-import { rankLabel } from './cards.js';
+import { rankLabel, SUIT_SYM } from './cards.js';
 
 // ===== Core Remi (Rummy) game logic =====
 // Cards: {id, suit: 'S'|'H'|'D'|'C', rank: 1-13} or {id, joker:true}
@@ -201,6 +201,95 @@ export function sequenceLabel(opt) {
   return parts.join(' - ');
 }
 
+// Reconstructs the actual card objects (in display order) for one
+// enumerateSingleJokerRunWindows option, so a choice between windows can be
+// shown as real cards instead of a text label - the joker's own slot is
+// shown as itself (same as everywhere else on the table), not a fabricated
+// rank/suit; its position relative to the real cards is what conveys which
+// rank it would represent under that option.
+export function runWindowPreviewCards(group, opt) {
+  const jokerCard = group.find(c => c.joker && c._lockedRank === undefined);
+  const cards = [];
+  for (let n = opt.start; n <= opt.end; n++) {
+    if (n === opt.slotN) { cards.push(jokerCard); continue; }
+    const rank = n === 14 ? 1 : n;
+    cards.push(group.find(c => !c.joker && c.rank === rank));
+  }
+  return cards.reverse(); // highest-to-lowest, matching sortMeldForDisplay's run convention
+}
+
+// Sorted for how a meld should display: sets show reals sorted by rank with
+// jokers trailing (order within a set carries no meaning); runs show
+// highest-to-lowest with each joker placed at the exact slot of the card it
+// substitutes, rather than trailing.
+export function sortMeldForDisplay(cards) {
+  const resolved = resolveMeld(cards);
+  if (!resolved || resolved.type !== 'run') {
+    const normal = cards.filter(c => !c.joker);
+    const jokers = cards.filter(c => c.joker);
+    return normal.slice().sort((a, b) => a.rank - b.rank).concat(jokers);
+  }
+  return resolved.cards.slice().reverse().map(item => {
+    if (item.isJoker) return cards.find(c => c.id === item.jokerCardId) || cards.find(c => c.joker);
+    return cards.find(c => c.id === item.card.id) || item.card;
+  });
+}
+
+// Expands each partition from findAllPartitions into every FULLY resolved
+// option, accounting for leftover per-group joker-window ambiguity (e.g. one
+// of the partition's own run groups could still place its joker at either
+// end). Presenting partition choice and window choice as two separate
+// modals in sequence was confusing - the player picked a grouping with no
+// idea a second question was coming - so instead every combination is
+// flattened into one option up front. Each option is
+// { partition, perGroup: [{ group, opt }] } where `opt` is the specific
+// enumerateSingleJokerRunWindows result to lock in for that group, or null
+// if the group has no ambiguity left. Capped at maxOptions total (the
+// Cartesian product across multiple ambiguous groups in one partition could
+// otherwise produce an unwieldy number of buttons).
+export function expandPartitionOptions(partitions, maxOptions = 12) {
+  const results = [];
+  for (const partition of partitions) {
+    const perGroupChoices = partition.map(group => {
+      const opts = enumerateSingleJokerRunWindows(group);
+      return opts ? opts.map(opt => ({ group, opt })) : [{ group, opt: null }];
+    });
+    let combos = [[]];
+    for (const choices of perGroupChoices) {
+      const next = [];
+      for (const prefix of combos) {
+        for (const choice of choices) next.push(prefix.concat([choice]));
+      }
+      combos = next;
+    }
+    for (const perGroup of combos) {
+      results.push({ partition, perGroup });
+      if (results.length >= maxOptions) return results;
+    }
+  }
+  return results;
+}
+
+// The ordered card-display list for each group of a resolved option (for
+// buildPartitionPreviewEl) - the group's chosen window if it had one,
+// otherwise its single unambiguous arrangement.
+export function resolvedOptionDisplayGroups(option) {
+  return option.perGroup.map(({ group, opt }) => (opt ? runWindowPreviewCards(group, opt) : sortMeldForDisplay(group)));
+}
+
+// Commits a resolved option's joker-window choices by locking each ambiguous
+// group's joker in place, mutating the actual card objects (shared by
+// reference with the hand/selection) - must be called before laying the
+// option's partition down.
+export function applyResolvedOptionLocks(option) {
+  option.perGroup.forEach(({ group, opt }) => {
+    if (!opt) return;
+    const jokerCard = group.find(c => c.joker && c._lockedRank === undefined);
+    jokerCard._lockedRank = opt.jokerRank;
+    jokerCard._lockedAceHigh = opt.jokerAceHigh;
+  });
+}
+
 // ---- 51-point opening check ----
 // melds: array of card-arrays (each already validated as a meld)
 export function sumOpeningValue(melds) {
@@ -262,6 +351,92 @@ export function combinations(arr, k) {
   }
   helper(0, []);
   return results;
+}
+
+// A canonical description of what a partition actually means: for each group,
+// its type plus what every slot resolves to (a real card's rank+suit, or a
+// joker's substituted rank+suit) - NOT which physical joker token fills a
+// slot, since two otherwise-identical jokers are interchangeable and swapping
+// them isn't a real choice for the player. Used to tell genuinely different
+// partitions apart from cosmetic duplicates.
+function partitionSignature(groups) {
+  const groupSigs = groups.map(g => {
+    const resolved = resolveMeld(g);
+    const items = resolved.cards.map(it => it.isJoker
+      ? `J${it.substitutes.rank}${it.substitutes.suit}`
+      : `C${it.contextRank}${it.card.suit}`);
+    return resolved.type + ':' + items.sort().join(',');
+  });
+  return groupSigs.sort().join('|');
+}
+
+// Like findPartition, but returns every distinct way `cards` can be fully
+// partitioned into valid melds (deduped via partitionSignature above),
+// instead of just the first one the search happens to find. This is what
+// surfaces cases like J-J-J + K-Dz-Dz vs K-Dz(Q)-J + J-J-Dz - both valid,
+// but putting the jokers in different places - so the player can be asked
+// instead of the engine silently picking one. Capped at `maxOptions` distinct
+// results and `maxAttempts` candidate groups tried, so a large selection
+// degrades to "just the first partition found" rather than hanging on a
+// combinatorial explosion.
+export function findAllPartitions(cards, maxGroupSize = 8, maxOptions = 8, maxAttempts = 20000) {
+  const results = [];
+  const seen = new Set();
+  let attempts = 0;
+
+  function recurse(remaining, groups) {
+    if (results.length >= maxOptions || attempts >= maxAttempts) return;
+    if (remaining.length === 0) {
+      const sig = partitionSignature(groups);
+      if (!seen.has(sig)) { seen.add(sig); results.push(groups.slice()); }
+      return;
+    }
+    if (remaining.length < 3) return;
+    const first = remaining[0];
+    const rest = remaining.slice(1);
+    const maxLen = Math.min(maxGroupSize, remaining.length);
+    for (let len = 3; len <= maxLen; len++) {
+      if (results.length >= maxOptions || attempts >= maxAttempts) return;
+      const combos = combinations(rest, len - 1);
+      for (const combo of combos) {
+        if (results.length >= maxOptions || attempts >= maxAttempts) return;
+        attempts++;
+        const group = [first, ...combo];
+        if (isValidMeld(group)) {
+          const comboSet = new Set(combo);
+          const remainingNext = rest.filter(c => !comboSet.has(c));
+          recurse(remainingNext, groups.concat([group]));
+        }
+      }
+    }
+  }
+  recurse(cards, []);
+  return results;
+}
+
+// Human-readable label for one meld option, e.g. "K♠-Dž(Q♠)-J♠" - jokers show
+// what they'd represent under this option so the player can see exactly
+// where each one goes, which is the whole point of asking.
+export function describeMeldOption(group) {
+  const resolved = resolveMeld(group);
+  if (!resolved) {
+    return group.map(c => c.joker ? 'Dž' : `${rankLabel(c.rank)}${SUIT_SYM[c.suit]}`).join('-');
+  }
+  let items = resolved.cards.slice();
+  if (resolved.type === 'run') {
+    const rankOf = it => it.isJoker
+      ? (it.substitutes._aceHigh ? 14 : it.substitutes.rank)
+      : (it.card._aceHigh ? 14 : it.contextRank);
+    items.sort((a, b) => rankOf(a) - rankOf(b));
+  }
+  return items.map(it => it.isJoker
+    ? `Dž(${rankLabel(it.substitutes.rank)}${SUIT_SYM[it.substitutes.suit]})`
+    : `${rankLabel(it.contextRank)}${SUIT_SYM[it.card.suit]}`
+  ).join('-');
+}
+
+export function describePartitionOption(groups) {
+  return groups.map(describeMeldOption).join('   +   ');
 }
 
 // For the "selected cards" sum display: Ace always counts as 10, and a joker

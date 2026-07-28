@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Joker partition-ambiguity tests</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0f2a1c;color:#f0ead6;padding:30px;max-width:900px;margin:0 auto;}
+  h1{font-size:22px;}
+  .case{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:16px 20px;margin-bottom:16px;}
+  .case h2{font-size:16px;margin:0 0 8px;}
+  .case .cards{font-family:ui-monospace,monospace;font-size:14px;color:#e6c34f;margin-bottom:6px;}
+  .pass{color:#5fae72;font-weight:700;}
+  .fail{color:#e05252;font-weight:700;}
+  .opt{font-family:ui-monospace,monospace;font-size:13px;margin:2px 0 2px 14px;}
+  .summary{font-size:18px;margin-top:20px;padding:14px;border-radius:10px;}
+  .summary.pass{background:rgba(95,174,114,0.2);border:1px solid #5fae72;}
+  .summary.fail{background:rgba(224,82,82,0.2);border:1px solid #e05252;}
+</style>
+</head>
+<body>
+  <h1>Joker partition-ambiguity tests</h1>
+  <p>Verifies that when the currently selected cards can be validly split into melds in more than one way (almost always because a joker could go into more than one group), <code>findAllPartitions</code> reports every distinct option instead of the old <code>findPartition</code> silently returning just the first one it found.</p>
+  <div id="results"></div>
+  <div id="summary" class="summary"></div>
+
+<script type="module">
+import { findAllPartitions, describePartitionOption, resolveMeld } from './js/engine.js';
+
+let nextId = 0;
+function c(suit, rank) { return { id: 'c' + (nextId++), suit, rank }; }
+function j() { return { id: 'j' + (nextId++), joker: true }; }
+
+function groupSignature(group) {
+  const resolved = resolveMeld(group);
+  const items = resolved.cards.map(it => it.isJoker
+    ? `J${it.substitutes.rank}${it.substitutes.suit}`
+    : `C${it.contextRank}${it.card.suit}`);
+  return resolved.type + ':' + items.sort().join(',');
+}
+function partitionSignature(groups) {
+  return groups.map(groupSignature).sort().join('|');
+}
+// Does `partitions` contain a partition matching this exact set of expected group signatures?
+function hasPartitionWithGroups(partitions, expectedGroups) {
+  const wantSigs = expectedGroups.map(groupSignature).sort();
+  return partitions.some(p => {
+    const gotSigs = p.map(groupSignature).sort();
+    return gotSigs.length === wantSigs.length && gotSigs.every((s, i) => s === wantSigs[i]);
+  });
+}
+
+const results = document.getElementById('results');
+let allPass = true;
+
+function runCase(title, cardsLabel, cards, check) {
+  const partitions = findAllPartitions(cards);
+  const div = document.createElement('div');
+  div.className = 'case';
+  const h2 = document.createElement('h2');
+  h2.textContent = title;
+  div.appendChild(h2);
+  const cardsEl = document.createElement('div');
+  cardsEl.className = 'cards';
+  cardsEl.textContent = 'Selected: ' + cardsLabel;
+  div.appendChild(cardsEl);
+
+  let ok, msg;
+  try {
+    ({ ok, msg } = check(partitions));
+  } catch (e) {
+    ok = false; msg = 'threw: ' + e.message;
+  }
+  const verdict = document.createElement('div');
+  verdict.innerHTML = (ok ? '<span class="pass">PASS</span> ' : '<span class="fail">FAIL</span> ') + msg;
+  div.appendChild(verdict);
+
+  const optsHeader = document.createElement('div');
+  optsHeader.textContent = `Found ${partitions.length} distinct partition(s):`;
+  optsHeader.style.marginTop = '8px';
+  div.appendChild(optsHeader);
+  partitions.forEach((p, i) => {
+    const o = document.createElement('div');
+    o.className = 'opt';
+    o.textContent = `${i + 1}. ${describePartitionOption(p)}`;
+    div.appendChild(o);
+  });
+
+  results.appendChild(div);
+  if (!ok) allPass = false;
+}
+
+// ---- 0 jokers: sanity check, no false-positive ambiguity ----
+runCase(
+  '0 jokers - plain run, should NOT be ambiguous',
+  '7♠ 8♠ 9♠',
+  [c('S', 7), c('S', 8), c('S', 9)],
+  (partitions) => ({
+    ok: partitions.length === 1,
+    msg: `expected exactly 1 partition, got ${partitions.length}`,
+  })
+);
+
+// ---- 1 joker: run-window ambiguity (already handled elsewhere), NOT a partition split ----
+runCase(
+  '1 joker, single group - rank ambiguity only (not this fix\'s job, just checking no false positive at the partition level)',
+  '5♠ 6♠ Dž',
+  [c('S', 5), c('S', 6), j()],
+  (partitions) => ({
+    ok: partitions.length === 1,
+    msg: `expected exactly 1 partition (the run-window choice is a separate, pre-existing mechanism), got ${partitions.length}`,
+  })
+);
+
+// ---- 1 joker: real partition-level ambiguity - joker can join either group ----
+{
+  const s7 = c('S', 7), s8 = c('S', 8), s9 = c('S', 9), h7 = c('H', 7), d7 = c('D', 7), jk = j();
+  runCase(
+    '1 joker - joker could join the run OR the set',
+    '7♠ 8♠ 9♠ 7♥ 7♦ Dž',
+    [s7, s8, s9, h7, d7, jk],
+    (partitions) => {
+      const optionA = [[s7, s8, s9], [h7, d7, jk]]; // run needs no joker; joker fills the set
+      const optionB = [[jk, s8, s9], [s7, h7, d7]]; // joker fills the run as 7♠; real 7♠ moves into an all-real set
+      const hasA = hasPartitionWithGroups(partitions, optionA);
+      const hasB = hasPartitionWithGroups(partitions, optionB);
+      return {
+        ok: partitions.length >= 2 && hasA && hasB,
+        msg: `expected >=2 partitions including both the "joker-in-set" and "joker-in-run" options, got ${partitions.length} (has joker-in-set: ${hasA}, has joker-in-run: ${hasB})`,
+      };
+    }
+  );
+}
+
+// ---- 2 jokers: the actual reported bug (Mirjana) ----
+{
+  const ks = c('S', 13), js = c('S', 11), jc = c('C', 11), jd = c('D', 11), j1 = j(), j2 = j();
+  runCase(
+    '2 jokers - Mirjana\'s bug: K♠ J♠ J♣ J♦ Dž Dž',
+    'K♠ J♠ J♣ J♦ Dž Dž',
+    [ks, js, jc, jd, j1, j2],
+    (partitions) => {
+      // What the engine used to silently pick: J-J-J set + K-Dz-Dz set.
+      const enginePicked = [[js, jc, jd], [ks, j1, j2]];
+      // What Mirjana actually wanted: K-Dz(Q)-J run + J-J-Dz set.
+      const mirjanaWanted = [[ks, j1, js], [jd, jc, j2]];
+      const hasEnginePicked = hasPartitionWithGroups(partitions, enginePicked);
+      const hasMirjanaWanted = hasPartitionWithGroups(partitions, mirjanaWanted);
+      return {
+        ok: partitions.length >= 2 && hasEnginePicked && hasMirjanaWanted,
+        msg: `expected >=2 partitions including both the old auto-picked grouping and Mirjana's intended grouping, got ${partitions.length} (has old pick: ${hasEnginePicked}, has Mirjana's pick: ${hasMirjanaWanted})`,
+      };
+    }
+  );
+}
+
+// ---- 3 jokers: bigger ambiguity, same shape one rank up ----
+{
+  const ks = c('S', 13), js = c('S', 11), jc = c('C', 11), jd = c('D', 11), j1 = j(), j2 = j(), j3 = j();
+  runCase(
+    '3 jokers - K♠ J♠ J♣ J♦ Dž Dž Dž',
+    'K♠ J♠ J♣ J♦ Dž Dž Dž',
+    [ks, js, jc, jd, j1, j2, j3],
+    (partitions) => ({
+      ok: partitions.length >= 2,
+      msg: `expected multiple valid groupings of 3 jokers across the run/set split, got ${partitions.length}`,
+    })
+  );
+}
+
+const summary = document.getElementById('summary');
+summary.className = 'summary ' + (allPass ? 'pass' : 'fail');
+summary.textContent = allPass ? 'ALL TESTS PASS' : 'SOME TESTS FAILED - see above';
+</script>
+</body>
+</html>

@@ -131,10 +131,19 @@ export function showChoiceModal(title, options, onPick) {
   options.forEach(opt => {
     const b = document.createElement('button');
     b.className = 'btn btn-gold';
-    b.textContent = opt.label;
+    // label is either plain text or a DOM node (e.g. a row of real cards
+    // built by buildMeldGroupEl/buildPartitionPreviewEl) to show instead.
+    if (opt.label instanceof Node) {
+      b.style.display = 'flex';
+      b.style.justifyContent = 'center';
+      b.style.padding = '12px 10px';
+      b.appendChild(opt.label);
+    } else {
+      b.textContent = opt.label;
+      b.style.display = 'block';
+    }
     b.style.width = '100%';
     b.style.marginBottom = '8px';
-    b.style.display = 'block';
     b.onclick = () => { overlay.remove(); onPick(opt); };
     box.appendChild(b);
   });
@@ -146,4 +155,28 @@ export function showChoiceModal(title, options, onPick) {
   box.appendChild(cancelBtn);
   overlay.appendChild(box);
   document.getElementById('remi-root').appendChild(overlay);
+}
+
+// Renders one meld option as real mini cards, in the exact order the caller
+// wants them shown (e.g. via engine.js's sortMeldForDisplay/runWindowPreviewCards)
+// - used as a showChoiceModal option's `label` instead of a text description.
+export function buildMeldGroupEl(cardsInDisplayOrder) {
+  const cardsDiv = document.createElement('div');
+  cardsDiv.className = 'meld-cards';
+  cardsInDisplayOrder.forEach(c => cardsDiv.appendChild(cardEl(c, { mini: true })));
+  const wrap = document.createElement('div');
+  wrap.className = 'meld-group';
+  wrap.appendChild(cardsDiv);
+  return wrap;
+}
+
+// Renders a full partition option (several meld groups side by side).
+export function buildPartitionPreviewEl(groupsInDisplayOrder) {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexWrap = 'wrap';
+  wrap.style.gap = '10px';
+  wrap.style.justifyContent = 'center';
+  groupsInDisplayOrder.forEach(cards => wrap.appendChild(buildMeldGroupEl(cards)));
+  return wrap;
 }

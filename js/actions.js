@@ -1,12 +1,14 @@
 import { state, saveDismissedQuadAnnouncements } from './state.js';
 import {
   setupRound, scoreRound, sweepCompletedQuads, isValidMeld, sumOpeningValue,
-  findPartition, enumerateSingleJokerRunWindows, sequenceLabel, resolveMeld,
+  findPartition, findAllPartitions, expandPartitionOptions,
+  resolvedOptionDisplayGroups, applyResolvedOptionLocks,
+  enumerateSingleJokerRunWindows, runWindowPreviewCards, resolveMeld,
   maliHandValue, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand } from './cards.js';
 import { loadRoom, saveRoom } from './storage.js';
-import { showToast, showChoiceModal } from './ui.js';
+import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
 
 // ===== Round setup -> cut-reveal -> deal =====
@@ -278,8 +280,8 @@ export async function actionLayMultipleSelected() {
   const goingOutAttempt = !opened && cards.length === hand.length - 1;
   const leftoverCard = goingOutAttempt ? hand.find(c => !state.selectedIds.has(c.id)) : null;
 
-  const partition = findPartition(cards);
-  if (!partition) {
+  const partitions = findAllPartitions(cards);
+  if (partitions.length === 0) {
     if (goingOutAttempt && maliHandValue(cards) < 51) {
       state.busy = true;
       hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
@@ -294,18 +296,30 @@ export async function actionLayMultipleSelected() {
     showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.');
     return;
   }
-  for (const group of partition) {
-    const opts = enumerateSingleJokerRunWindows(group);
-    if (opts) {
-      const jokerCard = group.find(c => c.joker && c._lockedRank === undefined);
-      showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({ label: sequenceLabel(o), opt: o })), (picked) => {
-        jokerCard._lockedRank = picked.opt.jokerRank;
-        jokerCard._lockedAceHigh = picked.opt.jokerAceHigh;
-        actionLayMultipleSelected();
-      });
-      return;
-    }
+  // Every fully-resolved way to lay these cards down - both which cards group
+  // together AND, for any group whose joker could still go more than one
+  // place (e.g. Mirjana's K-Dz-Dz + J-J-J bug: she wanted K-Dz(Q)-J + J-J-Dz
+  // instead), which specific spot it takes. Showing partition choice and
+  // window choice as two separate modals in sequence was confusing - the
+  // player had no idea a second question was coming - so every combination
+  // is flattened into one option up front instead.
+  const resolvedOptions = expandPartitionOptions(partitions);
+  if (resolvedOptions.length > 1) {
+    showChoiceModal('Kako da izložiš izabrane karte?', resolvedOptions.map(o => ({
+      label: buildPartitionPreviewEl(resolvedOptionDisplayGroups(o)),
+      opt: o,
+    })), (picked) => {
+      applyResolvedOption(picked.opt, cards, opened, goingOutAttempt, leftoverCard);
+    });
+    return;
   }
+  await applyResolvedOption(resolvedOptions[0], cards, opened, goingOutAttempt, leftoverCard);
+}
+
+async function applyResolvedOption(option, cards, opened, goingOutAttempt, leftoverCard) {
+  applyResolvedOptionLocks(option);
+  const partition = option.partition;
+  const hand = state.room.hands[state.session.playerId];
 
   if (goingOutAttempt) {
     state.busy = true;
@@ -369,7 +383,10 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   const opts = enumerateSingleJokerRunWindows(combined);
   if (opts) {
     const jokerCard = combined.find(c => c.joker && c._lockedRank === undefined);
-    showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({ label: sequenceLabel(o), opt: o })), (picked) => {
+    showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({
+      label: buildMeldGroupEl(runWindowPreviewCards(combined, o)),
+      opt: o,
+    })), (picked) => {
       jokerCard._lockedRank = picked.opt.jokerRank;
       jokerCard._lockedAceHigh = picked.opt.jokerAceHigh;
       actionAddToMeld(ownerIdOfMeld, meldIdx);
