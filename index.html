@@ -59,6 +59,8 @@ KORAK 5 - Prvo otvaranje
     --navy-blue:#5b84b1;
     --cream:#faf6ea;
     --cream-dim:#e9e2cf;
+    --card-hover-bg:#fff4b8;
+    --card-hover-bg-dim:#f0dfa0;
     --ink:#1c1a14;
     --red:#a3273a;
     --jester-red:#e0293f;
@@ -218,11 +220,11 @@ KORAK 5 - Prvo otvaranje
   .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
   /* Hover-triggered from the non-moving .card-slot wrapper (see wrapHoverSlot
-     in cards.js), not from the card's own :hover - the lift itself would
-     otherwise carry the card's bottom edge away from a stationary cursor,
-     causing mouseleave/mouseenter to oscillate every frame (flicker). */
+     in cards.js) rather than the card's own :hover. Hover only tints the
+     background (no transform), so this no longer guards against lift-driven
+     mouseenter/mouseleave flicker, but the wrapper is harmless to keep. */
   .card-slot{display:inline-flex;align-items:flex-end;}
-  .card-slot:hover .card.clickable:not(.selected){transform:translateY(-25%);}
+  .card-slot:hover .card.clickable:not(.selected){background:linear-gradient(180deg,var(--card-hover-bg),var(--card-hover-bg-dim));}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
   /* The "ispod talona" card pokes out sideways (rotated 90deg) from behind
