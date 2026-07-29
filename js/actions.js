@@ -7,7 +7,7 @@ import {
   maliHandValue, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand } from './cards.js';
-import { loadRoom, saveRoom } from './storage.js';
+import { loadRoom, saveRoom, deleteRoom } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
 
@@ -113,38 +113,20 @@ export async function actionForceNextRound() {
 }
 
 export async function hostResetGame() {
-  const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise trenutno stanje partije za sve igrace.');
+  const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise sobu za sve igrace.');
   if (!ok) return;
   state.busy = true;
-  const me = state.room.players.find(p => p.id === state.session.playerId);
-  state.room.phase = 'lobby';
-  state.room.round = 0;
-  state.room.dealerIndex = 0;
-  state.room.players = me ? [me] : [];
-  state.room.hands = {};
-  state.room.stock = [];
-  state.room.discard = [];
-  state.room.melds = [];
-  state.room.openedPlayers = [];
-  state.room.scores = {};
-  state.room.scoreHistory = [];
-  state.room.log = [];
-  state.room.specialBottomCard = null;
-  state.room.currentPlayerIndex = 0;
-  state.room.turnPhase = null;
-  state.room.roundWinner = null;
-  state.room.roundWinType = null;
-  state.room.lastDeltas = null;
-  state.room.quadAnnouncements = [];
-  state.room.readyForNextRound = [];
-  state.room.pendingRound = null;
-  state.room.cutRevealedAt = null;
-  state.room.handOrders = {};
+  clearInterval(state.pollTimer);
+  const code = state.room.code;
   state.dismissedQuadAnnouncements.clear();
   saveDismissedQuadAnnouncements();
-  await saveRoom(state.room);
+  localStorage.removeItem('my-remi-session');
+  state.session = { playerId: null, name: null, roomCode: null };
+  state.room = null;
+  history.replaceState(null, '', location.pathname);
   state.busy = false;
   render();
+  await deleteRoom(code);
 }
 
 // ===== Turn helpers =====

@@ -90,8 +90,8 @@ export function startPolling() {
   state.pollTimer = setInterval(async () => {
     if (!state.session.roomCode || state.busy) return;
     const r = await loadRoom(state.session.roomCode);
-    if (!r) return;
-    if (state.session.playerId && !r.players.find(p => p.id === state.session.playerId)) {
+    if (r === undefined) return; // request failed - try again next poll
+    if (r === null || (state.session.playerId && !r.players.find(p => p.id === state.session.playerId))) {
       clearInterval(state.pollTimer);
       localStorage.removeItem('my-remi-session');
       state.session = { playerId: null, name: null, roomCode: null };
