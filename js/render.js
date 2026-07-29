@@ -465,8 +465,8 @@ function renderHandAndActions(app) {
   // .card-slot:hover and would otherwise overlap the "Zbir ruke" text above.
   const cardsRow = el('div', 'hand-cards' + ((canPick || selectedCards.length > 0) ? ' has-selection' : ''));
   const myHandOrder = (state.room.handOrders || {})[state.session.playerId] || null;
-  const myDrawnCardId = state.room.lastDrawnPlayerId === state.session.playerId ? state.room.lastDrawnCardId : null;
-  orderHand(myHand(), myHandOrder, myDrawnCardId).forEach(c => {
+  const myPinnedCardId = (state.room.pinnedCardIds || {})[state.session.playerId] || null;
+  orderHand(myHand(), myHandOrder, myPinnedCardId).forEach(c => {
     const selected = state.selectedIds.has(c.id);
     const drawn = state.room.lastDrawnPlayerId === state.session.playerId && state.room.lastDrawnCardId === c.id;
     const pending = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId && state.room.pendingJokerToPlace.jokerCardId === c.id;

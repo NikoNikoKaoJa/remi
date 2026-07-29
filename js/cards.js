@@ -69,11 +69,14 @@ export function sortHand(hand) {
 // keep the hand's natural (deal/draw) order instead of being auto-sorted -
 // players found an automatic re-sort disorienting since it shifts other
 // cards' positions every time the hand changes. If pinFirstId is given
-// (the last-drawn card's id) and it has no manual position yet, it's moved
-// to the front - this is the single place that rule lives, so a freshly
-// drawn card lands leftmost on arrival. Once the player drags it themselves
-// (which records it in `order`), that manual placement is respected instead
-// of snapping it back - dragging it away is how the player un-pins it.
+// (room.pinnedCardIds[playerId] - the most recently drawn card that hasn't
+// been dragged yet) and it has no manual position, it's moved to the front -
+// this is the single place that rule lives, so a freshly drawn card lands
+// leftmost on arrival and STAYS there across turns (the pin outlives the
+// turn on purpose, unlike the separate "just drawn" blue highlight which
+// clears on discard). Once the player drags it themselves (which records it
+// in `order`), that manual placement is respected instead of snapping it
+// back - dragging it away is how the player un-pins it.
 export function orderHand(hand, order, pinFirstId) {
   const ord = order || [];
   const byId = new Map(hand.map(c => [c.id, c]));

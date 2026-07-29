@@ -60,6 +60,7 @@ export function applyPendingRound(r) {
   // manual `handOrders` entry, so any card drawn afterward is only appended
   // (see orderHand in js/cards.js), never auto-resorted alongside it.
   r.handOrders = {};
+  r.pinnedCardIds = {};
   r.players.forEach(p => {
     r.handOrders[p.id] = sortHand(r.hands[p.id] || []).map(c => c.id);
   });
@@ -140,9 +141,13 @@ export function advanceTurn(r) {
   r.turnPhase = 'draw';
   r.discardDrawCardId = null;
   r.mustDrawFromStock = false;
-  // The "just drawn" pin/highlight only makes sense for the rest of the
+  // The blue "just drawn" highlight only makes sense for the rest of the
   // drawing player's own turn - clear it once that turn ends (on discard)
   // so it doesn't linger on a still-in-hand card until their next draw.
+  // The leftmost pin (r.pinnedCardIds, see orderHand in js/cards.js) is
+  // intentionally NOT cleared here - it should stay put across turns until
+  // the player drags the card themselves (which gives it a manual position
+  // and makes orderHand stop pinning it).
   r.lastDrawnPlayerId = null;
   r.lastDrawnCardId = null;
 }
@@ -188,6 +193,8 @@ function myHandPush(card) {
   state.room.hands[state.session.playerId].push(card);
   state.room.lastDrawnPlayerId = state.session.playerId;
   state.room.lastDrawnCardId = card.id;
+  if (!state.room.pinnedCardIds) state.room.pinnedCardIds = {};
+  state.room.pinnedCardIds[state.session.playerId] = card.id;
 }
 
 export async function actionDrawDiscard() {
