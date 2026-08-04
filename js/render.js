@@ -184,7 +184,6 @@ function renderLanding(app) {
   const nameField = el('div', 'field');
   nameField.innerHTML = '<label>Tvoje ime</label>';
   const nameInput = document.createElement('input');
-  nameInput.placeholder = 'Npr. Niko';
   nameInput.id = 'name-input';
   nameField.appendChild(nameInput);
   panel.appendChild(nameField);
@@ -194,8 +193,12 @@ function renderLanding(app) {
 
   // Only whoever opens the bare site (no ?room= in the URL, i.e. not someone
   // who arrived via a player's invite link) can create a new room - the host.
-  // Players always arrive via a shared link that already has ?room=CODE.
+  // Players always arrive via a shared link that already has ?room=CODE, so
+  // that path skips the room-code field entirely (the code is already known)
+  // and defaults the name field to "Mira" rather than an empty placeholder.
   if (!roomFromLink) {
+    nameInput.placeholder = 'Npr. Niko';
+
     const createBtn = el('button', 'btn btn-gold', 'Napravi sobu');
     createBtn.style.width = '100%';
     createBtn.onclick = async () => {
@@ -205,36 +208,50 @@ function renderLanding(app) {
       await createRoom(name);
     };
     panel.appendChild(createBtn);
+
+    panel.appendChild(el('div', 'divider'));
+
+    const joinField = el('div', 'field');
+    joinField.innerHTML = '<label>Kod sobe</label>';
+    const codeInput = document.createElement('input');
+    codeInput.placeholder = 'npr. A1B2';
+    codeInput.style.textTransform = 'uppercase';
+    codeInput.id = 'code-input';
+    joinField.appendChild(codeInput);
+    panel.appendChild(joinField);
+
+    const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
+    joinBtn.style.width = '100%';
+    joinBtn.onclick = async () => {
+      const name = nameInput.value.trim();
+      const code = codeInput.value.trim();
+      if (!name) { showToast('Unesi ime.'); return; }
+      if (!code) { showToast('Unesi kod sobe.'); return; }
+      joinBtn.disabled = true;
+      await joinRoom(code, name);
+      joinBtn.disabled = false;
+    };
+    panel.appendChild(joinBtn);
+  } else {
+    nameInput.value = 'Mira';
+
+    const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
+    joinBtn.style.width = '100%';
+    joinBtn.onclick = async () => {
+      const name = nameInput.value.trim();
+      if (!name) { showToast('Unesi ime.'); return; }
+      joinBtn.disabled = true;
+      await joinRoom(roomFromLink, name);
+      joinBtn.disabled = false;
+    };
+    panel.appendChild(joinBtn);
   }
-
-  panel.appendChild(el('div', 'divider'));
-
-  const joinField = el('div', 'field');
-  joinField.innerHTML = '<label>Kod sobe</label>';
-  const codeInput = document.createElement('input');
-  codeInput.placeholder = 'npr. A1B2';
-  codeInput.style.textTransform = 'uppercase';
-  codeInput.id = 'code-input';
-  if (roomFromLink) codeInput.value = roomFromLink.toUpperCase();
-  joinField.appendChild(codeInput);
-  panel.appendChild(joinField);
-
-  const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
-  joinBtn.style.width = '100%';
-  joinBtn.onclick = async () => {
-    const name = nameInput.value.trim();
-    const code = codeInput.value.trim();
-    if (!name) { showToast('Unesi ime.'); return; }
-    if (!code) { showToast('Unesi kod sobe.'); return; }
-    joinBtn.disabled = true;
-    await joinRoom(code, name);
-    joinBtn.disabled = false;
-  };
-  panel.appendChild(joinBtn);
 
   app.appendChild(panel);
 
-  const note = el('div', 'small center', 'Do 4 igraca, svako sa svog uredjaja preko istog koda sobe.');
+  const note = el('div', 'small center', roomFromLink
+    ? 'Do 4 igraca, svako sa svog uredjaja.'
+    : 'Do 4 igraca, svako sa svog uredjaja preko istog koda sobe.');
   note.style.marginTop = '14px';
   app.appendChild(note);
 }
