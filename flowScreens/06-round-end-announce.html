@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>6. Round end — announce — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 6: Round end, "announce" sub-stage (phase: round_end) — regular win, 3-player room. Top row shows all 3 players (unlike the live game board, which hides the viewer since their own hand is shown separately below); Marko opened on an earlier turn (hearts run + aces set, unhighlighted) then goes out this turn by laying one last set (8s+joker, highlighted orange) and discarding; Ana never opened this round so still holds her full 14; Niko (viewer) has opened too, with his own meld on the table, an 8-card leftover hand, and a real leftover-hand sum below &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="opponents-row">
+      <div class="opp-card">
+        <div class="name">Niko</div>
+        <div class="meta"><span class="opened-dot"></span> 8 karata</div>
+      </div>
+      <div class="opp-card" style="position:relative;">
+        <div class="name">Ana</div>
+        <div class="meta">14 karata</div>
+        <span class="dealer-badge" style="position:absolute;top:-8px;right:8px;">DELI</span>
+      </div>
+      <div class="opp-card winner-highlight">
+        <div class="name">Marko</div>
+        <div class="meta"><span class="opened-dot"></span> 0 karata</div>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="winner-banner" style="margin-bottom:40px;">&#127942; Marko zatvara!</div>
+
+      <!-- Only players with >=1 meld get a label (renderMeldsForPlayers skips empty owners) -->
+      <div class="melds-area">
+        <div class="meld-owner-label">Niko</div>
+        <div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card"><div class="rank">Q</div><div class="suit-sym">&spades;</div></div>
+              <div class="card red"><div class="rank">Q</div><div class="suit-sym">&diams;</div></div>
+              <div class="card"><div class="rank">Q</div><div class="suit-sym">&clubs;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card"><div class="rank">9</div><div class="suit-sym">&clubs;</div></div>
+              <div class="card"><div class="rank">10</div><div class="suit-sym">&clubs;</div></div>
+              <div class="card"><div class="rank">J</div><div class="suit-sym">&clubs;</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="meld-owner-label">Marko</div>
+        <div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card red"><div class="rank">5</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red"><div class="rank">6</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red"><div class="rank">7</div><div class="suit-sym">&hearts;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card"><div class="rank">A</div><div class="suit-sym">&spades;</div></div>
+              <div class="card red"><div class="rank">A</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red"><div class="rank">A</div><div class="suit-sym">&diams;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card winner-meld"><div class="rank">8</div><div class="suit-sym">&spades;</div></div>
+              <div class="card red winner-meld"><div class="rank">8</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card winner-meld"><div class="rank">8</div><div class="suit-sym">&clubs;</div></div>
+              <div class="card joker winner-meld">
+                <div class="rank">Joker</div>
+                <svg class="joker-icon" viewBox="0 0 64 64" aria-hidden="true">
+                  <path d="M20 26 C10 22 6 10 12 3 C17 11 22 19 27 25 Z" fill="var(--jester-red)"/>
+                  <path d="M28 21 C26 10 30 1 36 1 C36 11 33 19 30 24 Z" fill="var(--jester-red)"/>
+                  <path d="M44 26 C54 22 58 10 52 3 C47 11 42 19 37 25 Z" fill="var(--jester-red)"/>
+                  <circle cx="12" cy="4" r="3.4" fill="var(--jester-gold)"/>
+                  <circle cx="36" cy="2" r="3.4" fill="var(--jester-gold)"/>
+                  <circle cx="52" cy="4" r="3.4" fill="var(--jester-gold)"/>
+                  <path d="M17 26 Q32 34 47 26 L47 30 Q32 39 17 30 Z" fill="var(--jester-red)"/>
+                  <circle cx="32" cy="40" r="13" fill="var(--cream)" stroke="var(--ink)" stroke-width="1.5"/>
+                  <circle cx="27" cy="39" r="1.8" fill="var(--ink)"/>
+                  <circle cx="37" cy="39" r="1.8" fill="var(--ink)"/>
+                  <path d="M25 44 Q32 50 39 44" stroke="var(--ink)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Niko has opened: no "ruka" reveal block (that's mali/veliki-only). His table
+           melds above (Q-Q-Q + 9-10-J, 59 pts total) cover his opening lay (needed
+           51+ in one turn). Starting hand was 14; having laid 6 cards to the table
+           leaves 8 in hand here (net draw/discard doesn't change hand size turn to
+           turn). Value below is the real leftover sum (cardValueStandard), not the
+           flat 100 never-opened penalty - A=10, J/Q/K=10, Joker=20, else face value. -->
+      <div class="small center" style="color:var(--gold-bright);margin-top:20px;margin-bottom:14px;">Vrednost karata u tvojo ruci je 56</div>
+      <div class="hand-cards">
+        <div class="card red"><div class="rank">K</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">J</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">10</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card red"><div class="rank">9</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">7</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card"><div class="rank">5</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">3</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card red"><div class="rank">2</div><div class="suit-sym">&diams;</div></div>
+      </div>
+
+      <button class="btn btn-gold" style="width:100%;margin-top:14px;">Sledeca partija</button>
+    </div>
+
+    <div class="center" style="margin-top:14px;">
+      <button class="btn btn-danger">Reset</button>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.74</div>
+</body>
+</html>

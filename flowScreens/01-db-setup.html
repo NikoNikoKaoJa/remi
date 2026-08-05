@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>1. DB Setup — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 1: DB setup &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="brand"><span class="suits" style="color:#2b2b2b;">&spades;</span><span class="suits" style="color:#c0392b;">&hearts;</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">&diams;</span><span class="suits" style="color:#2b2b2b;">&clubs;</span></div>
+    <div class="subtitle">Izlazak&nbsp; sa 51 - Mali/Veliki Hand</div>
+
+    <div class="card-panel">
+      <h2>Podesavanje (samo prvi put)</h2>
+      <div class="small" style="margin-top:10px;">Ova igra cuva stanje partije u besplatnoj Firebase bazi (ne treba Claude nalog). Ako je host vec podesio bazu i poslao ti link, samo otvori taj link - ovaj korak ce se preskociti automatski. Ako si host i tek podesavas, nalepi ovde "Database URL" tvog Firebase Realtime Database projekta.</div>
+      <div class="field" style="margin-top:14px;">
+        <label>Firebase Database URL</label>
+        <input placeholder="https://tvoj-projekat-default-rtdb.firebaseio.com">
+      </div>
+      <button class="btn btn-gold" style="width:100%;">Sacuvaj i nastavi</button>
+    </div>
+    <div class="small center" style="margin-top:14px;">Uputstvo za podesavanje Firebase baze je u komentaru na vrhu HTML fajla.</div>
+  </div>
+</div>
+<div class="version-badge">v0.70</div>
+</body>
+</html>

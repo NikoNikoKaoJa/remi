@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>5b. Stanje modal — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 5b: "Stanje" modal (mid-game, over phase: playing) — running score history, opened via the Stanje button &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="card-panel table-area">
+
+      <!-- Opponents row -->
+      <div class="opponents-row" style="position:relative;">
+        <button class="btn btn-outline-gold" style="position:absolute;left:0;top:50%;transform:translateY(-50%);">Stanje</button>
+        <button class="btn btn-danger" style="position:absolute;right:0;top:50%;transform:translateY(-50%);">Reset</button>
+
+        <div class="opp-card" style="position:relative;">
+          <div class="name">Ana</div>
+          <div class="meta">12 karata</div>
+          <span class="dealer-badge" style="position:absolute;top:-8px;right:8px;">DELI</span>
+        </div>
+        <div class="opp-card">
+          <div class="name">Marko</div>
+          <div class="meta"><span class="opened-dot"></span> 9 karata</div>
+        </div>
+        <div class="opp-card">
+          <div class="name">Jovana</div>
+          <div class="meta">13 karata</div>
+        </div>
+      </div>
+
+      <div class="toast-anchor"></div>
+
+      <!-- Center table (dimmed behind the modal, same as mid-game) -->
+      <div class="center-table">
+        <div class="stock-discard-row">
+          <div class="special-card-wrap">
+            <div class="pile-stack">
+              <div class="card back deck-0"></div>
+            </div>
+            <div class="pile-label">Talon (41)</div>
+          </div>
+          <div class="special-card-wrap">
+            <div class="pile-stack">
+              <div class="card"><div class="rank">4</div><div class="suit-sym">&clubs;</div></div>
+            </div>
+            <div class="pile-label">Otpad (14)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Stanje modal (showScoreHistoryModal in js/ui.js) -->
+    <div class="modal-overlay" id="score-history-modal">
+      <div class="modal-box modal-box-wide">
+        <h3 style="margin-bottom:10px;">Rezultat</h3>
+        <div class="score-history-wrap">
+          <table class="score-table score-history-table">
+            <tr><th>Niko</th><th>Ana</th><th>Marko</th><th>Jovana</th></tr>
+            <tr><td>120</td><td>142</td><td>60</td><td>150</td></tr>
+            <tr><td>150</td><td>142</td><td>60</td><td>280</td></tr>
+            <tr class="circle-start"><td>350</td><td>210</td><td>40</td><td>480</td></tr>
+          </table>
+        </div>
+        <button class="btn btn-gold" style="width:100%;margin-top:14px;">Zatvori</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.72</div>
+</body>
+</html>

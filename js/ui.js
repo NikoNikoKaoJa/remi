@@ -77,13 +77,12 @@ export function buildScoreHistoryTable(room) {
   table.className = 'score-table score-history-table';
   const n = room.players.length;
   const headRow = document.createElement('tr');
-  headRow.innerHTML = '<th>#</th>' + room.players.map(p => `<th>${p.name}</th>`).join('');
+  headRow.innerHTML = room.players.map(p => `<th>${p.name}</th>`).join('');
   table.appendChild(headRow);
   (room.scoreHistory || []).forEach(entry => {
     const tr = document.createElement('tr');
     if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
-    tr.innerHTML = `<td class="name round-num">${entry.round}</td>` +
-      room.players.map(p => `<td>${entry.totals[p.id] ?? 0}</td>`).join('');
+    tr.innerHTML = room.players.map(p => `<td>${entry.totals[p.id] ?? 0}</td>`).join('');
     table.appendChild(tr);
   });
   return table;

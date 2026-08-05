@@ -125,16 +125,23 @@ function enableHandReorder(node, container) {
   }
 }
 
+function renderBrand(app) {
+  const brand = el('div', 'brand');
+  brand.innerHTML = `<span class="suits" style="color:#2b2b2b;">♠</span><span class="suits" style="color:#c0392b;">♥</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">♦</span><span class="suits" style="color:#2b2b2b;">♣</span>`;
+  app.appendChild(brand);
+  app.appendChild(el('div', 'subtitle', 'Izlazak  sa 51 - Mali/Veliki Hand'));
+}
+
 export function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
-  const isGameScreen = state.dbUrl && state.session.roomCode && state.room && state.room.phase === 'playing';
-  if (!isGameScreen) {
-    const brand = el('div', 'brand');
-    brand.innerHTML = `<span class="suits" style="color:#2b2b2b;">♠</span><span class="suits" style="color:#c0392b;">♥</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">♦</span><span class="suits" style="color:#2b2b2b;">♣</span>`;
-    app.appendChild(brand);
-    app.appendChild(el('div', 'subtitle', 'Izlazak  sa 51 - Mali/Veliki Hand'));
-  }
+  // The 'playing' table and the round-end 'announce' sub-stage both render
+  // their own top-of-screen row (opponents-row / renderRoundEndPlayersRow)
+  // in place of the brand - the 'scores' sub-stage (still inside phase
+  // round_end) re-adds the brand itself, see renderRoundScores.
+  const isGameScreen = state.dbUrl && state.session.roomCode && state.room &&
+    (state.room.phase === 'playing' || state.room.phase === 'round_end');
+  if (!isGameScreen) renderBrand(app);
 
   if (!state.dbUrl) {
     renderDbSetup(app);
@@ -433,8 +440,13 @@ function renderMeldsForPlayers(container, { clickable }) {
       const meldResolved = resolveMeld(m.cards);
       const jokerReplaceEligible = canReplaceJoker &&
         (!meldResolved || meldResolved.type !== 'set' || m.cards.filter(cc => !cc.joker).length >= 3);
+      // On the read-only round-end snapshot, highlight only the meld(s) the
+      // winner actually touched on their winning turn (see roundWinMeldIds in
+      // endRoundWithWinner), not their whole table history.
+      const isWinnerMeld = !clickable && (state.room.roundWinMeldIds || []).includes(m.id);
       sortMeldForDisplay(m.cards).forEach(c => {
         const cardElement = cardEl(c, { mini: true });
+        if (isWinnerMeld) cardElement.classList.add('winner-meld');
         if (c.joker && jokerReplaceEligible) {
           cardElement.classList.add('clickable');
           cardElement.classList.add('joker-replaceable');
@@ -617,35 +629,50 @@ function renderRoundEnd(app) {
 }
 
 // The viewer sees a first-person congratulation when they're the one who
-// won, instead of reading their own name back in the third person.
+// won, instead of reading their own name back in the third person. The verb
+// is present tense ("handira"/"zatvara") so it never needs gender agreement
+// the way a past participle ("handirao/handirala") would.
 function winnerBannerText(winner) {
+  const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
+  const verb = wentOutWithHand ? 'handira' : 'zatvara';
   if (state.room.roundWinner === state.session.playerId) {
-    return '🏆 Bravo! Tvoja pobeda!';
+    return `🏆 Bravo, ${wentOutWithHand ? 'handiras' : 'zatvaras'}!`;
   }
-  return `🏆 ${winner ? winner.name : '?'} pobedjuje!`;
+  return `🏆 ${winner ? winner.name : '?'} ${verb}!`;
+}
+
+// Unlike renderOpponents (live table), this shows every player including the
+// viewer - the viewer's own melds/hand are already broken out separately
+// below, but their card count belongs in the same at-a-glance row as
+// everyone else's. The winner gets the same orange highlight as their melds.
+function renderRoundEndPlayersRow(app) {
+  const rowEl = el('div', 'opponents-row');
+  state.room.players.forEach((p, i) => {
+    const isWinner = p.id === state.room.roundWinner;
+    const c = el('div', 'opp-card' + (isWinner ? ' winner-highlight' : ''));
+    c.style.position = 'relative';
+    c.appendChild(el('div', 'name', p.name));
+    const handCount = (state.room.hands[p.id] || []).length;
+    const meta = el('div', 'meta');
+    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ` ${handCount} karata`;
+    c.appendChild(meta);
+    if (i === state.room.dealerIndex) {
+      const b = el('span', 'dealer-badge', 'DELI');
+      b.style.position = 'absolute'; b.style.top = '-8px'; b.style.right = '8px';
+      c.appendChild(b);
+    }
+    rowEl.appendChild(c);
+  });
+  app.appendChild(rowEl);
 }
 
 function renderRoundAnnounce(app) {
+  renderRoundEndPlayersRow(app);
   const panel = el('div', 'card-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
-  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
-  panel.appendChild(el('div', 'winner-banner', winnerBannerText(winner)));
-  panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
-
-  const discardWrap = el('div', 'special-card-wrap');
-  const discardStack = el('div', 'pile-stack');
-  discardStack.style.cursor = 'default'; // read-only display here, not a clickable pile
-  if (state.room.discard.length > 0) {
-    discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
-  } else {
-    const d = el('div', 'card'); d.style.opacity = '0.25'; d.textContent = '—';
-    discardStack.appendChild(d);
-  }
-  discardWrap.appendChild(discardStack);
-  const discardLabel = el('div', 'pile-label', 'Poslednja bacena karta');
-  discardLabel.style.textTransform = 'none';
-  discardWrap.appendChild(discardLabel);
-  panel.appendChild(discardWrap);
+  const bannerEl = el('div', 'winner-banner', winnerBannerText(winner));
+  bannerEl.style.marginBottom = '40px';
+  panel.appendChild(bannerEl);
 
   renderMeldsForPlayers(panel, { clickable: false });
 
@@ -692,6 +719,7 @@ function renderRoundAnnounce(app) {
 }
 
 function renderRoundScores(app) {
+  renderBrand(app);
   const panel = el('div', 'card-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';

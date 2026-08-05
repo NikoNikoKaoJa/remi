@@ -172,6 +172,7 @@ KORAK 5 - Prvo otvaranje
     padding:10px 14px;min-width:110px;text-align:center;position:relative;
   }
   .opp-card.active{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,0.35), 0 0 18px rgba(201,162,39,0.25);}
+  .opp-card.winner-highlight{border-color:#ff8c00;box-shadow:0 0 0 2px rgba(255,140,0,0.45), 0 0 18px rgba(255,140,0,0.4);}
   .opp-card .name{font-weight:600;font-size:19px;}
   .opp-card .meta{font-size:15px;color:var(--cream-dim);margin-top:3px;}
   .opp-card .opened-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:4px;}
@@ -218,6 +219,7 @@ KORAK 5 - Prvo otvaranje
   .card.joker-replaceable{outline:2px dashed var(--gold-bright);outline-offset:1px;}
   .card.pending-joker{outline:3px dashed var(--gold-bright);outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(201,162,39,0.6);}
   .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
+  .card.winner-meld{outline:4px solid #ff8c00;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(255,140,0,0.85);}
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
   /* Hover-triggered from the non-moving .card-slot wrapper (see wrapHoverSlot
      in cards.js) rather than the card's own :hover. Hover only tints the
@@ -299,8 +301,12 @@ KORAK 5 - Prvo otvaranje
   }
   .score-table th{color:var(--gold-bright);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;}
   .score-table td.name{text-align:left;font-weight:600;}
-  .score-table td.name.round-num{text-align:center;}
-  .score-history-table tr.circle-start td{border-top:2px solid var(--gold-bright);}
+  .score-history-table{table-layout:fixed;}
+  .score-history-table th{border-bottom:2px solid var(--gold-bright);}
+  .score-history-table td{border-bottom:none;}
+  .score-history-table th:not(:last-child),
+  .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
+  .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
   .score-history-wrap{max-height:340px;overflow-y:auto;overflow-x:auto;}
   .winner-banner{
     text-align:center;font-family:var(--font-display);font-size:33px;color:var(--gold-bright);

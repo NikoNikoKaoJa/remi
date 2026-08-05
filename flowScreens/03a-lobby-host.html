@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>3a. Lobby (host view) — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 3a: Cekaonica / Lobby, host view, 3 players joined &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="brand"><span class="suits" style="color:#2b2b2b;">&spades;</span><span class="suits" style="color:#c0392b;">&hearts;</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">&diams;</span><span class="suits" style="color:#2b2b2b;">&clubs;</span></div>
+    <div class="subtitle">Izlazak&nbsp; sa 51 - Mali/Veliki Hand</div>
+
+    <div class="card-panel">
+      <h2>Cekaonica</h2>
+      <div class="small" style="margin-top:10px;">Posalji ovaj link ostalima igracim - kad ga otvore, sve je vec podeseno</div>
+      <div class="field" style="margin-top:14px;">
+        <input readonly value="https://niko.github.io/remi/?db=https%3A%2F%2Fremi-abcd-default-rtdb.firebaseio.com&room=A1B2" style="font-size:12px;">
+      </div>
+      <button class="btn btn-outline-gold" style="width:100%;">Kopiraj link</button>
+
+      <div class="divider"></div>
+      <div class="small">Ili kod sobe za rucni unos:</div>
+      <div class="roomcode-display">A1B2</div>
+
+      <div class="chip-list">
+        <div class="player-chip">Niko<span class="dealer-badge">HOST</span></div>
+        <div class="player-chip">Ana</div>
+        <div class="player-chip">Marko</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn btn-gold" style="width:100%;">Zapocni igru (3 igraca)</button>
+      <button class="btn btn-danger" style="width:100%;margin-top:10px;">Napusti sobu</button>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.70</div>
+</body>
+</html>

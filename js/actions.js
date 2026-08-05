@@ -150,6 +150,7 @@ export function advanceTurn(r) {
   // and makes orderHand stop pinning it).
   r.lastDrawnPlayerId = null;
   r.lastDrawnCardId = null;
+  r.turnMeldIds = [];
 }
 
 export async function endRoundWithWinner(r, winnerId, handType) {
@@ -159,10 +160,27 @@ export async function endRoundWithWinner(r, winnerId, handType) {
   r.scoreHistory.push({ round: r.round, totals: { ...r.scores } });
   r.roundWinner = winnerId;
   r.roundWinType = handType;
+  // Snapshot before anything resets it - lets the round-end screen highlight
+  // only the meld(s) touched on the winning turn, not the winner's whole
+  // table history.
+  r.roundWinMeldIds = (r.turnMeldIds || []).slice();
   r.lastDeltas = deltas;
   r.phase = 'round_end';
   const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : 'regularno';
   r.log.push(`${r.players.find(p => p.id === winnerId).name} je zavrsio rundu (${label})!`);
+}
+
+function pushMeld(r, group) {
+  const meld = { id: 'm_' + Math.random().toString(36).slice(2), ownerId: state.session.playerId, cards: group };
+  r.melds.push(meld);
+  if (!r.turnMeldIds) r.turnMeldIds = [];
+  r.turnMeldIds.push(meld.id);
+  return meld;
+}
+
+function markMeldTouched(r, meld) {
+  if (!r.turnMeldIds) r.turnMeldIds = [];
+  if (!r.turnMeldIds.includes(meld.id)) r.turnMeldIds.push(meld.id);
 }
 
 export function getSelectedCards() {
@@ -316,7 +334,7 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
       const idx = hand.findIndex(h => h.id === c.id);
       if (idx !== -1) hand.splice(idx, 1);
     });
-    partition.forEach(group => state.room.melds.push({ ownerId: state.session.playerId, cards: group }));
+    partition.forEach(group => pushMeld(state.room, group));
     hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
     state.room.discard.push(leftoverCard);
     state.room.openedPlayers.push(state.session.playerId);
@@ -338,7 +356,7 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
     const idx = hand.findIndex(h => h.id === c.id);
     if (idx !== -1) hand.splice(idx, 1);
   });
-  partition.forEach(group => state.room.melds.push({ ownerId: state.session.playerId, cards: group }));
+  partition.forEach(group => pushMeld(state.room, group));
   if (!opened) state.room.openedPlayers.push(state.session.playerId);
   state.selectedIds.clear();
   // Jokers are fungible - laying down ANY joker satisfies the requirement to
@@ -389,6 +407,7 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     if (idx !== -1) hand.splice(idx, 1);
   });
   meld.cards = combined;
+  markMeldTouched(state.room, meld);
   state.selectedIds.clear();
   state.addToMeldTarget = null;
   // Jokers are fungible - laying down ANY joker satisfies the requirement to
@@ -459,6 +478,7 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   delete jokerObj._lockedRank;
   delete jokerObj._lockedAceHigh;
   meld.cards[meldIdx2] = candidate;
+  markMeldTouched(state.room, meld);
   hand.push(jokerObj);
   state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
   if (state.room.discardDrawCardId === candidate.id) {

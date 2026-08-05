@@ -562,12 +562,14 @@ export function setupRound(players, dealerIndex) {
     revealedCard: revealed, // the raw cut card - for the cut-reveal screen
     belowCutCard: secondFromBottom, // the card directly under the cut card - if THIS one is a joker, it's the dealer's bonus (not the cutter's)
     specialBottomCard: specialBottomCard ? { card: specialBottomCard, taken: false } : null,
-    melds: [], // {ownerId, cards}
+    melds: [], // {id, ownerId, cards}
     openedPlayers: [],
     currentPlayerIndex: firstPlayerIdx,
     turnPhase: 'meld', // first player already has 15 cards, skips draw
     roundWinner: null,
     roundWinType: null, // null|'mali'|'veliki'
+    turnMeldIds: [], // meld ids created/added-to during the current player's turn - reset in advanceTurn
+    roundWinMeldIds: [], // snapshot of turnMeldIds taken the instant someone wins, for the round-end "put down this turn" highlight
     pendingJokerToPlace: null,
     discardDrawCardId: null,
     mustDrawFromStock: false,

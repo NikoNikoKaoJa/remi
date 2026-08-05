@@ -30,6 +30,8 @@ export function hydrateRoom(r) {
   if (!r.discard) r.discard = [];
   if (!r.melds) r.melds = [];
   if (!r.openedPlayers) r.openedPlayers = [];
+  if (!r.turnMeldIds) r.turnMeldIds = [];
+  if (!r.roundWinMeldIds) r.roundWinMeldIds = [];
   if (!r.log) r.log = [];
   if (!r.quadAnnouncements) r.quadAnnouncements = [];
   if (!r.readyForNextRound) r.readyForNextRound = [];

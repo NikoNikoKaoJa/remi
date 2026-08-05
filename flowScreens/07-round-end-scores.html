@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>7. Round end — scores — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 7: Round end, "scores" sub-stage (phase: round_end) — viewer already readied up, waiting on others &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="brand"><span class="suits" style="color:#2b2b2b;">&spades;</span><span class="suits" style="color:#c0392b;">&hearts;</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">&diams;</span><span class="suits" style="color:#2b2b2b;">&clubs;</span></div>
+    <div class="subtitle">Izlazak&nbsp; sa 51 - Mali/Veliki Hand</div>
+
+    <div class="card-panel">
+      <div class="winner-banner">&#127942; Marko handira!</div>
+      <div class="small center">Nacin pobede: Mali Hand</div>
+
+      <table class="score-table">
+        <tr><th>Igrac</th><th>Runda</th><th>Ukupno</th></tr>
+        <tr><td class="name">Niko</td><td>+200</td><td>350</td></tr>
+        <tr><td class="name">Ana</td><td>+68</td><td>210</td></tr>
+        <tr><td class="name">Marko</td><td>-20</td><td>40</td></tr>
+        <tr><td class="name">Jovana</td><td>+200</td><td>480</td></tr>
+      </table>
+
+      <div class="divider"></div>
+
+      <div class="small center">Istorija po rundama</div>
+      <div class="score-history-wrap">
+        <table class="score-table score-history-table">
+          <tr><th>Niko</th><th>Ana</th><th>Marko</th><th>Jovana</th></tr>
+          <tr><td>120</td><td>142</td><td>60</td><td>150</td></tr>
+          <tr><td>150</td><td>142</td><td>60</td><td>280</td></tr>
+          <tr class="circle-start"><td>350</td><td>210</td><td>40</td><td>480</td></tr>
+        </table>
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="btn btn-gold" style="width:100%;" disabled>Cekamo ostale (2/4) spremno...</button>
+      <button class="btn btn-outline-gold" style="width:100%;margin-top:8px;">Podeli Sada - bez cekanja</button>
+    </div>
+
+    <div class="center" style="margin-top:14px;">
+      <button class="btn btn-danger">Reset</button>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.70</div>
+</body>
+</html>

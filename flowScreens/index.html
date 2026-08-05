@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remi — screen flow</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .flow-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:16px;}
+  .flow-link{
+    display:block;padding:16px;border-radius:12px;text-decoration:none;color:var(--cream);
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.08));
+    border:1px solid var(--panel-line);transition:filter .15s ease;
+  }
+  .flow-link:hover{filter:brightness(1.15);}
+  .flow-link .num{color:var(--gold-bright);font-weight:700;font-size:14px;letter-spacing:0.5px;text-transform:uppercase;}
+  .flow-link .title{font-size:19px;font-weight:600;margin-top:4px;}
+  .flow-link .desc{font-size:14px;color:var(--cream-dim);margin-top:6px;}
+  .flow-section{margin-top:26px;font-size:15px;color:var(--gold-bright);text-transform:uppercase;letter-spacing:0.6px;}
+</style>
+</head>
+<body>
+<div id="remi-root">
+  <div class="wrap">
+    <div class="brand"><span class="suits" style="color:#2b2b2b;">&spades;</span><span class="suits" style="color:#c0392b;">&hearts;</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">&diams;</span><span class="suits" style="color:#2b2b2b;">&clubs;</span></div>
+    <div class="subtitle">Screen flow — every screen &amp; state, as static mockups</div>
+
+    <div class="card-panel">
+      <div class="small">These are static HTML snapshots for reviewing the flow, built with mock data from the real CSS/markup in <code>index.html</code> / <code>js/render.js</code>. They aren't wired up to Firebase or any app logic — nothing here is clickable in a functional sense. Not part of the shipped app.</div>
+
+      <div class="flow-section">1. First run</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="01-db-setup.html">
+          <div class="num">Screen 1</div>
+          <div class="title">DB setup</div>
+          <div class="desc">Shown once, before any Firebase URL is known.</div>
+        </a>
+      </div>
+
+      <div class="flow-section">2. Landing</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="02a-landing-host.html">
+          <div class="num">Screen 2a</div>
+          <div class="title">Landing — host</div>
+          <div class="desc">No <code>?room=</code> in the URL: can create OR join a room.</div>
+        </a>
+        <a class="flow-link" href="02b-landing-joiner.html">
+          <div class="num">Screen 2b</div>
+          <div class="title">Landing — joiner</div>
+          <div class="desc">Arrived via an invite link: create button hidden, code pre-filled.</div>
+        </a>
+      </div>
+
+      <div class="flow-section">3. Lobby</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="03a-lobby-host.html">
+          <div class="num">Screen 3a</div>
+          <div class="title">Lobby — host</div>
+          <div class="desc">Sees the "Zapocni igru" start button once &ge;2 players joined.</div>
+        </a>
+        <a class="flow-link" href="03b-lobby-guest.html">
+          <div class="num">Screen 3b</div>
+          <div class="title">Lobby — guest</div>
+          <div class="desc">Waits on the host to start; no start button.</div>
+        </a>
+      </div>
+
+      <div class="flow-section">4. Cut reveal</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="04-cut-reveal.html">
+          <div class="num">Screen 4</div>
+          <div class="title">Sece se... (cutting)</div>
+          <div class="desc">Shown before every round, including round 1. Here the cut card is a joker bonus.</div>
+        </a>
+      </div>
+
+      <div class="flow-section">5. Game</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="05-game.html">
+          <div class="num">Screen 5</div>
+          <div class="title">Table (playing)</div>
+          <div class="desc">Opponents row, stock/discard/melds, hand + actions — mid-turn, 1 card selected.</div>
+        </a>
+        <a class="flow-link" href="05b-stanje-modal.html">
+          <div class="num">Screen 5b</div>
+          <div class="title">Stanje modal</div>
+          <div class="desc">Running score-history table, opened mid-game via the Stanje button.</div>
+        </a>
+      </div>
+
+      <div class="flow-section">6. Round end</div>
+      <div class="flow-grid">
+        <a class="flow-link" href="06-round-end-announce.html">
+          <div class="num">Screen 6</div>
+          <div class="title">Round end — announce</div>
+          <div class="desc">All-players row + winner banner over the final board; here a regular win, winner's final meld highlighted orange.</div>
+        </a>
+        <a class="flow-link" href="07-round-end-scores.html">
+          <div class="num">Screen 7</div>
+          <div class="title">Round end — scores</div>
+          <div class="desc">Score table + history, gated on everyone clicking ready.</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
