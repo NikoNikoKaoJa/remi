@@ -219,6 +219,7 @@ export async function actionDrawDiscard() {
   if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
   if (state.room.discard.length === 0) { showToast('Otpad je prazan.'); return; }
   if (state.room.mustDrawFromStock) { showToast('Vratio si kartu na otpad - sad moras da vuces sa talona.'); return; }
+  if (myHand().length === 1) { showToast('Sa jednom kartom u ruci ne mozes vuci sa otpada - vuci sa talona.'); return; }
   state.busy = true;
   const card = state.room.discard.pop();
   myHandPush(card);

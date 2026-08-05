@@ -399,7 +399,7 @@ function renderCenterTable(app) {
   // Discard
   const discardWrap = el('div', 'special-card-wrap');
   const discardClickable = isMyTurn() && state.room.turnPhase === 'draw' && state.room.discard.length > 0
-    && !state.room.mustDrawFromStock;
+    && !state.room.mustDrawFromStock && myHand().length !== 1;
   const discardStack = el('div', 'pile-stack' + (discardClickable ? '' : ' disabled'));
   if (state.room.discard.length > 0) {
     discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
@@ -558,13 +558,6 @@ function renderHandAndActions(app) {
     layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
-    if (opened) {
-      const addBtn = el('button', 'btn btn-outline-gold', 'Krpi se');
-      addBtn.disabled = state.selectedIds.size === 0 || selectingWholeHand;
-      addBtn.onclick = () => showToast('Izabrao si karte - sad klikni na kombinaciju na stolu na koju zelis da ih dodas.');
-      bar.appendChild(addBtn);
-    }
-
     const hasSelection = state.selectedIds.size > 0;
     const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', opened || hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
     if (opened) {
@@ -680,7 +673,9 @@ function renderRoundAnnounce(app) {
     panel.appendChild(el('div', 'meld-owner-label', (winner ? winner.name : '?') + ' - ruka (Mali Hand)'));
     const row = el('div', 'hand-cards');
     sortHand(state.room.hands[state.room.roundWinner] || []).forEach(c => {
-      row.appendChild(cardEl(c, { mini: true }));
+      const cardElement = cardEl(c, { mini: true });
+      cardElement.classList.add('winner-meld');
+      row.appendChild(cardElement);
     });
     panel.appendChild(row);
   }
