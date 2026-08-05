@@ -45,14 +45,22 @@ export function applyPendingRound(r) {
   if (!r.scores) r.scores = {};
   // pendingRound may have been round-tripped through Firebase (saved during
   // the 'cutting' phase, then reloaded by a different client/poll tick) -
-  // Firebase drops empty-array fields on save, so restore them before
-  // merging or a fresh round would silently inherit the previous round's
-  // melds/discard/openedPlayers/stock.
+  // Firebase drops any null/empty-array field on save, so restore them
+  // before merging or a fresh round would silently inherit the previous
+  // round's values (melds/discard/openedPlayers/stock, and setupRound's
+  // null-valued scalars like discardDrawCardId/roundWinner/roundWinType/
+  // pendingJokerToPlace - the latter caused a real bug: a stale
+  // discardDrawCardId pointed at a card no longer in anyone's hand, making
+  // it impossible to ever discard).
   const pr = r.pendingRound || {};
   if (!pr.melds) pr.melds = [];
   if (!pr.discard) pr.discard = [];
   if (!pr.openedPlayers) pr.openedPlayers = [];
   if (!pr.stock) pr.stock = [];
+  if (!pr.discardDrawCardId) pr.discardDrawCardId = null;
+  if (!pr.roundWinner) pr.roundWinner = null;
+  if (!pr.roundWinType) pr.roundWinType = null;
+  if (!pr.pendingJokerToPlace) pr.pendingJokerToPlace = null;
   Object.assign(r, pr);
   r.round = (r.round || 0) + 1;
   // Seed each player's order with their freshly-dealt hand pre-sorted, so the
@@ -61,6 +69,11 @@ export function applyPendingRound(r) {
   // (see orderHand in js/cards.js), never auto-resorted alongside it.
   r.handOrders = {};
   r.pinnedCardIds = {};
+  // Not part of setupRound's output at all, so Object.assign(r, pr) never
+  // touches these - clear them directly or the "just drawn" highlight/pin
+  // from the previous round's last draw leaks into the new round.
+  r.lastDrawnCardId = null;
+  r.lastDrawnPlayerId = null;
   r.players.forEach(p => {
     r.handOrders[p.id] = sortHand(r.hands[p.id] || []).map(c => c.id);
   });
