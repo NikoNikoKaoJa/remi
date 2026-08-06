@@ -457,6 +457,9 @@ export async function actionLayMultipleSelected() {
   // With the card from under the talon in hand, the only legal lay is the
   // hand itself - anything less would strand that card on the table with no
   // way to return it (and no way to end the turn, since it can't be discarded).
+  // Defense in depth: actionTryBottomCard only hands the card over when a hand
+  // is actually available to this player, so the button they see is "Handiraj"
+  // (which comes back here with all 14 selected) rather than "Izlozi se".
   if (state.room.bottomDrawCardId && !goingOutAttempt) {
     showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
     return;
@@ -748,6 +751,13 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
 export async function actionTryBottomCard() {
   if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
   if (!state.room.specialBottomCard || state.room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
+  // The card exists to complete a hand, and a player who has already opened
+  // can never declare one (see findHandOption) - handing it to them anyway
+  // left them holding a card whose only legal move was putting it back.
+  if (state.room.openedPlayers.includes(state.session.playerId)) {
+    showToast('Vec si se izlozio - kartu ispod talona mozes uzeti samo za hand.');
+    return;
+  }
   const card = state.room.specialBottomCard.card;
   const hypothetical = myHand().concat([card]);
   // Check if drawing this card immediately enables ANY hand declaration - the

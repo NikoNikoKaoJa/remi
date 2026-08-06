@@ -55,7 +55,8 @@ There are two builds of the same game:
   "special bottom card" — if the revealed card was awarded as a bonus joker, the
   next card is revealed to fill that slot.
 - **The card under the talon may only be taken to make a hand** (mali/veliki),
-  in place of that turn's draw. The player either goes out with the hand, or
+  in place of that turn's draw — so a player who has already opened can't take
+  it at all, hands being closed to them. The player either goes out with the hand, or
   puts the card back under the talon (which rewinds the turn to its draw
   phase). It reaches the discard pile in exactly ONE case: as the odd card
   thrown when the hand being declared is the *other* 14 cards. Any other
