@@ -102,9 +102,15 @@ node --input-type=module -e "import { ... } from './js/engine.js'; ..."
 ```
 (e.g. confirm a crafted hand really does form a veliki hand).
 
-### 3. Open Safari, one tab per player
+### 3. Open a NEW Safari window, one tab per player
 
 Two players by default; more only if the change genuinely needs it.
+
+**Always open a dedicated new Safari window for the test - never add tabs to
+Niko's existing window.** `open -a Safari <url>` drops tabs into whatever
+window happens to be frontmost, mixing test tabs in with his real browsing
+(and making it far too easy to close/reload the wrong one). Use AppleScript
+so the test lives in its own window that can be closed as a unit.
 
 Safari shares localStorage across normal tabs and the app stores a single
 session under `my-remi-session`, so tabs can't join as different players on
@@ -115,11 +121,12 @@ writes a fixed `{playerId, name, roomCode}` into
 `localStorage['remi-db-url']`, then `location.replace`s to
 `index.html?db=...&room=CODE`.
 
-Then:
+Then, in one new window (wait a couple of seconds between tabs so each boots
+with its own session):
 ```
-open -a Safari "http://localhost:<port>/test-session.html?p=1"
-# wait a couple of seconds
-open -a Safari "http://localhost:<port>/test-session.html?p=2"
+osascript -e 'tell application "Safari" to make new document with properties {URL:"http://localhost:<port>/test-session.html?p=1"}'
+sleep 3
+osascript -e 'tell application "Safari" to tell front window to set current tab to (make new tab with properties {URL:"http://localhost:<port>/test-session.html?p=2"})'
 ```
 Each tab keeps its identity in memory (the app only re-reads localStorage at
 boot / on rejoin), so this works. **Warn Niko** that reloading tab 1 will
@@ -140,7 +147,8 @@ This is often enough to pinpoint the bug and skip the live test entirely.
 
 1. Kill the server: `pkill -f "<scratchpad server script>"` (or
    `kill $(lsof -ti:<port>)`).
-2. Close the Safari tabs:
+2. Close the test window (only tabs on the test port, so Niko's own windows
+   are never touched):
    ```
    osascript -e 'tell application "Safari" to close (every tab of every window whose URL contains "localhost:<port>")'
    ```
