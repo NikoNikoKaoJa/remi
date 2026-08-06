@@ -83,19 +83,23 @@ export function showQuadAnnouncementModal(announcement) {
 // thicker top border marks the start of a new "krug" (every player has dealt
 // once) - purely informational, no effect on scoring.
 // winnerId (round-end screen only - the "Stanje" modal passes nothing) marks
-// that player's column orange, matching flowScreens/07-round-end-scores.html.
+// the winner: their name in the header, and their new total on the LAST row,
+// which is the round that just finished. Nothing else - the older rows are
+// history and say nothing about who just won.
 export function buildScoreHistoryTable(room, winnerId = null) {
   const table = document.createElement('table');
   table.className = 'score-table score-history-table' + (winnerId ? ' round-end-history-winner' : '');
   const n = room.players.length;
+  const history = room.scoreHistory || [];
   const cls = p => (p.id === winnerId ? ' class="winner-col"' : '');
   const headRow = document.createElement('tr');
   headRow.innerHTML = room.players.map(p => `<th${cls(p)}>${p.name}</th>`).join('');
   table.appendChild(headRow);
-  (room.scoreHistory || []).forEach(entry => {
+  history.forEach((entry, i) => {
+    const last = i === history.length - 1;
     const tr = document.createElement('tr');
     if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
-    tr.innerHTML = room.players.map(p => `<td${cls(p)}>${entry.totals[p.id] ?? 0}</td>`).join('');
+    tr.innerHTML = room.players.map(p => `<td${last ? cls(p) : ''}>${entry.totals[p.id] ?? 0}</td>`).join('');
     table.appendChild(tr);
   });
   return table;

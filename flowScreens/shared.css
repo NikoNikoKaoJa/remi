@@ -233,8 +233,10 @@ h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
 .score-summary-table td.name{text-align:center;}
 .score-summary-table th,.score-summary-table td{padding:8px 22px;}
 .score-summary-table tr.winner-row td{color:#ff8c00;font-weight:700;}
+/* The winner's name, plus their new total on the last row - the round that
+   just finished. Older rows are plain history. */
 .round-end-history-winner th:nth-child(3),
-.round-end-history-winner tr.circle-start td:nth-child(3){color:#ff8c00;font-weight:700;}
+.round-end-history-winner tr:last-child td:nth-child(3){color:#ff8c00;font-weight:700;}
 .round-end-history-winner{table-layout:fixed;width:min(480px,100%);margin-left:auto;margin-right:auto;}
 .round-end-history-winner th,.round-end-history-winner td{padding:8px 20px;}
 .winner-name-orange{color:#ff8c00;}
