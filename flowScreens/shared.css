@@ -223,6 +223,16 @@ h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
 }
 .score-table th{color:var(--gold-bright);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.5px;}
 .score-table td.name{text-align:left;font-weight:600;}
+.score-summary-table{width:auto;margin-left:auto;margin-right:auto;}
+.score-summary-table td.name{text-align:center;}
+.score-summary-table th,.score-summary-table td{padding:8px 22px;}
+.score-summary-table tr.winner-row td{color:#ff8c00;font-weight:700;}
+.round-end-history-winner th:nth-child(3),
+.round-end-history-winner tr.circle-start td:nth-child(3){color:#ff8c00;font-weight:700;}
+.round-end-history-winner{table-layout:fixed;width:min(480px,100%);margin-left:auto;margin-right:auto;}
+.round-end-history-winner th,.round-end-history-winner td{padding:8px 20px;}
+.winner-name-orange{color:#ff8c00;}
+.round-end-scores-panel{width:70%;margin-left:auto;margin-right:auto;}
 .score-history-table{table-layout:fixed;}
 .score-history-table th{border-bottom:2px solid var(--gold-bright);}
 .score-history-table td{border-bottom:none;}
