@@ -2,7 +2,7 @@ import { state, APP_VERSION } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
-import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryTable } from './ui.js';
+import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
@@ -683,6 +683,7 @@ function renderRoundEnd(app) {
   if (state.lastRoundEndRound !== state.room.round) {
     state.roundEndStage = 'announce';
     state.lastRoundEndRound = state.room.round;
+    state.scoreHistoryScrollTop = null; // so the new round's table opens at its newest row
   }
   if (state.roundEndStage === 'announce') renderRoundAnnounce(app);
   else renderRoundScores(app);
@@ -795,7 +796,8 @@ function renderRoundAnnounce(app) {
 }
 
 function renderRoundScores(app) {
-  renderBrand(app);
+  // No brand header here: this screen already carries a winner banner, and with
+  // a long history the header only pushed the buttons off the bottom.
   const panel = el('div', 'card-panel round-end-scores-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
@@ -819,9 +821,10 @@ function renderRoundScores(app) {
   panel.appendChild(el('div', 'divider'));
 
   panel.appendChild(el('div', 'small center', 'Istorija po rundama'));
-  const historyWrap = el('div', 'score-history-wrap');
-  historyWrap.appendChild(buildScoreHistoryTable(state.room, state.room.roundWinner));
-  panel.appendChild(historyWrap);
+  // The names row stays put while the rounds scroll under it, and the view
+  // opens on the newest round rather than the oldest.
+  const history = buildScoreHistoryBlock(state.room, state.room.roundWinner);
+  panel.appendChild(history.block);
 
   panel.appendChild(el('div', 'divider'));
 
@@ -845,6 +848,20 @@ function renderRoundScores(app) {
   }
 
   app.appendChild(panel);
+
+  // Both of these need the block to be in the document first: the scrollbar
+  // can only be measured once laid out, and scrollHeight is 0 before that.
+  reserveScrollbarStrip(history.block, history.bodyWrap, history.tableWidth);
+  // This screen re-renders on every poll while waiting for the other players,
+  // which would otherwise yank the view back to the newest round every few
+  // seconds. So jump to the bottom only the first time (per round - reset in
+  // renderRoundEnd), and put the player back where they scrolled to after that.
+  if (state.scoreHistoryScrollTop === null) {
+    history.bodyWrap.scrollTop = history.bodyWrap.scrollHeight;
+  } else {
+    history.bodyWrap.scrollTop = state.scoreHistoryScrollTop;
+  }
+  history.bodyWrap.onscroll = () => { state.scoreHistoryScrollTop = history.bodyWrap.scrollTop; };
 }
 
 function renderCutReveal(app) {

@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v0.95';
+export const APP_VERSION = 'v0.96';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -17,6 +17,10 @@ export const state = {
   addToMeldTarget: null, // {ownerIdx, meldIdx} or null
   roundEndStage: 'announce', // local-only sub-stage of room.phase === 'round_end': 'announce' | 'scores'
   lastRoundEndRound: null, // room.round value roundEndStage was last reset for
+  // Where the player scrolled the round-end history table, preserved across the
+  // polling re-renders of that screen. null = not scrolled yet, so open on the
+  // newest round (reset per round in renderRoundEnd).
+  scoreHistoryScrollTop: null,
   handDragActive: false, // true while a hand-card reorder drag is in progress - suppresses poll-triggered re-renders that would tear down the mid-drag DOM
   suppressNextCardClick: false, // set right before a reorder drag's synthetic click fires, so it doesn't also toggle card selection
 };

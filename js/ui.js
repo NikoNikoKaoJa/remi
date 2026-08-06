@@ -107,6 +107,77 @@ export function buildScoreHistoryTable(room, winnerId = null) {
   return table;
 }
 
+// The same history table, but split into a fixed names row plus a separately
+// scrolling body - for screens where the history can outgrow the space (the
+// round-end scores screen). Returns { block, bodyWrap } so the caller can
+// manage bodyWrap's scroll position.
+//
+// Why a split table rather than `position:sticky` on the <th>: a sticky header
+// scrolls rows underneath itself, so it needs an opaque background of its own,
+// and the panel is a translucent gradient over the felt - any flat colour shows
+// as a visible band. Lifting the row out of the scrolling box means it sits on
+// the panel like ordinary text, with no background to match.
+export function buildScoreHistoryBlock(room, winnerId = null) {
+  // Measure what the browser picks for each column with the real content, so
+  // the two tables can be locked to identical widths.
+  const probe = document.createElement('div');
+  probe.className = 'score-history-probe';
+  const table = buildScoreHistoryTable(room, winnerId);
+  probe.appendChild(table);
+  document.body.appendChild(probe);
+  const widths = [...table.rows[0].cells].map(c => c.getBoundingClientRect().width);
+  const tableWidth = table.getBoundingClientRect().width;
+  probe.remove();
+
+  const headTable = document.createElement('table');
+  headTable.className = table.className + ' hist-head';
+  headTable.appendChild(table.rows[0]); // moves the names row out of the body table
+  table.classList.add('hist-body');
+
+  const colgroup = () => {
+    const cg = document.createElement('colgroup');
+    widths.forEach(w => {
+      const col = document.createElement('col');
+      col.style.width = w + 'px';
+      cg.appendChild(col);
+    });
+    return cg;
+  };
+  [headTable, table].forEach(t => {
+    t.insertBefore(colgroup(), t.firstChild);
+    t.style.tableLayout = 'fixed';
+    t.style.width = tableWidth + 'px';
+    // Both tables must start at the same left edge; .round-end-history-winner
+    // centres itself, which would offset them from each other.
+    t.style.marginLeft = '0';
+    t.style.marginRight = '0';
+  });
+
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'hist-body-wrap';
+  bodyWrap.appendChild(table);
+
+  const block = document.createElement('div');
+  block.className = 'hist-block';
+  block.style.width = tableWidth + 'px';
+  block.appendChild(headTable);
+  block.appendChild(bodyWrap);
+
+  return { block, bodyWrap, tableWidth };
+}
+
+// Gives the scrollbar a strip of its own to the right of the table, so it can't
+// shrink the body table and shift its columns out of line with the names row.
+// Must run after the block is in the document; overlay scrollbars measure 0 and
+// cost nothing.
+export function reserveScrollbarStrip(block, bodyWrap, tableWidth) {
+  const sbw = bodyWrap.offsetWidth - bodyWrap.clientWidth;
+  if (sbw > 0) {
+    block.style.width = (tableWidth + sbw) + 'px';
+    bodyWrap.style.width = (tableWidth + sbw) + 'px';
+  }
+}
+
 export function showScoreHistoryModal(room) {
   const existing = document.getElementById('score-history-modal');
   if (existing) existing.remove();

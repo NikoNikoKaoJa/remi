@@ -329,6 +329,18 @@ KORAK 5 - Prvo otvaranje
   .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
   .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
   .score-history-wrap{max-height:340px;overflow-y:auto;overflow-x:auto;}
+  /* Split history table (buildScoreHistoryBlock): the names row is its own
+     table sitting on the panel, so it needs no background of its own, and only
+     the rounds below it scroll. Both tables are locked to the same measured
+     column widths and the same left edge, and the scrollbar gets a strip to the
+     right of the table so it can't shrink the body and shift its columns. */
+  .hist-block{margin:10px auto 0;}
+  .hist-head{margin:0;}
+  .hist-head th{border-bottom:2px solid var(--gold-bright);}
+  .hist-body{margin:0;}
+  .hist-body-wrap{max-height:300px;overflow-y:auto;overflow-x:hidden;}
+  /* Off-screen measuring pass - must be laid out, just not visible. */
+  .score-history-probe{position:absolute;visibility:hidden;pointer-events:none;left:-9999px;top:0;}
   /* Round-end scores screen (flowScreens/07-round-end-scores.html): the
      round's deltas sit in a narrow centered table with the winner's row in
      orange, and the winner's column of the history table is marked the same

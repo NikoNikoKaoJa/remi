@@ -256,6 +256,12 @@ h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
 .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
 .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
 .score-history-wrap{max-height:340px;overflow-y:auto;overflow-x:auto;}
+.hist-block{margin:10px auto 0;}
+.hist-head{margin:0;}
+.hist-head th{border-bottom:2px solid var(--gold-bright);}
+.hist-body{margin:0;}
+.hist-body-wrap{max-height:300px;overflow-y:auto;overflow-x:hidden;}
+.score-history-probe{position:absolute;visibility:hidden;pointer-events:none;left:-9999px;top:0;}
 .winner-banner{
   text-align:center;font-family:var(--font-display);font-size:33px;color:var(--gold-bright);
   margin:14px 0 4px;

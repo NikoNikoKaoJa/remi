@@ -6,12 +6,9 @@
 <link rel="stylesheet" href="shared.css">
 </head>
 <body>
-<div class="flow-tag">Screen 7: Round end, "scores" sub-stage (phase: round_end) — viewer already readied up, waiting on others &middot; <a href="index.html">all screens</a></div>
+<div class="flow-tag">Screen 7: Round end, "scores" sub-stage (phase: round_end) — names row fixed, rounds scroll; viewer already readied up, waiting on others &middot; <a href="index.html">all screens</a></div>
 <div id="remi-root">
   <div class="wrap" id="app">
-    <div class="brand"><span class="suits" style="color:#2b2b2b;">&spades;</span><span class="suits" style="color:#c0392b;">&hearts;</span><h1>REMI</h1><span class="suits" style="color:#c0392b;">&diams;</span><span class="suits" style="color:#2b2b2b;">&clubs;</span></div>
-    <div class="subtitle">Izlazak&nbsp; sa 51 - Mali/Veliki Hand</div>
-
     <div class="card-panel round-end-scores-panel">
       <div class="winner-banner">&#127942; <span class="winner-name-orange">Marko</span> handira!</div>
       <div class="small center">Nacin pobede: Mali Hand</div>
@@ -27,13 +24,26 @@
       <div class="divider"></div>
 
       <div class="small center">Istorija po rundama</div>
-      <div class="score-history-wrap">
-        <table class="score-table score-history-table round-end-history-winner">
+      <!-- Names row lifted out of the scrolling box: it sits on the panel, so it
+           needs no background of its own, and only the rounds scroll. Widths are
+           measured at runtime in the app (buildScoreHistoryBlock); here they are
+           written out so the two tables line up. -->
+      <div class="hist-block" style="width:416px;">
+        <table class="score-table score-history-table round-end-history-winner hist-head" style="table-layout:fixed;width:416px;margin:0;">
+          <colgroup><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"></colgroup>
           <tr><th>Niko</th><th>Ana</th><th>Marko</th><th>Jovana</th></tr>
-          <tr><td><span class="num">120</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">150</span></td></tr>
-          <tr><td><span class="num">150</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">280</span></td></tr>
-          <tr class="circle-start"><td><span class="num">350</span></td><td><span class="num">210</span></td><td><span class="num">40</span></td><td><span class="num">480</span></td></tr>
         </table>
+        <div class="hist-body-wrap" style="max-height:150px;">
+          <table class="score-table score-history-table round-end-history-winner hist-body" style="table-layout:fixed;width:416px;margin:0;">
+            <colgroup><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"></colgroup>
+            <tr><td><span class="num">120</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">150</span></td></tr>
+            <tr><td><span class="num">150</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">280</span></td></tr>
+            <tr class="circle-start"><td><span class="num">350</span></td><td><span class="num">210</span></td><td><span class="num">40</span></td><td><span class="num">480</span></td></tr>
+            <tr><td><span class="num">352</span></td><td><span class="num">230</span></td><td><span class="num">40</span></td><td><span class="num">500</span></td></tr>
+            <tr class="circle-start"><td><span class="num">372</span></td><td><span class="num">230</span></td><td><span class="num">40</span></td><td><span class="num">610</span></td></tr>
+            <tr><td><span class="num">380</span></td><td><span class="num">250</span></td><td><span class="num">60</span></td><td><span class="num">610</span></td></tr>
+          </table>
+        </div>
       </div>
 
       <div class="divider"></div>
@@ -47,6 +57,6 @@
     </div>
   </div>
 </div>
-<div class="version-badge">v0.70</div>
+<div class="version-badge">v0.96</div>
 </body>
 </html>
