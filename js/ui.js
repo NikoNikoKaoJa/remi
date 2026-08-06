@@ -21,8 +21,18 @@ export function showToast(msg, ms) {
 
 export function checkQuadAnnouncement() {
   if (!state.room || !state.room.quadAnnouncements) return;
-  const pending = state.room.quadAnnouncements.find(a => !state.dismissedQuadAnnouncements.has(a.id));
-  if (pending) showQuadAnnouncementModal(pending);
+  const pending = state.room.quadAnnouncements.filter(a => !state.dismissedQuadAnnouncements.has(a.id));
+  if (pending.length === 0) return;
+  // Once the round is over the swept cards can't matter to anyone, so an
+  // announcement nobody got round to dismissing is just noise - retire it
+  // silently instead of popping it over the winner/score screens (or, worse,
+  // greeting everyone with it at the start of the next round).
+  if (state.room.phase !== 'playing') {
+    pending.forEach(a => state.dismissedQuadAnnouncements.add(a.id));
+    saveDismissedQuadAnnouncements();
+    return;
+  }
+  showQuadAnnouncementModal(pending[0]);
 }
 
 export function showQuadAnnouncementModal(announcement) {
@@ -72,17 +82,20 @@ export function showQuadAnnouncementModal(announcement) {
 // round's delta - matches how players track scores by hand on paper). A
 // thicker top border marks the start of a new "krug" (every player has dealt
 // once) - purely informational, no effect on scoring.
-export function buildScoreHistoryTable(room) {
+// winnerId (round-end screen only - the "Stanje" modal passes nothing) marks
+// that player's column orange, matching flowScreens/07-round-end-scores.html.
+export function buildScoreHistoryTable(room, winnerId = null) {
   const table = document.createElement('table');
-  table.className = 'score-table score-history-table';
+  table.className = 'score-table score-history-table' + (winnerId ? ' round-end-history-winner' : '');
   const n = room.players.length;
+  const cls = p => (p.id === winnerId ? ' class="winner-col"' : '');
   const headRow = document.createElement('tr');
-  headRow.innerHTML = room.players.map(p => `<th>${p.name}</th>`).join('');
+  headRow.innerHTML = room.players.map(p => `<th${cls(p)}>${p.name}</th>`).join('');
   table.appendChild(headRow);
   (room.scoreHistory || []).forEach(entry => {
     const tr = document.createElement('tr');
     if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
-    tr.innerHTML = room.players.map(p => `<td>${entry.totals[p.id] ?? 0}</td>`).join('');
+    tr.innerHTML = room.players.map(p => `<td${cls(p)}>${entry.totals[p.id] ?? 0}</td>`).join('');
     table.appendChild(tr);
   });
   return table;

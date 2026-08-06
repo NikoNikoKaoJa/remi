@@ -7,6 +7,7 @@ import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
   actionAddToMeld, actionLayMultipleSelected, actionDiscard,
+  findHandOption, actionDeclareHand,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
 } from './actions.js';
@@ -545,7 +546,15 @@ function renderHandAndActions(app) {
     // discard action's job, per actionDiscard's own hand.length===0 check).
     const selectingWholeHand = state.selectedIds.size === myHand().length && myHand().length > 0;
     const layBtn = el('button', 'btn btn-gold');
-    if (opened) {
+    // A ready hand (mali or veliki) wins the round outright, so it replaces
+    // the usual opening lay entirely - one click lays it down, throws the odd
+    // card on the otpad and ends the round, no card selection needed.
+    const handOption = opened ? null : findHandOption(myHand());
+    if (handOption) {
+      layBtn.textContent = 'Handiraj';
+      layBtn.classList.add('btn-hand');
+      layBtn.onclick = actionDeclareHand;
+    } else if (opened) {
       layBtn.textContent = 'Izlozi se';
       layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
     } else {
@@ -555,7 +564,7 @@ function renderHandAndActions(app) {
       );
       layBtn.disabled = state.selectedIds.size === 0;
     }
-    layBtn.onclick = actionLayMultipleSelected;
+    if (!handOption) layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
     const hasSelection = state.selectedIds.size > 0;
@@ -627,6 +636,19 @@ function renderRoundEnd(app) {
 // won, instead of reading their own name back in the third person. The verb
 // is present tense ("handira"/"zatvara") so it never needs gender agreement
 // the way a past participle ("handirao/handirala") would.
+// Same banner as the announce screen, except the winner's name is orange -
+// on the scores screen it ties the name to their orange row/column in the
+// two tables below (flowScreens/07-round-end-scores.html).
+function winnerBannerEl(winner) {
+  const banner = el('div', 'winner-banner');
+  const text = winnerBannerText(winner);
+  const name = winner ? winner.name : '?';
+  const at = state.room.roundWinner === state.session.playerId ? -1 : text.indexOf(name);
+  if (at === -1) { banner.textContent = text; return banner; }
+  banner.append(text.slice(0, at), el('span', 'winner-name-orange', name), text.slice(at + name.length));
+  return banner;
+}
+
 function winnerBannerText(winner) {
   const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
   const verb = wentOutWithHand ? 'handira' : 'zatvara';
@@ -717,19 +739,22 @@ function renderRoundAnnounce(app) {
 
 function renderRoundScores(app) {
   renderBrand(app);
-  const panel = el('div', 'card-panel');
+  const panel = el('div', 'card-panel round-end-scores-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
   const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
-  panel.appendChild(el('div', 'winner-banner', winnerBannerText(winner)));
+  panel.appendChild(winnerBannerEl(winner));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 
+  // Just this round's deltas - running totals are in the history table right
+  // below, so a third "Ukupno" column here only repeated its last row.
   const deltaTable = document.createElement('table');
-  deltaTable.className = 'score-table';
-  deltaTable.innerHTML = '<tr><th>Igrac</th><th>Runda</th><th>Ukupno</th></tr>';
+  deltaTable.className = 'score-table score-summary-table';
+  deltaTable.innerHTML = '<tr><th>Igrac</th><th>Runda</th></tr>';
   state.room.players.forEach(p => {
     const tr = document.createElement('tr');
+    if (p.id === state.room.roundWinner) tr.classList.add('winner-row');
     const delta = (state.room.lastDeltas && state.room.lastDeltas[p.id]) || 0;
-    tr.innerHTML = `<td class="name">${p.name}</td><td>${delta > 0 ? '+' : ''}${delta}</td><td>${state.room.scores[p.id] || 0}</td>`;
+    tr.innerHTML = `<td class="name">${p.name}</td><td>${delta > 0 ? '+' : ''}${delta}</td>`;
     deltaTable.appendChild(tr);
   });
   panel.appendChild(deltaTable);
@@ -738,7 +763,7 @@ function renderRoundScores(app) {
 
   panel.appendChild(el('div', 'small center', 'Istorija po rundama'));
   const historyWrap = el('div', 'score-history-wrap');
-  historyWrap.appendChild(buildScoreHistoryTable(state.room));
+  historyWrap.appendChild(buildScoreHistoryTable(state.room, state.room.roundWinner));
   panel.appendChild(historyWrap);
 
   panel.appendChild(el('div', 'divider'));

@@ -135,6 +135,12 @@ KORAK 5 - Prvo otvaranje
   .btn-outline-gold{background:transparent;border-color:var(--gold);color:var(--gold-bright);}
   .btn-outline-gold:hover{background:rgba(212,175,55,0.12);}
   .btn-danger{background:var(--danger);color:var(--cream);}
+  /* "Handiraj" - replaces "Izlozi se" when the hand can go out in one move;
+     pulses so it's obvious the round can be won right now. */
+  .btn-hand{background:linear-gradient(180deg,#7dffb0,#25c46a);color:#08301b;border-color:#7dffb0;}
+  .btn-hand:hover{filter:brightness(1.08);}
+  @keyframes handPulse{0%,100%{box-shadow:0 0 0 0 rgba(125,255,176,0.55);}50%{box-shadow:0 0 0 7px rgba(125,255,176,0);}}
+  .btn-hand{animation:handPulse 1.6s ease-out infinite;}
   .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
   /* Sized for the longest of the two labels this button toggles between
      ("Izaberi sve karte" / "Ponisti izbor") so it doesn't resize the
@@ -312,6 +318,20 @@ KORAK 5 - Prvo otvaranje
   .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
   .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
   .score-history-wrap{max-height:340px;overflow-y:auto;overflow-x:auto;}
+  /* Round-end scores screen (flowScreens/07-round-end-scores.html): the
+     round's deltas sit in a narrow centered table with the winner's row in
+     orange, and the winner's column of the history table is marked the same
+     way. Both tables are the plain .score-table everywhere else. */
+  .round-end-scores-panel{width:70%;margin-left:auto;margin-right:auto;}
+  .winner-name-orange{color:#ff8c00;}
+  .score-summary-table{width:auto;margin-left:auto;margin-right:auto;}
+  .score-summary-table td.name{text-align:center;}
+  .score-summary-table th,.score-summary-table td{padding:8px 22px;}
+  .score-summary-table tr.winner-row td{color:#ff8c00;font-weight:700;}
+  .round-end-history-winner{table-layout:fixed;width:min(480px,100%);margin-left:auto;margin-right:auto;}
+  .round-end-history-winner th,.round-end-history-winner td{padding:8px 20px;}
+  .round-end-history-winner th.winner-col,
+  .round-end-history-winner tr.circle-start td.winner-col{color:#ff8c00;font-weight:700;}
   .winner-banner{
     text-align:center;font-family:var(--font-display);font-size:33px;color:var(--gold-bright);
     margin:14px 0 4px;
@@ -336,6 +356,11 @@ KORAK 5 - Prvo otvaranje
     .card.joker .joker-icon{width:40px;height:40px;}
     .meld-cards .card{margin-left:0;}
     .hand-cards.has-selection{padding-top:26px;}
+    /* The mockup's 70%-wide scores panel is a desktop proportion - on a
+       phone it just squeezes the two tables. */
+    .round-end-scores-panel{width:100%;}
+    .score-summary-table th,.score-summary-table td{padding:8px 14px;}
+    .round-end-history-winner th,.round-end-history-winner td{padding:8px 8px;}
     .pile-stack.talon-stack{width:109px;height:64px;}
     .talon-peek-wrap{left:45px;top:9px;width:64px;height:46px;}
     .stock-discard-row.piles-inline{gap:24px;}

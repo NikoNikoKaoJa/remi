@@ -4,7 +4,7 @@ import {
   findPartition, findAllPartitions, expandPartitionOptions,
   resolvedOptionDisplayGroups, applyResolvedOptionLocks,
   enumerateSingleJokerRunWindows, runWindowPreviewCards, resolveMeld,
-  maliHandValue, shuffle,
+  maliHandValue, cardValueMaliHand, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand } from './cards.js';
 import { loadRoom, saveRoom, deleteRoom } from './storage.js';
@@ -317,6 +317,57 @@ async function returnBottomCard(cardId) {
   render();
 }
 
+// ===== "Handiraj" - going out in a single move =====
+// A player who has never opened can win the round outright by keeping 14
+// cards that either all meld (veliki hand) or sum under 51 (mali hand) and
+// throwing the odd 15th card on the discard pile. This works out WHICH 14
+// (i.e. which card gets discarded), so the action bar can offer it directly
+// instead of making the player select the right cards by hand.
+// Returns { type, keepIds, discardCard } or null. Result is memoised per
+// exact hand, since the veliki search is expensive and render() runs often.
+let handOptionCache = { key: null, value: null };
+
+export function findHandOption(hand) {
+  if (!state.room || hand.length !== 15) return null;
+  if (state.room.openedPlayers.includes(state.session.playerId)) return null;
+  const key = state.session.playerId + '|' + hand.map(c => c.id).join(',') + '|' + (state.room.bottomDrawCardId || '');
+  if (handOptionCache.key === key) return handOptionCache.value;
+  const result = computeHandOption(hand);
+  handOptionCache = { key, value: result };
+  return result;
+}
+
+function computeHandOption(hand) {
+  // The card from under the talon can never end up on the otpad, so it can't
+  // be the one discarded to close the hand out (see actionTryBottomCard).
+  const candidates = hand.filter(c => c.id !== state.room.bottomDrawCardId);
+  for (const disc of candidates) {
+    const rest = hand.filter(c => c.id !== disc.id);
+    if (findPartition(rest)) return { type: 'veliki', keepIds: rest.map(c => c.id), discardCard: disc };
+  }
+  // For mali, throwing away the most expensive card gives the lowest sum -
+  // if that one doesn't get under 51, nothing else will either.
+  const byValueDesc = candidates.slice().sort((a, b) => cardValueMaliHand(b) - cardValueMaliHand(a));
+  for (const disc of byValueDesc) {
+    const rest = hand.filter(c => c.id !== disc.id);
+    if (maliHandValue(rest) < 51) return { type: 'mali', keepIds: rest.map(c => c.id), discardCard: disc };
+  }
+  return null;
+}
+
+// Selects the 14 hand cards and hands off to the normal lay path, which
+// already knows how to close out a going-out attempt (lay the melds, discard
+// the leftover card, end the round) - including asking about ambiguous joker
+// placement first when the melds can be arranged more than one way.
+export async function actionDeclareHand() {
+  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
+  const option = findHandOption(myHand());
+  if (!option) { showToast('Sa ovim kartama ne mozes da handiras.'); return; }
+  state.selectedIds.clear();
+  option.keepIds.forEach(id => state.selectedIds.add(id));
+  await actionLayMultipleSelected();
+}
+
 export async function actionLayMultipleSelected() {
   // Lay out ALL currently selected cards at once, auto-partitioned into melds.
   // Used for the opening play when it takes multiple melds to reach 51 points.
@@ -351,6 +402,13 @@ export async function actionLayMultipleSelected() {
   }
 
   const partitions = findAllPartitions(cards);
+  // findAllPartitions bails out after a capped number of attempts, while the
+  // single-answer search is exhaustive - on a going-out attempt fall back to
+  // it rather than wrongly telling the player their hand can't be laid down.
+  if (partitions.length === 0 && goingOutAttempt) {
+    const single = findPartition(cards);
+    if (single) partitions.push(single);
+  }
   if (partitions.length === 0) {
     if (goingOutAttempt && maliHandValue(cards) < 51) {
       state.busy = true;
@@ -374,7 +432,10 @@ export async function actionLayMultipleSelected() {
   // player had no idea a second question was coming - so every combination
   // is flattened into one option up front instead.
   const resolvedOptions = expandPartitionOptions(partitions);
-  if (resolvedOptions.length > 1) {
+  // ...except on a going-out attempt, where the question is moot: every card
+  // goes down and the round ends right there, so the arrangement is purely
+  // cosmetic and asking just puts a modal between the player and their win.
+  if (resolvedOptions.length > 1 && !goingOutAttempt) {
     showChoiceModal('Kako da izložiš izabrane karte?', resolvedOptions.map(o => ({
       label: buildPartitionPreviewEl(resolvedOptionDisplayGroups(o)),
       opt: o,
@@ -402,7 +463,10 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
     state.room.discard.push(leftoverCard);
     state.room.openedPlayers.push(state.session.playerId);
     state.selectedIds.clear();
-    sweepCompletedQuads(state.room);
+    // No quad sweep here: the round ends on this very move, so there's no
+    // later turn that could reuse those cards - sweeping would only pop a
+    // pointless "4 cards removed" dialog and hide part of the winning hand
+    // from the round-end reveal.
     await endRoundWithWinner(state.room, state.session.playerId, 'veliki');
     await saveRoom(state.room);
     state.busy = false;
