@@ -24,6 +24,15 @@ export function el(tag, cls, text) {
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
 function versionBadge() { return el('div', 'version-badge', APP_VERSION); }
 
+// Serbian noun agreement for a card count: 1 -> "1 karta", 2-4 -> "3 karte",
+// everything else (0 and 5+) -> "karata". Counts here never exceed 15, so the
+// "21 karta"/"22 karte" wrap-around cases can't come up.
+function cardCountLabel(n) {
+  if (n === 1) return '1 karta';
+  if (n >= 2 && n <= 4) return n + ' karte';
+  return n + ' karata';
+}
+
 // ===== Hand card drag-to-reorder =====
 // Pointer Events (not HTML5 drag-and-drop, which is unreliable on mobile
 // Safari/Chrome - players mostly join from phones) power a manual reorder:
@@ -405,7 +414,7 @@ function renderOpponents(app) {
     c.appendChild(nameLine);
     const handCount = (state.room.hands[p.id] || []).length;
     const meta = el('div', 'meta');
-    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ` ${handCount} karata`;
+    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ' ' + cardCountLabel(handCount);
     c.appendChild(meta);
     if (i === state.room.dealerIndex) {
       const b = el('span', 'dealer-badge', 'DELI');
@@ -530,7 +539,7 @@ function renderHandAndActions(app) {
     sumText = `Zbir ruke: ${standardSum}`;
   }
   titleRow.appendChild(el('div', 'small', sumText));
-  const countLbl = el('div', 'small', myHand().length + ' karata');
+  const countLbl = el('div', 'small', cardCountLabel(myHand().length));
   titleRow.appendChild(countLbl);
   handWrap.appendChild(titleRow);
 
@@ -719,7 +728,7 @@ function renderRoundEndPlayersRow(app) {
     c.appendChild(el('div', 'name', p.name));
     const handCount = (state.room.hands[p.id] || []).length;
     const meta = el('div', 'meta');
-    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ` ${handCount} karata`;
+    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ' ' + cardCountLabel(handCount);
     c.appendChild(meta);
     if (i === state.room.dealerIndex) {
       const b = el('span', 'dealer-badge', 'DELI');
