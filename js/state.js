@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v0.99';
+export const APP_VERSION = 'v1.00';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -14,7 +14,6 @@ export const state = {
   busy: false, // guards against double actions while writing to storage
   selectedIds: new Set(),
   dismissedQuadAnnouncements: loadDismissedQuadAnnouncements(), // announcement ids this browser has already OK'd
-  addToMeldTarget: null, // {ownerIdx, meldIdx} or null
   roundEndStage: 'announce', // local-only sub-stage of room.phase === 'round_end': 'announce' | 'scores'
   lastRoundEndRound: null, // room.round value roundEndStage was last reset for
   // Where the player scrolled the round-end history table, preserved across the

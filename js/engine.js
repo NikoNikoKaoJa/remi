@@ -1,4 +1,4 @@
-import { rankLabel, SUIT_SYM } from './cards.js';
+import { rankLabel } from './cards.js';
 
 // ===== Core Remi (Rummy) game logic =====
 // Cards: {id, suit: 'S'|'H'|'D'|'C', rank: 1-13} or {id, joker:true}
@@ -78,7 +78,6 @@ export function trySet(normal, jokers, totalLen) {
     suitsUsed.add(c.suit);
   }
   if (suitsUsed.size + jokers.length !== totalLen) return null;
-  if (totalLen < 3) return null;
   const availableSuits = SUITS.filter(s => !suitsUsed.has(s));
   const cards = normal.map(c => ({ isJoker: false, card: c, contextRank: rank }));
   jokers.forEach((j, idx) => {
@@ -120,22 +119,19 @@ export function tryRun(normal, jokers, totalLen) {
       let ok = true;
       const filled = [];
       let freeIdx = 0;
+      // n is always within 1..14 here - the window bounds above guarantee it.
       for (let n = start; n <= end; n++) {
-        if (n === 0) { ok = false; break; }
-        if ((n >= 2 && n <= 13) || (n === 1) || (n === 14)) {
-          if (numToOrig.has(n)) {
-            const origCard = numToOrig.get(n);
-            filled.push({ isJoker: false, card: { ...origCard, _aceHigh: aceHigh }, contextRank: n === 14 ? 1 : n });
-          } else if (numToLocked.has(n)) {
-            const substRank = n === 14 ? 1 : n;
-            filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: numToLocked.get(n).id });
-          } else {
-            if (freeIdx >= freeJokers.length) { ok = false; break; }
-            const substRank = n === 14 ? 1 : n;
-            filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: freeJokers[freeIdx].id });
-            freeIdx++;
-          }
-        } else { ok = false; break; }
+        const substRank = n === 14 ? 1 : n;
+        if (numToOrig.has(n)) {
+          const origCard = numToOrig.get(n);
+          filled.push({ isJoker: false, card: { ...origCard, _aceHigh: aceHigh }, contextRank: substRank });
+        } else if (numToLocked.has(n)) {
+          filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: numToLocked.get(n).id });
+        } else {
+          if (freeIdx >= freeJokers.length) { ok = false; break; }
+          filled.push({ isJoker: true, substitutes: { rank: substRank, suit, _aceHigh: n === 14 }, jokerCardId: freeJokers[freeIdx].id });
+          freeIdx++;
+        }
       }
       if (ok && freeIdx === freeJokers.length && filled.length === totalLen) {
         return { type: 'run', cards: filled, suit };
@@ -191,14 +187,6 @@ export function enumerateSingleJokerRunWindows(cards) {
     if (!seen.has(key)) { seen.add(key); unique.push(r); }
   }
   return unique.length > 1 ? unique : null;
-}
-
-export function sequenceLabel(opt) {
-  const parts = [];
-  for (let n = opt.start; n <= opt.end; n++) {
-    parts.push(n === opt.slotN ? 'DZ' : rankLabel(n === 14 ? 1 : n));
-  }
-  return parts.join(' - ');
 }
 
 // Reconstructs the actual card objects (in display order) for one
@@ -412,31 +400,6 @@ export function findAllPartitions(cards, maxGroupSize = 8, maxOptions = 8, maxAt
   }
   recurse(cards, []);
   return results;
-}
-
-// Human-readable label for one meld option, e.g. "K♠-Dž(Q♠)-J♠" - jokers show
-// what they'd represent under this option so the player can see exactly
-// where each one goes, which is the whole point of asking.
-export function describeMeldOption(group) {
-  const resolved = resolveMeld(group);
-  if (!resolved) {
-    return group.map(c => c.joker ? 'Dž' : `${rankLabel(c.rank)}${SUIT_SYM[c.suit]}`).join('-');
-  }
-  let items = resolved.cards.slice();
-  if (resolved.type === 'run') {
-    const rankOf = it => it.isJoker
-      ? (it.substitutes._aceHigh ? 14 : it.substitutes.rank)
-      : (it.card._aceHigh ? 14 : it.contextRank);
-    items.sort((a, b) => rankOf(a) - rankOf(b));
-  }
-  return items.map(it => it.isJoker
-    ? `Dž(${rankLabel(it.substitutes.rank)}${SUIT_SYM[it.substitutes.suit]})`
-    : `${rankLabel(it.contextRank)}${SUIT_SYM[it.card.suit]}`
-  ).join('-');
-}
-
-export function describePartitionOption(groups) {
-  return groups.map(describeMeldOption).join('   +   ');
 }
 
 // For the "selected cards" sum display: Ace always counts as 10, and a joker

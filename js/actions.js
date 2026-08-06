@@ -590,7 +590,6 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   meld.cards = combined;
   markMeldTouched(state.room, meld);
   state.selectedIds.clear();
-  state.addToMeldTarget = null;
   // Jokers are fungible - laying down ANY joker satisfies the requirement to
   // place the one freed by actionReplaceJoker, not just that exact card id.
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
@@ -662,7 +661,6 @@ async function applyJokerSwapAdd(meld, cards, jokerCardId) {
     state.room.discardDrawCardId = null;
   }
   state.selectedIds.clear();
-  state.addToMeldTarget = null;
   sweepCompletedQuads(state.room);
   await saveRoom(state.room);
   state.busy = false;

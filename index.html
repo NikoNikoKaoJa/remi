@@ -103,7 +103,6 @@ KORAK 5 - Prvo otvaranje
   }
   .brand .suits{color:var(--gold);font-size:28px;letter-spacing:3px;}
   .brand h1{font-size:47px;letter-spacing:0.5px;color:var(--cream);text-align:center;}
-  .brand h1 em{font-style:normal;color:var(--gold-bright);}
   .subtitle{text-align:center;color:var(--cream-dim);font-size:18px;margin-bottom:24px;letter-spacing:0.4px;}
 
   .card-panel{
@@ -146,9 +145,6 @@ KORAK 5 - Prvo otvaranje
      ("Izaberi sve karte" / "Ponisti izbor") so it doesn't resize the
      action bar when its text swaps. */
   .btn-clear-toggle{min-width:195px;}
-  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
-  .row{display:flex;gap:10px;}
-  .row > *{flex:1;}
 
   .divider{height:1px;background:var(--panel-line);margin:20px 0;}
   .small{font-size:17px;color:var(--cream-dim);}
@@ -328,7 +324,6 @@ KORAK 5 - Prvo otvaranje
   .score-history-table th:not(:last-child),
   .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
   .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
-  .score-history-wrap{max-height:340px;overflow-y:auto;overflow-x:auto;}
   /* Split history table (buildScoreHistoryBlock): the names row is its own
      table sitting on the panel, so it needs no background of its own, and only
      the rounds below it scroll. Both tables are locked to the same measured

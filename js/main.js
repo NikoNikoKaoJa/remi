@@ -10,10 +10,7 @@ import { render } from './render.js';
     const s = await mySession();
     const linkPointsElsewhere = roomFromLink && s && s.roomCode
       && s.roomCode.toUpperCase() !== roomFromLink.toUpperCase();
-    const ok = linkPointsElsewhere ? false : await rejoin();
-    render();
-    if (!ok) render();
-  } else {
-    render();
+    if (!linkPointsElsewhere) await rejoin();
   }
+  render();
 })();

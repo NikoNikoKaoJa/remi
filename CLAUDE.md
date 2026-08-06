@@ -207,13 +207,6 @@ Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
 position in a run), `jokerCardId` (which physical joker fills a resolved slot),
 `pendingJokerToPlace` (a freed joker that must be laid down before discarding).
 
-Key internal joker markers: `_lockedRank`/`_lockedAceHigh` (a joker's chosen
-position in a run), `jokerCardId` (which physical joker fills a resolved slot),
-`pendingJokerToPlace` (a freed joker that must be laid down before discarding).
-
-## Testing
-
-
 ## Working agreement with the user
 
 - Make changes, then **ask for confirmation before every git commit**, with a
