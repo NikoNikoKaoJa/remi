@@ -34,9 +34,46 @@ function versionBadge() { return el('div', 'version-badge', APP_VERSION); }
 // the new left-to-right DOM order is saved to room.handOrders so it survives
 // reconnects/other devices (see orderHand in cards.js for how it's applied).
 const HAND_DRAG_THRESHOLD = 8;
+// Just enough to bridge the 6px gap between two wrapped rows of cards, so
+// the seam between them belongs to one row or the other rather than to
+// neither. Anything more starts swallowing the dead space above the hand.
+const ROW_BAND_SLACK = 4;
 
 function enableHandReorder(node, container) {
   let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
+  let origNext = null; // the sibling the card sat in front of when the drag started
+
+  // Is the pointer actually over the hand row? Anywhere else (the table, the
+  // melds, the action bar, off the panel entirely) is not a placement, and
+  // the card must go back where it started rather than to whichever end the
+  // geometry search happened to fall through to. This asks the browser what
+  // is under the pointer instead of measuring the row's box - the row's box
+  // is wider than the cards (it's a centered full-width flex container) and
+  // taller than they look, so a box test called plenty of clearly-off-row
+  // drags "over the row". The ghost is pointer-events:none, so it never
+  // answers here itself.
+  function overHand(x, y) {
+    const hit = document.elementFromPoint(x, y);
+    return !!hit && (hit === container || container.contains(hit));
+  }
+
+  // The other cards level with the pointer, i.e. the visual row it's over
+  // (the hand wraps to a second row on narrow screens). Empty when the
+  // pointer is level with no card at all - the strip of container padding
+  // just above/below the cards is still "inside" the row element, but
+  // dropping there is not a placement, so it must not fall through to the
+  // first/last card the way a plain left-to-right search would.
+  function cardsLevelWith(y) {
+    return [...container.children]
+      .filter(ch => ch !== node)
+      .map(sib => ({ sib, r: sib.getBoundingClientRect() }))
+      .filter(({ r }) => y >= r.top - ROW_BAND_SLACK && y <= r.bottom + ROW_BAND_SLACK);
+  }
+
+  // Puts the card back exactly where the drag began.
+  function snapBack() {
+    if (node.nextSibling !== origNext) container.insertBefore(node, origNext);
+  }
 
   node.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -62,6 +99,7 @@ function enableHandReorder(node, container) {
       if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
       dragging = true;
       state.handDragActive = true;
+      origNext = node.nextSibling;
       const rect = node.getBoundingClientRect();
       offsetX = startX - rect.left;
       offsetY = startY - rect.top;
@@ -85,26 +123,28 @@ function enableHandReorder(node, container) {
     reflow(e.clientX, e.clientY);
   }
 
-  // Finds the flex-wrap sibling whose row/column the pointer is currently
-  // over and moves `node` next to it - this is what makes the row visually
-  // "open a gap" at the drop target as the browser's own flex layout reflows.
+  // Moves `node` next to whichever card of that row the pointer is nearest -
+  // this is what makes the row visually "open a gap" at the drop target as
+  // the browser's own flex layout reflows.
   function reflow(x, y) {
-    const siblings = [...container.children].filter(ch => ch !== node);
-    if (siblings.length === 0) return;
-    let target = siblings[siblings.length - 1];
+    // Off the cards: preview the snap-back, so the gap sits where the card
+    // came from instead of at an end it would never actually drop into.
+    const row = dropRow(x, y);
+    if (!row) { snapBack(); return; }
+    let target = row[row.length - 1].sib;
     let insertAfter = true;
-    for (const sib of siblings) {
-      const r = sib.getBoundingClientRect();
-      const inRow = y >= r.top && y <= r.bottom;
-      if (!inRow && r.top > y) { target = sib; insertAfter = false; break; }
-      if (inRow) {
-        target = sib;
-        insertAfter = x >= r.left + r.width / 2;
-        if (!insertAfter) break;
-      }
+    for (const { sib, r } of row) {
+      if (x < r.left + r.width / 2) { target = sib; insertAfter = false; break; }
     }
     const desired = insertAfter ? target.nextSibling : target;
     if (desired !== node) container.insertBefore(node, desired);
+  }
+
+  // The row to drop into, or null if this position isn't a placement at all.
+  function dropRow(x, y) {
+    if (!overHand(x, y)) return null;
+    const row = cardsLevelWith(y);
+    return row.length > 0 ? row : null;
   }
 
   async function onUp(e) {
@@ -117,6 +157,14 @@ function enableHandReorder(node, container) {
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
+    if (!dropRow(e.clientX, e.clientY)) {
+      // Dropped off the cards - cancel the reorder. render() rebuilds the
+      // row straight from the untouched handOrders, putting the card back
+      // exactly where it was when the drag started.
+      setTimeout(() => { state.suppressNextCardClick = false; }, 300);
+      render();
+      return;
+    }
     const newOrder = [...container.children].map(ch => ch.dataset.cardId);
     if (!state.room.handOrders) state.room.handOrders = {};
     state.room.handOrders[state.session.playerId] = newOrder;
