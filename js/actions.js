@@ -551,7 +551,16 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   const meld = state.room.melds[meldIdx];
   if (!meld) return;
   const combined = meld.cards.concat(cards);
-  if (!isValidMeld(combined)) { showToast('Te karte ne mogu da se dodaju na tu kombinaciju.'); return; }
+  if (!isValidMeld(combined)) {
+    // Dropping a card that exactly fills a joker's slot onto the meld reads as
+    // "swap it for the joker", not "extend the meld" - the latter can't work
+    // anyway (a full set + a 5th card is never valid). Clicking the joker
+    // itself still works; this just makes the whole group a valid drop target.
+    const jokerCardId = cards.length === 1 ? findJokerSlotFor(meld, cards[0]) : null;
+    if (jokerCardId) { await actionReplaceJoker(meldIdx, jokerCardId); return; }
+    showToast('Te karte ne mogu da se dodaju na tu kombinaciju.');
+    return;
+  }
   const opts = enumerateSingleJokerRunWindows(combined);
   if (opts) {
     const jokerCard = combined.find(c => c.joker && c._lockedRank === undefined);
@@ -589,6 +598,24 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   await saveRoom(state.room);
   state.busy = false;
   render();
+}
+
+// Id of a joker in `meld` whose slot `candidate` exactly fills, or null.
+// Mirrors the eligibility rules enforced in actionReplaceJoker (which
+// re-checks everything anyway - this is only used to decide whether to
+// route an add-to-meld click into a joker swap instead).
+function findJokerSlotFor(meld, candidate) {
+  if (!candidate || candidate.joker) return null;
+  const resolved = resolveMeld(meld.cards);
+  if (!resolved) return null;
+  if (resolved.type === 'set' && meld.cards.filter(c => !c.joker).length < 3) return null;
+  const suitsInMeld = meld.cards.filter(c => !c.joker).map(c => c.suit);
+  const item = resolved.cards.find(it => it.isJoker
+    && it.substitutes.rank === candidate.rank
+    && (resolved.type === 'set'
+      ? !suitsInMeld.includes(candidate.suit)
+      : it.substitutes.suit === candidate.suit));
+  return item ? item.jokerCardId : null;
 }
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
