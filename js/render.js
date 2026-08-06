@@ -657,7 +657,24 @@ function renderHandAndActions(app) {
   app.appendChild(bar);
 }
 
+// state.selectedIds holds card ids, and an id can outlive the card it points
+// at: a new round deals fresh hands, and every poll assigns a freshly loaded
+// room over state.room, so the hand under the selection can be swapped out
+// from under it without any action having run a clear(). A leftover id is
+// invisible (no card in the hand renders as selected for it) but still counts
+// towards state.selectedIds.size - which is what "Baci" tests for ("exactly
+// one card selected"), so the button sat greyed out with one card plainly
+// selected. The set only ever means anything against the current hand, so
+// reconcile it with the hand before anything reads its size.
+function pruneSelection() {
+  const inHand = getSelectedCards();
+  if (inHand.length !== state.selectedIds.size) {
+    state.selectedIds = new Set(inHand.map(c => c.id));
+  }
+}
+
 function renderGame(app) {
+  pruneSelection();
   const panel = el('div', 'card-panel table-area');
   renderOpponents(panel);
   const toastAnchor = el('div', 'toast-anchor');

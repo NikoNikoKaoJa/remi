@@ -79,6 +79,10 @@ export function applyPendingRound(r) {
     r.handOrders[p.id] = sortHand(r.hands[p.id] || []).map(c => c.id);
   });
   r.players.forEach(p => { if (!(p.id in r.scores)) r.scores[p.id] = 0; });
+  // Local-only UI state, so nothing in pendingRound resets it: any card ids
+  // still selected from the round that just ended point at cards that no
+  // longer exist in the new deal (see pruneSelection in js/render.js).
+  state.selectedIds.clear();
   r.pendingRound = null;
   r.cutRevealedAt = null;
 }
