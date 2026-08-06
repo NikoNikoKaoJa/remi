@@ -60,19 +60,32 @@
     <div class="modal-overlay" id="score-history-modal">
       <div class="modal-box modal-box-wide">
         <h3 style="margin-bottom:10px;">Rezultat</h3>
-        <div class="score-history-wrap">
-          <table class="score-table score-history-table">
+        <!-- Same split table as the round-end scores screen: names row fixed
+             above a scrolling body, opened on the newest round. Widths are
+             measured at runtime in the app (buildScoreHistoryBlock); here they
+             are written out so the two tables line up. -->
+        <div class="hist-block" style="width:416px;">
+          <table class="score-table score-history-table hist-head" style="table-layout:fixed;width:416px;margin:0;">
+            <colgroup><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"></colgroup>
             <tr><th>Niko</th><th>Ana</th><th>Marko</th><th>Jovana</th></tr>
-            <tr><td><span class="num">120</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">150</span></td></tr>
-            <tr><td><span class="num">150</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">280</span></td></tr>
-            <tr class="circle-start"><td><span class="num">350</span></td><td><span class="num">210</span></td><td><span class="num">40</span></td><td><span class="num">480</span></td></tr>
           </table>
+          <div class="hist-body-wrap" style="max-height:150px;">
+            <table class="score-table score-history-table hist-body" style="table-layout:fixed;width:416px;margin:0;">
+              <colgroup><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"><col style="width:104px;"></colgroup>
+              <tr><td><span class="num">120</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">150</span></td></tr>
+              <tr><td><span class="num">150</span></td><td><span class="num">142</span></td><td><span class="num">60</span></td><td><span class="num">280</span></td></tr>
+              <tr class="circle-start"><td><span class="num">350</span></td><td><span class="num">210</span></td><td><span class="num">40</span></td><td><span class="num">480</span></td></tr>
+              <tr><td><span class="num">352</span></td><td><span class="num">230</span></td><td><span class="num">40</span></td><td><span class="num">500</span></td></tr>
+              <tr class="circle-start"><td><span class="num">372</span></td><td><span class="num">230</span></td><td><span class="num">40</span></td><td><span class="num">610</span></td></tr>
+              <tr><td><span class="num">380</span></td><td><span class="num">250</span></td><td><span class="num">60</span></td><td><span class="num">610</span></td></tr>
+            </table>
+          </div>
         </div>
         <button class="btn btn-gold" style="width:100%;margin-top:14px;">Zatvori</button>
       </div>
     </div>
   </div>
 </div>
-<div class="version-badge">v0.72</div>
+<div class="version-badge">v0.97</div>
 </body>
 </html>

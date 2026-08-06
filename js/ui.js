@@ -190,10 +190,12 @@ export function showScoreHistoryModal(room) {
   h.textContent = 'Rezultat';
   h.style.marginBottom = '10px';
   box.appendChild(h);
-  const wrap = document.createElement('div');
-  wrap.className = 'score-history-wrap';
-  wrap.appendChild(buildScoreHistoryTable(room));
-  box.appendChild(wrap);
+  // Same treatment as the round-end scores screen: names row fixed above a
+  // scrolling body, opened on the newest round. No scroll-position bookkeeping
+  // here - the modal hangs off #remi-root rather than #app, so a poll's
+  // re-render leaves it alone.
+  const history = buildScoreHistoryBlock(room);
+  box.appendChild(history.block);
   const closeBtn = document.createElement('button');
   closeBtn.className = 'btn btn-gold';
   closeBtn.textContent = 'Zatvori';
@@ -203,6 +205,8 @@ export function showScoreHistoryModal(room) {
   box.appendChild(closeBtn);
   overlay.appendChild(box);
   document.getElementById('remi-root').appendChild(overlay);
+  reserveScrollbarStrip(history.block, history.bodyWrap, history.tableWidth);
+  history.bodyWrap.scrollTop = history.bodyWrap.scrollHeight;
 }
 
 export function showChoiceModal(title, options, onPick) {
