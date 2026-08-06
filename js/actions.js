@@ -552,12 +552,19 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   if (!meld) return;
   const combined = meld.cards.concat(cards);
   if (!isValidMeld(combined)) {
-    // Dropping a card that exactly fills a joker's slot onto the meld reads as
-    // "swap it for the joker", not "extend the meld" - the latter can't work
-    // anyway (a full set + a 5th card is never valid). Clicking the joker
-    // itself still works; this just makes the whole group a valid drop target.
-    const jokerCardId = cards.length === 1 ? findJokerSlotFor(meld, cards[0]) : null;
-    if (jokerCardId) { await actionReplaceJoker(meldIdx, jokerCardId); return; }
+    // Dropping card(s) that leave the meld's joker with nothing left to stand
+    // for reads as "swap them in and take the joker", not "extend the meld" -
+    // the latter can't work anyway (a set never holds 5 cards). Clicking the
+    // joker itself still works; this just makes the whole group a drop target.
+    const jokerCardId = planJokerSwapAdd(meld, cards);
+    if (jokerCardId) {
+      if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
+        showToast('Prvo moras da spustis prethodnog dzokera koga si zamenio.');
+        return;
+      }
+      await applyJokerSwapAdd(meld, cards, jokerCardId);
+      return;
+    }
     showToast('Te karte ne mogu da se dodaju na tu kombinaciju.');
     return;
   }
@@ -600,22 +607,66 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   render();
 }
 
-// Id of a joker in `meld` whose slot `candidate` exactly fills, or null.
-// Mirrors the eligibility rules enforced in actionReplaceJoker (which
-// re-checks everything anyway - this is only used to decide whether to
-// route an add-to-meld click into a joker swap instead).
-function findJokerSlotFor(meld, candidate) {
-  if (!candidate || candidate.joker) return null;
+// Id of the joker `cards` would displace if they were all added to `meld`, or
+// null if this isn't a swap at all. The whole selection goes into the meld and
+// the joker comes back out, so it only applies when the meld's single joker is
+// left with no card to stand for.
+//
+// For a SET that means the selection has to cover EVERY suit the joker could
+// have been (the same "no ambiguous joker" rule actionReplaceJoker enforces as
+// "3 real cards down", just stated in terms of the end state): 2 real + joker
+// releases the joker only if BOTH missing suits are dropped at once - with
+// only one of them the joker might still have been the other suit, so that
+// stays an ordinary add. For a RUN the joker's slot is a single known
+// rank+suit, so one of the selected cards simply has to be that exact card.
+function planJokerSwapAdd(meld, cards) {
+  if (cards.length === 0 || cards.some(c => c.joker)) return null;
+  const jokers = meld.cards.filter(c => c.joker);
+  // Freeing two jokers at once has nowhere to go - pendingJokerToPlace tracks
+  // a single one - so a multi-joker meld is left to the normal add path.
+  if (jokers.length !== 1) return null;
   const resolved = resolveMeld(meld.cards);
   if (!resolved) return null;
-  if (resolved.type === 'set' && meld.cards.filter(c => !c.joker).length < 3) return null;
-  const suitsInMeld = meld.cards.filter(c => !c.joker).map(c => c.suit);
-  const item = resolved.cards.find(it => it.isJoker
-    && it.substitutes.rank === candidate.rank
-    && (resolved.type === 'set'
-      ? !suitsInMeld.includes(candidate.suit)
-      : it.substitutes.suit === candidate.suit));
-  return item ? item.jokerCardId : null;
+  const item = resolved.cards.find(it => it.isJoker);
+  if (!item) return null;
+  const real = meld.cards.filter(c => !c.joker);
+  if (resolved.type === 'set') {
+    const suitsInMeld = real.map(c => c.suit);
+    const missing = ['S', 'H', 'D', 'C'].filter(s => !suitsInMeld.includes(s));
+    const picked = cards.map(c => c.suit);
+    if (cards.length !== missing.length) return null;
+    if (!cards.every(c => c.rank === item.substitutes.rank)) return null;
+    if (!missing.every(s => picked.includes(s))) return null;
+  } else if (!cards.some(c => c.rank === item.substitutes.rank && c.suit === item.substitutes.suit)) {
+    return null;
+  }
+  if (!isValidMeld(real.concat(cards))) return null;
+  return jokers[0].id;
+}
+
+async function applyJokerSwapAdd(meld, cards, jokerCardId) {
+  state.busy = true;
+  const hand = state.room.hands[state.session.playerId];
+  cards.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+  const jokerObj = meld.cards.find(c => c.id === jokerCardId);
+  delete jokerObj._lockedRank;
+  delete jokerObj._lockedAceHigh;
+  meld.cards = meld.cards.filter(c => c.id !== jokerCardId).concat(cards);
+  markMeldTouched(state.room, meld);
+  hand.push(jokerObj);
+  state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
+  if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
+    state.room.discardDrawCardId = null;
+  }
+  state.selectedIds.clear();
+  state.addToMeldTarget = null;
+  sweepCompletedQuads(state.room);
+  await saveRoom(state.room);
+  state.busy = false;
+  render();
 }
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
