@@ -6,7 +6,7 @@ import {
   enumerateSingleJokerRunWindows, runWindowPreviewCards, resolveMeld,
   maliHandValue, cardValueMaliHand, shuffle,
 } from './engine.js';
-import { SUIT_SYM, rankLabel, sortHand } from './cards.js';
+import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
 import { loadRoom, saveRoom, deleteRoom } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
@@ -220,12 +220,21 @@ export async function actionDrawStock() {
   render();
 }
 function myHandPush(card) {
-  if (!state.room.hands[state.session.playerId]) state.room.hands[state.session.playerId] = [];
-  state.room.hands[state.session.playerId].push(card);
-  state.room.lastDrawnPlayerId = state.session.playerId;
-  state.room.lastDrawnCardId = card.id;
+  const me = state.session.playerId;
+  if (!state.room.hands[me]) state.room.hands[me] = [];
+  if (!state.room.handOrders) state.room.handOrders = {};
   if (!state.room.pinnedCardIds) state.room.pinnedCardIds = {};
-  state.room.pinnedCardIds[state.session.playerId] = card.id;
+  // Freeze where the cards sit RIGHT NOW before the new one arrives. The
+  // previously drawn card is held leftmost only by the pin, and the pin is
+  // about to move to this card - without this it would lose its position
+  // entirely and get re-appended at the far right, flying across the whole
+  // hand just because a new card was drawn.
+  state.room.handOrders[me] = orderHand(state.room.hands[me], state.room.handOrders[me], state.room.pinnedCardIds[me])
+    .map(c => c.id);
+  state.room.hands[me].push(card);
+  state.room.lastDrawnPlayerId = me;
+  state.room.lastDrawnCardId = card.id;
+  state.room.pinnedCardIds[me] = card.id;
 }
 
 export async function actionDrawDiscard() {
