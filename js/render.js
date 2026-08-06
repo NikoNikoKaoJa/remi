@@ -588,7 +588,7 @@ function renderHandAndActions(app) {
   app.appendChild(banner);
 
   if (myTurn && state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-    const warn = el('div', 'small center', '⚠️ Imas dzokera (zlatno oivicen u ruci) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
+    const warn = el('div', 'small center', '⚠️ Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
     warn.style.color = 'var(--gold-bright)';
     warn.style.marginBottom = '10px';
     app.appendChild(warn);
