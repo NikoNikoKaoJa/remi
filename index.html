@@ -56,7 +56,7 @@ KORAK 5 - Prvo otvaranje
     --felt-edge:#00361a;
     --gold:#c9a227;
     --gold-bright:#e6c34f;
-    --navy-blue:#5b84b1;
+    --navy-blue:#2f80ff;
     --cream:#faf6ea;
     --cream-dim:#e9e2cf;
     --card-hover-bg:#fff4b8;
@@ -214,21 +214,25 @@ KORAK 5 - Prvo otvaranje
     background-size:100% 100%;
   }
   .card.selected{box-shadow:0 0 0 6px var(--gold-bright);transform:translateY(-25%);}
-  .card.just-drawn{box-shadow:0 0 0 9px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
-  .card.selected.just-drawn{box-shadow:0 0 0 6px var(--gold-bright), 0 0 0 15px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(91,132,177,0.55);}
+  .card.just-drawn{box-shadow:0 0 0 9px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 22px 6px rgba(47,128,255,0.9);}
+  .card.selected.just-drawn{box-shadow:0 0 0 6px var(--gold-bright), 0 0 0 15px var(--navy-blue), 0 2px 5px rgba(0,0,0,0.35), 0 0 22px 6px rgba(47,128,255,0.9);}
   .card.joker-replaceable{outline:2px dashed var(--gold-bright);outline-offset:1px;}
   .card.pending-joker{outline:3px dashed var(--gold-bright);outline-offset:1px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 10px rgba(201,162,39,0.6);}
   .card.quad-highlight{outline:4px solid #39ff14;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(57,255,20,0.85);}
   .card.winner-meld{outline:4px solid #ff8c00;outline-offset:2px;box-shadow:0 2px 5px rgba(0,0,0,0.35), 0 0 16px rgba(255,140,0,0.85);}
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
-  /* Hover-triggered from the non-moving .card-slot wrapper (see wrapHoverSlot
-     in cards.js) rather than the card's own :hover. Hover only tints the
-     background (no transform), so this no longer guards against lift-driven
-     mouseenter/mouseleave flicker, but the wrapper is harmless to keep. */
+  /* Wrapper from wrapHoverSlot in cards.js. Cards no longer change appearance
+     on hover at all - only selection (.card.selected) highlights a card. */
   .card-slot{display:inline-flex;align-items:flex-end;}
-  .card-slot:hover .card.clickable:not(.selected){background:linear-gradient(180deg,var(--card-hover-bg),var(--card-hover-bg-dim));}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
+  /* Piles with their label beside the card instead of under it:
+     Talon label to the left of the deck, Otpad label to the right of the card,
+     both vertically centered against the card's height. */
+  .stock-discard-row.piles-inline{gap:72px;margin-bottom:30px;}
+  .stock-discard-row.piles-inline .special-card-wrap{flex-direction:row;align-items:center;gap:10px;}
+  .stock-discard-row.piles-inline .pile-label{margin-top:0;line-height:1.2;white-space:nowrap;}
+  .stock-discard-row.piles-inline .special-card-wrap:first-child .pile-label{order:-1;}
   /* The "ispod talona" card pokes out sideways (rotated 90deg) from behind
      the stock's card-back, showing most of itself - both share the single
      "Talon (N)" label above rather than each getting their own pile-label. */
@@ -334,6 +338,8 @@ KORAK 5 - Prvo otvaranje
     .hand-cards.has-selection{padding-top:26px;}
     .pile-stack.talon-stack{width:109px;height:64px;}
     .talon-peek-wrap{left:45px;top:9px;width:64px;height:46px;}
+    .stock-discard-row.piles-inline{gap:24px;}
+    .stock-discard-row.piles-inline .special-card-wrap{gap:6px;}
   }
 </style>
 <div id="remi-root">

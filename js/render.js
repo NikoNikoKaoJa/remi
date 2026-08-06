@@ -372,7 +372,7 @@ function renderOpponents(app) {
 function renderCenterTable(app) {
   const center = el('div', 'center-table');
 
-  const pilesRow = el('div', 'stock-discard-row');
+  const pilesRow = el('div', 'stock-discard-row piles-inline');
 
   // Stock (with the special bottom card, if any, peeking out from behind it)
   const stockWrap = el('div', 'special-card-wrap');
@@ -578,7 +578,7 @@ function renderHandAndActions(app) {
     const selectedJokerNotLastCard = state.selectedIds.size === 1 && !selectedIsDiscardDraw
       && myHand().length > 1
       && myHand().find(c => c.id === [...state.selectedIds][0])?.joker;
-    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Baci izabranu kartu');
+    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Baci');
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker || selectedJokerNotLastCard;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
