@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>5c. Pending joker — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 5c: Table (phase: playing) — I swapped the joker out of Marko's 8-set, so it now sits in my hand with a broken red border and must be laid down before I can discard &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="card-panel table-area">
+
+      <!-- Opponents row -->
+      <div class="opponents-row" style="position:relative;">
+        <button class="btn btn-outline-gold" style="position:absolute;left:0;top:50%;transform:translateY(-50%);">Stanje</button>
+        <button class="btn btn-danger" style="position:absolute;right:0;top:50%;transform:translateY(-50%);">Reset</button>
+
+        <div class="opp-card" style="position:relative;">
+          <div class="name">Ana</div>
+          <div class="meta">12 karata</div>
+          <span class="dealer-badge" style="position:absolute;top:-8px;right:8px;">DELI</span>
+        </div>
+        <div class="opp-card">
+          <div class="name">Marko</div>
+          <div class="meta"><span class="opened-dot"></span> 9 karata</div>
+        </div>
+        <div class="opp-card">
+          <div class="name">Jovana</div>
+          <div class="meta">3 karte</div>
+        </div>
+      </div>
+
+      <div class="toast-anchor"></div>
+
+      <!-- Center table -->
+      <div class="center-table">
+        <div class="stock-discard-row piles-inline">
+          <div class="special-card-wrap">
+            <div class="pile-stack talon-stack">
+              <div class="talon-peek-wrap">
+                <div class="card"><div class="rank">2</div><div class="suit-sym">&spades;</div></div>
+              </div>
+              <div class="card back deck-0 talon-front"></div>
+            </div>
+            <div class="pile-label">Talon (41)</div>
+          </div>
+          <div class="special-card-wrap">
+            <div class="pile-stack">
+              <div class="card"><div class="rank">4</div><div class="suit-sym">&clubs;</div></div>
+            </div>
+            <div class="pile-label">Otpad (14)</div>
+          </div>
+        </div>
+
+        <div class="melds-area">
+          <div class="meld-owner-label">Niko</div>
+          <div>
+            <div class="meld-group">
+              <div class="meld-cards">
+                <div class="card red"><div class="rank">5</div><div class="suit-sym">&hearts;</div></div>
+                <div class="card red"><div class="rank">6</div><div class="suit-sym">&hearts;</div></div>
+                <div class="card red"><div class="rank">7</div><div class="suit-sym">&hearts;</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="meld-owner-label">Marko</div>
+          <div>
+            <!-- The joker that used to fill this set is gone: the real 8 of
+                 diamonds took its place when I swapped it out. -->
+            <div class="meld-group">
+              <div class="meld-cards">
+                <div class="card"><div class="rank">8</div><div class="suit-sym">&spades;</div></div>
+                <div class="card red"><div class="rank">8</div><div class="suit-sym">&hearts;</div></div>
+                <div class="card"><div class="rank">8</div><div class="suit-sym">&clubs;</div></div>
+                <div class="card red"><div class="rank">8</div><div class="suit-sym">&diams;</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hand + actions -->
+      <div class="hand-area">
+        <div class="hand-title-row">
+          <div class="small">Zbir ruke: 71</div>
+          <div class="small">7 karata</div>
+        </div>
+        <div class="hand-cards has-selection">
+          <div class="card-slot"><div class="card clickable"><div class="rank">A</div><div class="suit-sym">&spades;</div></div></div>
+          <div class="card-slot"><div class="card red clickable"><div class="rank">K</div><div class="suit-sym">&hearts;</div></div></div>
+          <div class="card-slot"><div class="card clickable"><div class="rank">K</div><div class="suit-sym">&spades;</div></div></div>
+          <!-- The freed joker: broken red border, no gold - gold means "selected". -->
+          <div class="card-slot">
+            <div class="card joker clickable pending-joker">
+              <div class="rank">Joker</div>
+              <svg class="joker-icon" viewBox="0 0 64 64" aria-hidden="true">
+                <path d="M20 26 C10 22 6 10 12 3 C17 11 22 19 27 25 Z" fill="var(--jester-red)"/>
+                <path d="M28 21 C26 10 30 1 36 1 C36 11 33 19 30 24 Z" fill="var(--jester-red)"/>
+                <path d="M44 26 C54 22 58 10 52 3 C47 11 42 19 37 25 Z" fill="var(--jester-red)"/>
+                <circle cx="12" cy="4" r="3.4" fill="var(--jester-gold)"/>
+                <circle cx="36" cy="2" r="3.4" fill="var(--jester-gold)"/>
+                <circle cx="52" cy="4" r="3.4" fill="var(--jester-gold)"/>
+                <path d="M17 26 Q32 34 47 26 L47 30 Q32 39 17 30 Z" fill="var(--jester-red)"/>
+                <circle cx="32" cy="40" r="13" fill="var(--cream)" stroke="var(--ink)" stroke-width="1.5"/>
+                <circle cx="27" cy="39" r="1.8" fill="var(--ink)"/>
+                <circle cx="37" cy="39" r="1.8" fill="var(--ink)"/>
+                <path d="M25 44 Q32 50 39 44" stroke="var(--ink)" stroke-width="2" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="card-slot"><div class="card red clickable"><div class="rank">10</div><div class="suit-sym">&diams;</div></div></div>
+          <div class="card-slot"><div class="card red clickable"><div class="rank">5</div><div class="suit-sym">&hearts;</div></div></div>
+          <div class="card-slot"><div class="card clickable"><div class="rank">3</div><div class="suit-sym">&clubs;</div></div></div>
+        </div>
+      </div>
+
+      <div class="turn-banner">Tvoj red - odigraj i baci</div>
+
+      <div class="small center" style="color:var(--gold-bright);margin-bottom:10px;">
+        &#9888;&#65039; Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.
+      </div>
+
+      <!-- Baci stays disabled while the joker is pending, whatever is selected. -->
+      <div class="action-bar">
+        <button class="btn btn-gold" disabled>Izlozi se</button>
+        <button class="btn btn-outline-gold btn-clear-toggle">Izaberi sve karte</button>
+        <button class="btn btn-danger" disabled>Baci</button>
+      </div>
+
+    </div>
+
+    <!-- Reference strip, not part of the screen: the same pending joker once
+         the player selects it, next to an ordinary selected card. The gold ring
+         is the usual 6px and the red dashes stay inside it, so the selected
+         joker is exactly the same size and lift as its neighbours. -->
+    <div class="card-panel" style="margin-top:16px;">
+      <div class="small center">Referenca: izabran dzoker (zuti okvir kao i svaka izabrana karta, crveno unutar njega)</div>
+      <div class="hand-cards has-selection" style="justify-content:center;">
+        <div class="card-slot"><div class="card clickable"><div class="rank">K</div><div class="suit-sym">&spades;</div></div></div>
+        <div class="card-slot"><div class="card red clickable selected"><div class="rank">7</div><div class="suit-sym">&hearts;</div></div></div>
+        <div class="card-slot">
+          <div class="card joker clickable pending-joker selected">
+            <div class="rank">Joker</div>
+            <svg class="joker-icon" viewBox="0 0 64 64" aria-hidden="true">
+              <path d="M20 26 C10 22 6 10 12 3 C17 11 22 19 27 25 Z" fill="var(--jester-red)"/>
+              <path d="M28 21 C26 10 30 1 36 1 C36 11 33 19 30 24 Z" fill="var(--jester-red)"/>
+              <path d="M44 26 C54 22 58 10 52 3 C47 11 42 19 37 25 Z" fill="var(--jester-red)"/>
+              <circle cx="12" cy="4" r="3.4" fill="var(--jester-gold)"/>
+              <circle cx="36" cy="2" r="3.4" fill="var(--jester-gold)"/>
+              <circle cx="52" cy="4" r="3.4" fill="var(--jester-gold)"/>
+              <path d="M17 26 Q32 34 47 26 L47 30 Q32 39 17 30 Z" fill="var(--jester-red)"/>
+              <circle cx="32" cy="40" r="13" fill="var(--cream)" stroke="var(--ink)" stroke-width="1.5"/>
+              <circle cx="27" cy="39" r="1.8" fill="var(--ink)"/>
+              <circle cx="37" cy="39" r="1.8" fill="var(--ink)"/>
+              <path d="M25 44 Q32 50 39 44" stroke="var(--ink)" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-slot"><div class="card clickable"><div class="rank">2</div><div class="suit-sym">&clubs;</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.95</div>
+</body>
+</html>
