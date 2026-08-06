@@ -7,7 +7,7 @@ import {
   maliHandValue, cardValueMaliHand, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
-import { loadRoom, saveRoom, deleteRoom } from './storage.js';
+import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
 
@@ -53,10 +53,7 @@ export function applyPendingRound(r) {
   // discardDrawCardId pointed at a card no longer in anyone's hand, making
   // it impossible to ever discard).
   const pr = r.pendingRound || {};
-  if (!pr.melds) pr.melds = [];
-  if (!pr.discard) pr.discard = [];
-  if (!pr.openedPlayers) pr.openedPlayers = [];
-  if (!pr.stock) pr.stock = [];
+  applyCollectionDefaults(pr, ['melds', 'discard', 'openedPlayers', 'stock']);
   if (!pr.discardDrawCardId) pr.discardDrawCardId = null;
   if (!pr.bottomDrawCardId) pr.bottomDrawCardId = null;
   if (!pr.roundWinner) pr.roundWinner = null;
@@ -199,6 +196,32 @@ function pushMeld(r, group) {
 function markMeldTouched(r, meld) {
   if (!r.turnMeldIds) r.turnMeldIds = [];
   if (!r.turnMeldIds.includes(meld.id)) r.turnMeldIds.push(meld.id);
+}
+
+// Pulls `cards` out of `hand` in place, by id (the card objects handed around
+// by getSelectedCards are the same objects, but a re-render/poll can replace
+// the hand array under them, so match on id rather than identity).
+function removeCardsFromHand(hand, cards) {
+  cards.forEach(c => {
+    const idx = hand.findIndex(h => h.id === c.id);
+    if (idx !== -1) hand.splice(idx, 1);
+  });
+}
+
+// The two obligations a lay/add can discharge, checked the same way wherever
+// cards leave the hand for the table:
+// - a joker freed by actionReplaceJoker has now been placed. Jokers are
+//   fungible, so laying down ANY joker satisfies it, not just that exact id.
+// - the card pulled off the otpad this turn no longer owes a lay once it's
+//   gone from the hand.
+function clearSatisfiedObligations(r, laidCards, hand) {
+  if (r.pendingJokerToPlace && r.pendingJokerToPlace.playerId === state.session.playerId
+      && laidCards.some(c => c.joker)) {
+    r.pendingJokerToPlace = null;
+  }
+  if (r.discardDrawCardId && !hand.some(c => c.id === r.discardDrawCardId)) {
+    r.discardDrawCardId = null;
+  }
 }
 
 export function getSelectedCards() {
@@ -353,7 +376,14 @@ export function findHandOption(hand) {
 function computeHandOption(hand) {
   // The card from under the talon can never end up on the otpad, so it can't
   // be the one discarded to close the hand out (see actionTryBottomCard).
-  const candidates = hand.filter(c => c.id !== state.room.bottomDrawCardId);
+  return findHandOptionAmong(hand, hand.filter(c => c.id !== state.room.bottomDrawCardId));
+}
+
+// The going-out search itself: which of `candidates` can be thrown away so the
+// remaining 14 either all meld (veliki) or sum under 51 (mali). Split out so
+// actionTryBottomCard can ask the same question about a hypothetical hand,
+// with its own idea of which cards are discardable.
+function findHandOptionAmong(hand, candidates) {
   for (const disc of candidates) {
     const rest = hand.filter(c => c.id !== disc.id);
     if (findPartition(rest)) return { type: 'veliki', keepIds: rest.map(c => c.id), discardCard: disc };
@@ -487,10 +517,7 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
 
   if (goingOutAttempt) {
     state.busy = true;
-    cards.forEach(c => {
-      const idx = hand.findIndex(h => h.id === c.id);
-      if (idx !== -1) hand.splice(idx, 1);
-    });
+    removeCardsFromHand(hand, cards);
     partition.forEach(group => pushMeld(state.room, group));
     hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
     state.room.discard.push(leftoverCard);
@@ -512,22 +539,11 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
     if (val < 51) { showToast(`Ukupno ${val} poena - treba bar 51 za prvo izlaganje.`); return; }
   }
   state.busy = true;
-  cards.forEach(c => {
-    const idx = hand.findIndex(h => h.id === c.id);
-    if (idx !== -1) hand.splice(idx, 1);
-  });
+  removeCardsFromHand(hand, cards);
   partition.forEach(group => pushMeld(state.room, group));
   if (!opened) state.room.openedPlayers.push(state.session.playerId);
   state.selectedIds.clear();
-  // Jokers are fungible - laying down ANY joker satisfies the requirement to
-  // place the one freed by actionReplaceJoker, not just that exact card id.
-  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
-      && cards.some(c => c.joker)) {
-    state.room.pendingJokerToPlace = null;
-  }
-  if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
-    state.room.discardDrawCardId = null;
-  }
+  clearSatisfiedObligations(state.room, cards, hand);
   sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
   await saveRoom(state.room);
@@ -583,22 +599,11 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   }
   state.busy = true;
   const hand = state.room.hands[state.session.playerId];
-  cards.forEach(c => {
-    const idx = hand.findIndex(h => h.id === c.id);
-    if (idx !== -1) hand.splice(idx, 1);
-  });
+  removeCardsFromHand(hand, cards);
   meld.cards = combined;
   markMeldTouched(state.room, meld);
   state.selectedIds.clear();
-  // Jokers are fungible - laying down ANY joker satisfies the requirement to
-  // place the one freed by actionReplaceJoker, not just that exact card id.
-  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId
-      && cards.some(c => c.joker)) {
-    state.room.pendingJokerToPlace = null;
-  }
-  if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
-    state.room.discardDrawCardId = null;
-  }
+  clearSatisfiedObligations(state.room, cards, hand);
   sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
   await saveRoom(state.room);
@@ -646,10 +651,7 @@ function planJokerSwapAdd(meld, cards) {
 async function applyJokerSwapAdd(meld, cards, jokerCardId) {
   state.busy = true;
   const hand = state.room.hands[state.session.playerId];
-  cards.forEach(c => {
-    const idx = hand.findIndex(h => h.id === c.id);
-    if (idx !== -1) hand.splice(idx, 1);
-  });
+  removeCardsFromHand(hand, cards);
   const jokerObj = meld.cards.find(c => c.id === jokerCardId);
   delete jokerObj._lockedRank;
   delete jokerObj._lockedAceHigh;
@@ -657,6 +659,8 @@ async function applyJokerSwapAdd(meld, cards, jokerCardId) {
   markMeldTouched(state.room, meld);
   hand.push(jokerObj);
   state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
+  // Not clearSatisfiedObligations: this move CREATES the pending-joker
+  // obligation it would discharge, so only the otpad half applies here.
   if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
     state.room.discardDrawCardId = null;
   }
@@ -742,23 +746,11 @@ export async function actionTryBottomCard() {
   if (!state.room.specialBottomCard || state.room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
   const card = state.room.specialBottomCard.card;
   const hypothetical = myHand().concat([card]);
-  // Check if drawing this card immediately enables ANY hand declaration.
-  let handType = null;
-  let velikiOk = false;
-  for (let i = 0; i < hypothetical.length && !velikiOk; i++) {
-    const rest = hypothetical.filter((c, idx) => idx !== i);
-    if (findPartition(rest)) velikiOk = true;
-  }
-  if (velikiOk) handType = 'veliki';
-  else {
-    // mali hand: need some discard leaving 14 with sum<51
-    let maliOk = false;
-    for (let i = 0; i < hypothetical.length && !maliOk; i++) {
-      const rest = hypothetical.filter((c, idx) => idx !== i);
-      if (rest.length === 14 && maliHandValue(rest) < 51) maliOk = true;
-    }
-    if (maliOk) handType = 'mali';
-  }
+  // Check if drawing this card immediately enables ANY hand declaration. Every
+  // card is a candidate discard here, including the bottom card itself - it
+  // hasn't been taken yet, so this is only asking whether the draw is worth
+  // offering at all.
+  const handType = (findHandOptionAmong(hypothetical, hypothetical) || {}).type || null;
   if (!handType) { showToast('Sa tom kartom ne mozes odmah da napravis hand.'); return; }
   state.busy = true;
   state.room.specialBottomCard.taken = true;

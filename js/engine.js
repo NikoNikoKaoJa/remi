@@ -110,12 +110,14 @@ export function tryRun(normal, jokers, totalLen) {
     const minN = Math.min(...nums);
     const maxN = Math.max(...nums);
     if (maxN - minN + 1 > totalLen) continue; // spread too large even with jokers
+    // Built once per Ace interpretation, not per candidate window - they only
+    // depend on the cards, and this is the innermost loop of the partition
+    // search (findAllPartitions calls resolveMeld on every candidate group).
+    const numToOrig = new Map(numeric.map(x => [x.n, x.orig]));
+    const numToLocked = new Map(lockedNumeric.map(x => [x.n, x.card]));
     for (let start = Math.max(1, maxN - totalLen + 1); start <= minN; start++) {
       const end = start + totalLen - 1;
       if (end > 14) continue;
-      if (start < 1) continue;
-      const numToOrig = new Map(numeric.map(x => [x.n, x.orig]));
-      const numToLocked = new Map(lockedNumeric.map(x => [x.n, x.card]));
       let ok = true;
       const filled = [];
       let freeIdx = 0;

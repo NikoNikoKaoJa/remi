@@ -19,34 +19,51 @@ export async function loadRoom(code) {
 }
 
 // Firebase Realtime Database silently converts empty objects/arrays ({} or [])
-// to null when saving. This restores sane defaults after loading so the rest
-// of the app never has to special-case null vs {} vs [].
+// to null when saving, so every always-present collection has to be restored
+// after a load. ANY new field of that kind must be added here - this is also
+// what applyPendingRound (js/actions.js) re-defaults a round-tripped
+// pendingRound with, so the two can't drift apart.
+export const ROOM_COLLECTION_DEFAULTS = {
+  scores: () => ({}),
+  scoreHistory: () => [],
+  players: () => [],
+  hands: () => ({}),
+  stock: () => [],
+  discard: () => [],
+  melds: () => [],
+  openedPlayers: () => [],
+  turnMeldIds: () => [],
+  roundWinMeldIds: () => [],
+  log: () => [],
+  quadAnnouncements: () => [],
+  readyForNextRound: () => [],
+  handOrders: () => ({}),
+  pinnedCardIds: () => ({}),
+};
+
+// Fills in whichever of the above `keys` (default: all of them) are missing.
+export function applyCollectionDefaults(obj, keys = Object.keys(ROOM_COLLECTION_DEFAULTS)) {
+  keys.forEach(k => { if (!obj[k]) obj[k] = ROOM_COLLECTION_DEFAULTS[k](); });
+  return obj;
+}
+
 export function hydrateRoom(r) {
-  if (!r.scores) r.scores = {};
-  if (!r.scoreHistory) r.scoreHistory = [];
-  if (!r.players) r.players = [];
-  if (!r.hands) r.hands = {};
-  if (!r.stock) r.stock = [];
-  if (!r.discard) r.discard = [];
-  if (!r.melds) r.melds = [];
-  if (!r.openedPlayers) r.openedPlayers = [];
-  if (!r.turnMeldIds) r.turnMeldIds = [];
-  if (!r.roundWinMeldIds) r.roundWinMeldIds = [];
-  if (!r.log) r.log = [];
-  if (!r.quadAnnouncements) r.quadAnnouncements = [];
-  if (!r.readyForNextRound) r.readyForNextRound = [];
-  if (!r.handOrders) r.handOrders = {};
-  if (!r.pinnedCardIds) r.pinnedCardIds = {};
+  applyCollectionDefaults(r);
   r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
   return r;
 }
 export async function saveRoom(r) {
   if (!state.dbUrl) return;
   r.updatedAt = Date.now();
+  const body = JSON.stringify(r);
+  // Doubles as the baseline the polling loop diffs against (see startPolling
+  // in js/room.js), so the poll right after our own write sees "unchanged"
+  // and skips a pointless full re-render.
+  state.roomSnapshot = body;
   await fetch(`${state.dbUrl}/rooms/${r.code}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(r),
+    body,
   });
 }
 

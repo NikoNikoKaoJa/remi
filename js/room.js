@@ -81,6 +81,7 @@ export async function rejoin() {
   if (!r.players.find(p => p.id === s.playerId)) return false;
   state.session = s;
   state.room = r;
+  state.roomSnapshot = JSON.stringify(r);
   startPolling();
   return true;
 }
@@ -108,7 +109,11 @@ export function startPolling() {
     // changed - otherwise every idle poll tears down and recreates every card
     // element, which drops the browser's :hover state on whatever card the
     // mouse happens to be resting on and makes it visibly flicker.
-    const changed = JSON.stringify(r) !== JSON.stringify(state.room);
+    // Only the incoming room is serialized: the previous tick's string is
+    // kept, so an idle poll stringifies ~108 cards once rather than twice.
+    const snapshot = JSON.stringify(r);
+    const changed = snapshot !== state.roomSnapshot;
+    state.roomSnapshot = snapshot;
     state.room = r;
     // Also skip while a hand-card reorder drag is in progress - a full
     // render() would tear down and rebuild the hand DOM mid-gesture.

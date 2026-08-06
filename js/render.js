@@ -387,6 +387,26 @@ function renderLobby(app) {
   app.appendChild(panel);
 }
 
+// One player's tile in the top row: name, an "opened" dot, their card count,
+// and the DELI badge if they're this round's dealer. Shared by the live table
+// (renderOpponents, where `active` marks whose turn it is) and the round-end
+// screen (renderRoundEndPlayersRow, where `winner` marks who went out).
+function playerTileEl(p, i, { active = false, winner = false } = {}) {
+  const c = el('div', 'opp-card' + (active ? ' active' : '') + (winner ? ' winner-highlight' : ''));
+  c.style.position = 'relative';
+  c.appendChild(el('div', 'name', p.name));
+  const handCount = (state.room.hands[p.id] || []).length;
+  const meta = el('div', 'meta');
+  meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ' ' + cardCountLabel(handCount);
+  c.appendChild(meta);
+  if (i === state.room.dealerIndex) {
+    const b = el('span', 'dealer-badge', 'DELI');
+    b.style.position = 'absolute'; b.style.top = '-8px'; b.style.right = '8px';
+    c.appendChild(b);
+  }
+  return c;
+}
+
 function renderOpponents(app) {
   const rowEl = el('div', 'opponents-row');
   rowEl.style.position = 'relative';
@@ -409,20 +429,7 @@ function renderOpponents(app) {
   }
   state.room.players.forEach((p, i) => {
     if (p.id === state.session.playerId) return;
-    const c = el('div', 'opp-card' + (state.room.currentPlayerIndex === i ? ' active' : ''));
-    const nameLine = el('div', 'name', p.name);
-    c.appendChild(nameLine);
-    const handCount = (state.room.hands[p.id] || []).length;
-    const meta = el('div', 'meta');
-    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ' ' + cardCountLabel(handCount);
-    c.appendChild(meta);
-    if (i === state.room.dealerIndex) {
-      const b = el('span', 'dealer-badge', 'DELI');
-      b.style.position = 'absolute'; b.style.top = '-8px'; b.style.right = '8px';
-      c.style.position = 'relative';
-      c.appendChild(b);
-    }
-    rowEl.appendChild(c);
+    rowEl.appendChild(playerTileEl(p, i, { active: state.room.currentPlayerIndex === i }));
   });
   app.appendChild(rowEl);
 }
@@ -740,20 +747,7 @@ function winnerBannerText(winner) {
 function renderRoundEndPlayersRow(app) {
   const rowEl = el('div', 'opponents-row');
   state.room.players.forEach((p, i) => {
-    const isWinner = p.id === state.room.roundWinner;
-    const c = el('div', 'opp-card' + (isWinner ? ' winner-highlight' : ''));
-    c.style.position = 'relative';
-    c.appendChild(el('div', 'name', p.name));
-    const handCount = (state.room.hands[p.id] || []).length;
-    const meta = el('div', 'meta');
-    meta.innerHTML = (state.room.openedPlayers.includes(p.id) ? '<span class="opened-dot"></span>' : '') + ' ' + cardCountLabel(handCount);
-    c.appendChild(meta);
-    if (i === state.room.dealerIndex) {
-      const b = el('span', 'dealer-badge', 'DELI');
-      b.style.position = 'absolute'; b.style.top = '-8px'; b.style.right = '8px';
-      c.appendChild(b);
-    }
-    rowEl.appendChild(c);
+    rowEl.appendChild(playerTileEl(p, i, { winner: p.id === state.room.roundWinner }));
   });
   app.appendChild(rowEl);
 }

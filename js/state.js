@@ -3,13 +3,14 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v1.00';
+export const APP_VERSION = 'v1.01';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
   room: null,
   dbUrl: null, // resolved at boot from ?db= query param or localStorage
   pollTimer: null,
+  roomSnapshot: null, // JSON of the room as last saved/loaded - the polling loop diffs against it to skip no-op re-renders
   toastTimer: null,
   busy: false, // guards against double actions while writing to storage
   selectedIds: new Set(),
