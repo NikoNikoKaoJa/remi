@@ -58,6 +58,7 @@ export function applyPendingRound(r) {
   if (!pr.openedPlayers) pr.openedPlayers = [];
   if (!pr.stock) pr.stock = [];
   if (!pr.discardDrawCardId) pr.discardDrawCardId = null;
+  if (!pr.bottomDrawCardId) pr.bottomDrawCardId = null;
   if (!pr.roundWinner) pr.roundWinner = null;
   if (!pr.roundWinType) pr.roundWinType = null;
   if (!pr.pendingJokerToPlace) pr.pendingJokerToPlace = null;
@@ -153,7 +154,7 @@ export function advanceTurn(r) {
   r.currentPlayerIndex = (r.currentPlayerIndex + 1) % n;
   r.turnPhase = 'draw';
   r.discardDrawCardId = null;
-  r.mustDrawFromStock = false;
+  r.bottomDrawCardId = null;
   // The blue "just drawn" highlight only makes sense for the rest of the
   // drawing player's own turn - clear it once that turn ends (on discard)
   // so it doesn't linger on a still-in-hand card until their next draw.
@@ -214,7 +215,6 @@ export async function actionDrawStock() {
   const card = state.room.stock.shift();
   myHandPush(card);
   state.room.turnPhase = 'meld';
-  state.room.mustDrawFromStock = false;
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -231,7 +231,6 @@ function myHandPush(card) {
 export async function actionDrawDiscard() {
   if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
   if (state.room.discard.length === 0) { showToast('Otpad je prazan.'); return; }
-  if (state.room.mustDrawFromStock) { showToast('Vratio si kartu na otpad - sad moras da vuces sa talona.'); return; }
   if (myHand().length === 1) { showToast('Sa jednom kartom u ruci ne mozes vuci sa otpada - vuci sa talona.'); return; }
   state.busy = true;
   const card = state.room.discard.pop();
@@ -253,6 +252,18 @@ export async function actionDiscard(cardId) {
     showToast('⚠️ Kartu koju si uzeo sa otpada moras da izlozis/handiras ili je izaberi i klikni "Vrati kartu na otpad".');
     return;
   }
+  // The card from under the talon may only be taken to make a hand - it can
+  // never be thrown on the discard pile, neither itself nor in place of some
+  // other card. The only way out of the turn (short of declaring the hand) is
+  // putting it back where it came from.
+  if (state.room.bottomDrawCardId) {
+    if (state.room.bottomDrawCardId !== cardId) {
+      showToast('⚠️ Sa kartom ispod talona moras da napravis hand ili je izaberi i klikni "Vrati kartu ispod talona".');
+      return;
+    }
+    await returnBottomCard(cardId);
+    return;
+  }
   const isReturningDiscardDraw = state.room.discardDrawCardId === cardId;
   state.busy = true;
   const hand = state.room.hands[state.session.playerId];
@@ -267,15 +278,39 @@ export async function actionDiscard(cardId) {
   state.room.discard.push(card);
   state.selectedIds.clear();
   if (isReturningDiscardDraw) {
-    // Not a real discard - just undoing the discard-pull. Turn continues,
-    // but only drawing from the stock is allowed for the rest of this draw.
+    // Not a real discard - just undoing the discard-pull. The turn rewinds to
+    // its draw phase with every option open again, including pulling the very
+    // same card back off the otpad.
     state.room.discardDrawCardId = null;
     state.room.turnPhase = 'draw';
-    state.room.mustDrawFromStock = true;
   } else if (hand.length === 0) {
     await endRoundWithWinner(state.room, state.session.playerId, null);
   } else {
     advanceTurn(state.room);
+  }
+  await saveRoom(state.room);
+  state.busy = false;
+  render();
+}
+
+// Undo of actionTryBottomCard: slide the card back under the talon and rewind
+// the turn to its draw phase, as if it had never been taken.
+async function returnBottomCard(cardId) {
+  state.busy = true;
+  const hand = state.room.hands[state.session.playerId];
+  const idx = hand.findIndex(c => c.id === cardId);
+  if (idx === -1) { state.busy = false; return; }
+  hand.splice(idx, 1);
+  state.room.specialBottomCard.taken = false;
+  state.room.bottomDrawCardId = null;
+  state.room.turnPhase = 'draw';
+  state.selectedIds.clear();
+  if (state.room.lastDrawnCardId === cardId) {
+    state.room.lastDrawnCardId = null;
+    state.room.lastDrawnPlayerId = null;
+  }
+  if (state.room.pinnedCardIds && state.room.pinnedCardIds[state.session.playerId] === cardId) {
+    state.room.pinnedCardIds[state.session.playerId] = null;
   }
   await saveRoom(state.room);
   state.busy = false;
@@ -300,6 +335,20 @@ export async function actionLayMultipleSelected() {
   // regular partial opening lay.
   const goingOutAttempt = !opened && cards.length === hand.length - 1;
   const leftoverCard = goingOutAttempt ? hand.find(c => !state.selectedIds.has(c.id)) : null;
+
+  // With the card from under the talon in hand, the only legal lay is the
+  // hand itself - anything less would strand that card on the table with no
+  // way to return it (and no way to end the turn, since it can't be discarded).
+  if (state.room.bottomDrawCardId && !goingOutAttempt) {
+    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
+    return;
+  }
+  // ...and it can't be the card thrown on the otpad to close out the hand
+  // either - if it isn't part of the hand, it belongs back under the talon.
+  if (state.room.bottomDrawCardId && leftoverCard && leftoverCard.id === state.room.bottomDrawCardId) {
+    showToast('⚠️ Kartu ispod talona ne mozes baciti na otpad - ako ti ne treba, vrati je ispod talona.');
+    return;
+  }
 
   const partitions = findAllPartitions(cards);
   if (partitions.length === 0) {
@@ -391,6 +440,10 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
 export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   if (!state.room.openedPlayers.includes(state.session.playerId)) { showToast('Prvo se moras izloziti da bi dodavao karte.'); return; }
+  if (state.room.bottomDrawCardId) {
+    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
+    return;
+  }
   const cards = getSelectedCards();
   if (cards.length === 0) { showToast('Izaberi karte iz ruke koje zelis da dodas.'); return; }
   if (cards.length === state.room.hands[state.session.playerId].length) {
@@ -443,6 +496,10 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
     showToast('Prvo moras da spustis prethodnog dzokera koga si zamenio.');
+    return;
+  }
+  if (state.room.bottomDrawCardId) {
+    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
     return;
   }
   const meld = state.room.melds[meldIdx];
@@ -532,8 +589,9 @@ export async function actionTryBottomCard() {
   state.room.specialBottomCard.taken = true;
   myHandPush(card);
   state.room.turnPhase = 'meld';
+  state.room.bottomDrawCardId = card.id;
   await saveRoom(state.room);
   state.busy = false;
-  showToast('Uzeo si otkrivenu kartu! Sad mozes da proglasis odgovarajuci hand.', 3400);
+  showToast('Uzeo si otkrivenu kartu! Sad moras da proglasis hand ili da je vratis ispod talona.', 3400);
   render();
 }

@@ -399,7 +399,7 @@ function renderCenterTable(app) {
   // Discard
   const discardWrap = el('div', 'special-card-wrap');
   const discardClickable = isMyTurn() && state.room.turnPhase === 'draw' && state.room.discard.length > 0
-    && !state.room.mustDrawFromStock && myHand().length !== 1;
+    && myHand().length !== 1;
   const discardStack = el('div', 'pile-stack' + (discardClickable ? '' : ' disabled'));
   if (state.room.discard.length > 0) {
     discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
@@ -575,15 +575,17 @@ function renderHandAndActions(app) {
 
     const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
     const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
-    const selectedJokerNotLastCard = state.selectedIds.size === 1 && !selectedIsDiscardDraw
+    const selectedIsBottomDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.bottomDrawCardId;
+    const selectedJokerNotLastCard = state.selectedIds.size === 1 && !selectedIsDiscardDraw && !selectedIsBottomDraw
       && myHand().length > 1
       && myHand().find(c => c.id === [...state.selectedIds][0])?.joker;
-    const discardBtn = el('button', 'btn btn-danger', selectedIsDiscardDraw ? 'Vrati kartu na otpad' : 'Baci');
+    const discardBtn = el('button', 'btn btn-danger',
+      selectedIsDiscardDraw ? 'Vrati kartu na otpad'
+      : selectedIsBottomDraw ? 'Vrati kartu ispod talona'
+      : 'Baci');
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker || selectedJokerNotLastCard;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
-  } else if (myTurn && state.room.turnPhase === 'draw' && state.room.mustDrawFromStock) {
-    bar.appendChild(el('div', 'small center', 'Vratio si kartu na otpad - vuci kartu sa talona da nastavis.'));
   }
 
   app.appendChild(bar);

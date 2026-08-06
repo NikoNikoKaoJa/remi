@@ -572,7 +572,7 @@ export function setupRound(players, dealerIndex) {
     roundWinMeldIds: [], // snapshot of turnMeldIds taken the instant someone wins, for the round-end "put down this turn" highlight
     pendingJokerToPlace: null,
     discardDrawCardId: null,
-    mustDrawFromStock: false,
+    bottomDrawCardId: null,
     log,
   };
 }
