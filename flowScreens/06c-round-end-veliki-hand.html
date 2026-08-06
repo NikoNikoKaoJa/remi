@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>6c. Round end — announce — Veliki Hand — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 6c: Round end, "announce" sub-stage (phase: round_end) — win via Veliki Hand, 3-player room, round 1's very first turn (nobody has opened or melded yet). Marko goes out on his opening move by selecting 13 of his 14 cards, which partition perfectly into 4 valid melds (run 4-5-6s, run 8-9-10h, set KKK, set 2222) all pushed as brand-new table melds in one turn - so unlike a regular win, ALL of them get winner-meld orange, not just the closing group. His 14th card (9c) is discarded, unseen. Mali/veliki wins skip the openedPlayers push entirely (js/actions.js), so nobody in the top row - including Marko - shows an opened-dot, even though he obviously just melded. Niko (viewer) never opened this round either (it ended on turn 1) so gets the flat 100-point never-opened penalty, doubled to 200 for the hand multiplier per the roundWinType==='veliki' branch in js/render.js (exact string incl. the real double-space typo) &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="opponents-row">
+      <div class="opp-card">
+        <div class="name">Niko</div>
+        <div class="meta">14 karata</div>
+      </div>
+      <div class="opp-card" style="position:relative;">
+        <div class="name">Ana</div>
+        <div class="meta">14 karata</div>
+        <span class="dealer-badge" style="position:absolute;top:-8px;right:8px;">DELI</span>
+      </div>
+      <div class="opp-card winner-highlight">
+        <div class="name">Marko</div>
+        <div class="meta">0 karata</div>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="winner-banner" style="margin-bottom:40px;">&#127942; Marko handira!</div>
+
+      <!-- Only players with >=1 meld get a label (renderMeldsForPlayers skips empty
+           owners) - Niko and Ana have none this round, so only Marko appears. Every
+           card of every group is winner-meld since all 4 were pushed as brand-new
+           melds in this single winning turn (turnMeldIds -> roundWinMeldIds). -->
+      <div class="melds-area">
+        <div class="meld-owner-label">Marko</div>
+        <div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card winner-meld"><div class="rank">4</div><div class="suit-sym">&spades;</div></div>
+              <div class="card winner-meld"><div class="rank">5</div><div class="suit-sym">&spades;</div></div>
+              <div class="card winner-meld"><div class="rank">6</div><div class="suit-sym">&spades;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card red winner-meld"><div class="rank">8</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red winner-meld"><div class="rank">9</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red winner-meld"><div class="rank">10</div><div class="suit-sym">&hearts;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card winner-meld"><div class="rank">K</div><div class="suit-sym">&spades;</div></div>
+              <div class="card red winner-meld"><div class="rank">K</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red winner-meld"><div class="rank">K</div><div class="suit-sym">&diams;</div></div>
+            </div>
+          </div>
+          <div class="meld-group">
+            <div class="meld-cards">
+              <div class="card winner-meld"><div class="rank">2</div><div class="suit-sym">&spades;</div></div>
+              <div class="card red winner-meld"><div class="rank">2</div><div class="suit-sym">&hearts;</div></div>
+              <div class="card red winner-meld"><div class="rank">2</div><div class="suit-sym">&diams;</div></div>
+              <div class="card winner-meld"><div class="rank">2</div><div class="suit-sym">&clubs;</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Niko never opened this round (it ended on Marko's very first move) so gets
+           the flat 100-point never-opened penalty. roundWinType 'veliki' counts as
+           wentOutWithHand, so the label doubles it - exact string from js/render.js,
+           double space before "je hand" preserved verbatim. -->
+      <div class="small center" style="color:var(--gold-bright);margin-top:20px;margin-bottom:14px;">Vrednost karata u tvojo ruci je 100, bio  je hand, to je duplo 200</div>
+      <div class="hand-cards">
+        <div class="card"><div class="rank">A</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">Q</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card"><div class="rank">J</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card red"><div class="rank">10</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">9</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">8</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card"><div class="rank">7</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card red"><div class="rank">6</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">6</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">5</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card"><div class="rank">4</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card red"><div class="rank">3</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">3</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">2</div><div class="suit-sym">&hearts;</div></div>
+      </div>
+
+      <button class="btn btn-gold" style="width:100%;margin-top:14px;">Sledeca partija</button>
+    </div>
+
+    <div class="center" style="margin-top:14px;">
+      <button class="btn btn-danger">Reset</button>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.75</div>
+</body>
+</html>

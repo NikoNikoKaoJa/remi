@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>6b. Round end — announce — Mali Hand — Remi flow</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="flow-tag">Screen 6b: Round end, "announce" sub-stage (phase: round_end) — Mali Hand win, 3-player room, round 1 turn 1 (nobody has melded anything yet, so melds-area is empty/omitted, no meld-owner-label anywhere). Ana goes out on her very first move by declaring Mali Hand: her 13-card hand sums to 49 under the per-card mali-hand values (Joker=0, Ace=1, J/Q/K=10, else face) &mdash; A&spades;(1)+A&hearts;(1)+2&spades;(2)+2&diams;(2)+3&hearts;(3)+3&clubs;(3)+4&spades;(4)+4&diams;(4)+5&hearts;(5)+5&clubs;(5)+6&spades;(6)+6&diams;(6)+7&hearts;(7) = 49, under the 51 threshold. Per the v0.75 fix, every card in that reveal row now carries winner-meld (orange outline), which this screen exists to demonstrate. Mali/veliki wins never push the winner onto room.openedPlayers (only a regular opening lay does), so Ana shows no opened-dot despite winning &mdash; same as Niko and Marko, who also never opened this round. Marko is marked dealer (DELI) arbitrarily, matching the existing 06 file's pattern of putting the badge on a non-viewer non-winner. Niko (viewer) never opened either, so his leftover-hand value below is the flat 100 never-opened penalty, doubled to 200 because a hand (mali) win applies the &times;2 multiplier &mdash; label text copied verbatim from render.js including its double-space typo &middot; <a href="index.html">all screens</a></div>
+<div id="remi-root">
+  <div class="wrap" id="app">
+    <div class="opponents-row">
+      <div class="opp-card">
+        <div class="name">Niko</div>
+        <div class="meta">14 karata</div>
+      </div>
+      <div class="opp-card winner-highlight">
+        <div class="name">Ana</div>
+        <div class="meta">0 karata</div>
+      </div>
+      <div class="opp-card" style="position:relative;">
+        <div class="name">Marko</div>
+        <div class="meta">14 karata</div>
+        <span class="dealer-badge" style="position:absolute;top:-8px;right:8px;">DELI</span>
+      </div>
+    </div>
+
+    <div class="card-panel">
+      <div class="winner-banner" style="margin-bottom:40px;">&#127942; Ana handira!</div>
+
+      <!-- Round 1, turn 1: nobody has laid anything to the table yet, so melds-area
+           is entirely empty and is omitted here (renderMeldsForPlayers renders
+           nothing when there are no melds - no meld-owner-label elements at all). -->
+
+      <div class="meld-owner-label">Ana - ruka (Mali Hand)</div>
+      <div class="hand-cards">
+        <div class="card winner-meld"><div class="rank">A</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red winner-meld"><div class="rank">A</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card winner-meld"><div class="rank">2</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red winner-meld"><div class="rank">2</div><div class="suit-sym">&diams;</div></div>
+        <div class="card red winner-meld"><div class="rank">3</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card winner-meld"><div class="rank">3</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card winner-meld"><div class="rank">4</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red winner-meld"><div class="rank">4</div><div class="suit-sym">&diams;</div></div>
+        <div class="card red winner-meld"><div class="rank">5</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card winner-meld"><div class="rank">5</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card winner-meld"><div class="rank">6</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red winner-meld"><div class="rank">6</div><div class="suit-sym">&diams;</div></div>
+        <div class="card red winner-meld"><div class="rank">7</div><div class="suit-sym">&hearts;</div></div>
+      </div>
+
+      <!-- Niko never opened this round either (game ended on Ana's very first move),
+           so the flat 100 never-opened penalty applies. roundWinType 'mali' counts
+           as wentOutWithHand, so the x2 multiplier doubling text is used - exact
+           string from render.js's renderRoundAnnounce, double-space typo preserved. -->
+      <div class="small center" style="color:var(--gold-bright);margin-top:20px;margin-bottom:14px;">Vrednost karata u tvojo ruci je 100, bio  je hand, to je duplo 200</div>
+      <div class="hand-cards">
+        <div class="card"><div class="rank">K</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">K</div><div class="suit-sym">&diams;</div></div>
+        <div class="card red"><div class="rank">Q</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card"><div class="rank">Q</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card"><div class="rank">J</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">J</div><div class="suit-sym">&diams;</div></div>
+        <div class="card red"><div class="rank">10</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card"><div class="rank">9</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card"><div class="rank">8</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">7</div><div class="suit-sym">&diams;</div></div>
+        <div class="card"><div class="rank">6</div><div class="suit-sym">&clubs;</div></div>
+        <div class="card"><div class="rank">5</div><div class="suit-sym">&spades;</div></div>
+        <div class="card red"><div class="rank">4</div><div class="suit-sym">&hearts;</div></div>
+        <div class="card red"><div class="rank">3</div><div class="suit-sym">&diams;</div></div>
+      </div>
+
+      <button class="btn btn-gold" style="width:100%;margin-top:14px;">Sledeca partija</button>
+    </div>
+
+    <div class="center" style="margin-top:14px;">
+      <button class="btn btn-danger">Reset</button>
+    </div>
+  </div>
+</div>
+<div class="version-badge">v0.75</div>
+</body>
+</html>
