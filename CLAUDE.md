@@ -55,11 +55,13 @@ There are two builds of the same game:
   "special bottom card" — if the revealed card was awarded as a bonus joker, the
   next card is revealed to fill that slot.
 - **The card under the talon may only be taken to make a hand** (mali/veliki),
-  in place of that turn's draw. It can NEVER end up on the discard pile: the
-  player either goes out with the hand, or puts the card back under the talon
-  (which rewinds the turn to its draw phase). While it's in hand, laying melds,
-  adding to melds and joker swaps are all blocked too, so it can't get stranded
-  on the table (`bottomDrawCardId` in `js/actions.js`).
+  in place of that turn's draw. The player either goes out with the hand, or
+  puts the card back under the talon (which rewinds the turn to its draw
+  phase). It reaches the discard pile in exactly ONE case: as the odd card
+  thrown when the hand being declared is the *other* 14 cards. Any other
+  discard of it is a "return it", not a throw. While it's in hand, laying
+  melds, adding to melds and joker swaps are all blocked too, so it can't get
+  stranded on the table (`bottomDrawCardId` in `js/actions.js`).
 - **Opening ("izlaganje") requires 51+ points** in the melds laid down in that
   one turn. After opening, that restriction no longer applies.
 - **Card values for the 51 rule:** Ace = 1 if used low (A-2-3), Ace = 10 if in a

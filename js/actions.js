@@ -180,6 +180,10 @@ export async function endRoundWithWinner(r, winnerId, handType) {
   // table history.
   r.roundWinMeldIds = (r.turnMeldIds || []).slice();
   r.lastDeltas = deltas;
+  // The round is over, so nothing is owed any more - and the talon card, if it
+  // was the one thrown to close the hand out, has left the hand for good.
+  r.bottomDrawCardId = null;
+  r.discardDrawCardId = null;
   r.phase = 'round_end';
   const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : 'regularno';
   r.log.push(`${r.players.find(p => p.id === winnerId).name} je zavrsio rundu (${label})!`);
@@ -288,10 +292,11 @@ export async function actionDiscard(cardId) {
     showToast('⚠️ Kartu koju si uzeo sa otpada moras da izlozis/handiras ili je izaberi i klikni "Vrati kartu na otpad".');
     return;
   }
-  // The card from under the talon may only be taken to make a hand - it can
-  // never be thrown on the discard pile, neither itself nor in place of some
-  // other card. The only way out of the turn (short of declaring the hand) is
-  // putting it back where it came from.
+  // The card from under the talon may only be taken to make a hand, so a plain
+  // discard can never involve it: not some other card in its place, and not
+  // itself either - selecting it here means "put it back", which rewinds the
+  // turn. (It CAN reach the otpad as the odd card thrown when a hand is
+  // declared, but that goes through actionLayMultipleSelected, not this.)
   if (state.room.bottomDrawCardId) {
     if (state.room.bottomDrawCardId !== cardId) {
       showToast('⚠️ Sa kartom ispod talona moras da napravis hand ili je izaberi i klikni "Vrati kartu ispod talona".');
@@ -366,31 +371,30 @@ let handOptionCache = { key: null, value: null };
 export function findHandOption(hand) {
   if (!state.room || hand.length !== 15) return null;
   if (state.room.openedPlayers.includes(state.session.playerId)) return null;
-  const key = state.session.playerId + '|' + hand.map(c => c.id).join(',') + '|' + (state.room.bottomDrawCardId || '');
+  const key = state.session.playerId + '|' + hand.map(c => c.id).join(',');
   if (handOptionCache.key === key) return handOptionCache.value;
-  const result = computeHandOption(hand);
+  const result = findGoingOutOption(hand);
   handOptionCache = { key, value: result };
   return result;
 }
 
-function computeHandOption(hand) {
-  // The card from under the talon can never end up on the otpad, so it can't
-  // be the one discarded to close the hand out (see actionTryBottomCard).
-  return findHandOptionAmong(hand, hand.filter(c => c.id !== state.room.bottomDrawCardId));
-}
-
-// The going-out search itself: which of `candidates` can be thrown away so the
-// remaining 14 either all meld (veliki) or sum under 51 (mali). Split out so
-// actionTryBottomCard can ask the same question about a hypothetical hand,
-// with its own idea of which cards are discardable.
-function findHandOptionAmong(hand, candidates) {
-  for (const disc of candidates) {
+// The going-out search itself: which card can be thrown away so the remaining
+// 14 either all meld (veliki) or sum under 51 (mali). EVERY card is a
+// candidate, including the one taken from under the talon: that card is barred
+// from the otpad in general, but closing out a hand is the single exception -
+// the whole reason it may be taken at all is to complete a hand, so a hand
+// completed by discarding it counts (see actionLayMultipleSelected, which lets
+// exactly that one discard through). actionTryBottomCard runs this same search
+// on the hypothetical hand before handing the card over, so the offer and the
+// declaration can never disagree.
+function findGoingOutOption(hand) {
+  for (const disc of hand) {
     const rest = hand.filter(c => c.id !== disc.id);
     if (findPartition(rest)) return { type: 'veliki', keepIds: rest.map(c => c.id), discardCard: disc };
   }
   // For mali, throwing away the most expensive card gives the lowest sum -
   // if that one doesn't get under 51, nothing else will either.
-  const byValueDesc = candidates.slice().sort((a, b) => cardValueMaliHand(b) - cardValueMaliHand(a));
+  const byValueDesc = hand.slice().sort((a, b) => cardValueMaliHand(b) - cardValueMaliHand(a));
   for (const disc of byValueDesc) {
     const rest = hand.filter(c => c.id !== disc.id);
     if (maliHandValue(rest) < 51) return { type: 'mali', keepIds: rest.map(c => c.id), discardCard: disc };
@@ -457,12 +461,12 @@ export async function actionLayMultipleSelected() {
     showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
     return;
   }
-  // ...and it can't be the card thrown on the otpad to close out the hand
-  // either - if it isn't part of the hand, it belongs back under the talon.
-  if (state.room.bottomDrawCardId && leftoverCard && leftoverCard.id === state.room.bottomDrawCardId) {
-    showToast('⚠️ Kartu ispod talona ne mozes baciti na otpad - ako ti ne treba, vrati je ispod talona.');
-    return;
-  }
+  // On a going-out attempt the card from under the talon MAY be the one thrown
+  // on the otpad - that is the one and only time it's allowed there. Taking it
+  // is permitted precisely because it completes a hand, and sometimes the hand
+  // it completes is "the other 14 cards", leaving it as the odd card out.
+  // Blocking that made the game offer a hand it then refused to let you
+  // declare, with putting the card back as the only way forward.
 
   const partitions = findAllPartitions(cards);
   // findAllPartitions bails out after a capped number of attempts, while the
@@ -746,11 +750,10 @@ export async function actionTryBottomCard() {
   if (!state.room.specialBottomCard || state.room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
   const card = state.room.specialBottomCard.card;
   const hypothetical = myHand().concat([card]);
-  // Check if drawing this card immediately enables ANY hand declaration. Every
-  // card is a candidate discard here, including the bottom card itself - it
-  // hasn't been taken yet, so this is only asking whether the draw is worth
-  // offering at all.
-  const handType = (findHandOptionAmong(hypothetical, hypothetical) || {}).type || null;
+  // Check if drawing this card immediately enables ANY hand declaration - the
+  // exact same search findHandOption runs once it's in hand, so whatever is
+  // offered here can actually be declared afterwards.
+  const handType = (findGoingOutOption(hypothetical) || {}).type || null;
   if (!handType) { showToast('Sa tom kartom ne mozes odmah da napravis hand.'); return; }
   state.busy = true;
   state.room.specialBottomCard.taken = true;
