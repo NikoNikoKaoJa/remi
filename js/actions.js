@@ -377,6 +377,26 @@ export async function actionDeclareHand() {
   await actionLayMultipleSelected();
 }
 
+// A single card left in hand after laying down (izlaganje) or adding to a
+// meld (krpljenje) has exactly one legal move: it goes on the otpad and the
+// round is over. Throw it for the player rather than making them click
+// "Baci" on a foregone conclusion. Skipped when that last card isn't free to
+// be discarded - a card pulled off the otpad this turn still owes a lay, a
+// card from under the talon can never reach the otpad at all, and a freed
+// joker must be placed first (all three would just rewind or block the turn,
+// not win it).
+async function autoDiscardLastCard() {
+  const hand = state.room.hands[state.session.playerId] || [];
+  if (hand.length !== 1) return false;
+  if (state.room.discardDrawCardId || state.room.bottomDrawCardId) return false;
+  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) return false;
+  const [card] = hand.splice(0, 1);
+  state.room.discard.push(card);
+  state.selectedIds.clear();
+  await endRoundWithWinner(state.room, state.session.playerId, null);
+  return true;
+}
+
 export async function actionLayMultipleSelected() {
   // Lay out ALL currently selected cards at once, auto-partitioned into melds.
   // Used for the opening play when it takes multiple melds to reach 51 points.
@@ -505,6 +525,7 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
     state.room.discardDrawCardId = null;
   }
   sweepCompletedQuads(state.room);
+  await autoDiscardLastCard();
   await saveRoom(state.room);
   state.busy = false;
   render();
@@ -560,6 +581,7 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     state.room.discardDrawCardId = null;
   }
   sweepCompletedQuads(state.room);
+  await autoDiscardLastCard();
   await saveRoom(state.room);
   state.busy = false;
   render();
