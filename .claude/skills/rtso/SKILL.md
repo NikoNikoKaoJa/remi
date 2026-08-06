@@ -13,8 +13,13 @@ report -> ask, only reaching for `remi-ship` once Niko explicitly says so.
 
 Invoke the `remi-smart-testing` skill (via the `Skill` tool) against the
 current uncommitted change(s) in ~/dev/claude/remi. Let it decide the
-cheapest sufficient method (static checks first, Chrome only if warranted
-and only after it separately asks/explains, per that skill's own rules).
+cheapest sufficient method (static checks first, a live browser session
+only if warranted and only after it separately asks/explains, per that
+skill's own rules).
+
+Live testing means Safari, one tab per player, against a seeded test room
+and a local server that sends no-cache headers (per `remi-smart-testing`).
+Never Chrome, never the `claude-in-chrome` tools.
 
 ## Step 2 - Report PASS/FAIL
 

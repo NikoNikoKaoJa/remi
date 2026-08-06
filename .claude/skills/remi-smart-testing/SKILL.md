@@ -1,13 +1,17 @@
 ---
 name: remi-smart-testing
-description: This skill should be used when verifying a code change in Niko's Remi (Serbian Rummy) project at ~/dev/claude/remi - deciding how to test a change, running node-based static/logic checks, or setting up a Chrome-based live multiplayer test session. Use for phrases like "test this", "verify this works", "check this change", or when about to reach for claude-in-chrome in this repo.
-version: 1.0.0
+description: This skill should be used when verifying a code change in Niko's Remi (Serbian Rummy) project at ~/dev/claude/remi - deciding how to test a change, running node-based static/logic checks, or setting up a Safari-based live multiplayer test session. Use for phrases like "test this", "verify this works", "check this change", or when about to reach for a browser in this repo.
+version: 2.0.0
 ---
 
 # Remi: smart testing
 
 Goal: verify changes with the *cheapest* method that actually answers the
-question, and never spin up Chrome without asking first and saying why.
+question, and never spin up a browser without asking first and saying why.
+
+**Chrome / the `claude-in-chrome` MCP tools are NOT used for this project.**
+Live testing is Safari-only, driven by `open -a Safari`. Do not recommend or
+load any `mcp__claude-in-chrome__*` tool here.
 
 ## Decision order (cheapest first)
 
@@ -28,75 +32,124 @@ question, and never spin up Chrome without asking first and saying why.
 4. **grep for consistency** - e.g. confirm a renamed CSS class is updated
    everywhere it's referenced, a field defaulted in `hydrateRoom()` for any
    new always-present collection, etc.
-5. **Chrome, only if the above genuinely can't answer the question** - see
-   below. This is the expensive path; treat it as a last resort, not a
-   default.
+5. **Live Safari test, only if the above genuinely can't answer the
+   question** - see below. This is the expensive path; treat it as a last
+   resort, not a default.
 
-Reserve Chrome for cases where *behavior over time* or *visual/interactive*
-correctness is in question and can't be inferred from source: animation/CSS
-hover-timing bugs, a new game-flow screen, a button wired to the wrong
-handler, cross-tab multiplayer sync, anything where "would a human need to
-look at this running to know if it's right?" is genuinely yes.
+Reserve the browser for cases where *behavior over time* or
+*visual/interactive* correctness is in question and can't be inferred from
+source: animation/CSS hover-timing bugs, a new game-flow screen, a button
+wired to the wrong handler, cross-tab multiplayer sync, anything where
+"would a human need to look at this running to know if it's right?" is
+genuinely yes.
 
-## Before touching Chrome: ask first
+## Before touching a browser: ask first
 
-Never open Chrome/start the local server silently. Send one short message
+Never open Safari/start the local server silently. Send one short message
 to Niko stating:
 - what you're about to test (which screen/interaction),
 - *why* it can't be checked statically (what specifically needs eyes or
   real interaction on it),
-- what you're about to spin up (local server + which tabs).
+- what you're about to spin up (no-cache server + which tabs).
 
 Wait for confirmation before proceeding. Skip this ask only if Niko already
 explicitly asked you to test in the browser in this same turn.
 
-## If Chrome is warranted: the mechanics
+## If a live test is warranted: the mechanics
 
-1. Load the tools you'll need in one `ToolSearch` call, e.g.:
-   `select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__tabs_create_mcp,mcp__claude-in-chrome__read_console_messages,mcp__claude-in-chrome__browser_batch`
-2. Start a local server (module scripts need http(s), not `file://`):
-   ```
-   (python3 -m http.server <port> >/tmp/remi-server.log 2>&1 &)
-   ```
-   Pick a port not already in use.
-3. Use the real Firebase DB for local testing - see the
-   `reference-firebase-db-url` memory for the URL. **Always create a fresh
-   room code** rather than touching any room a real game might be using
-   (rules are public read/write, no isolation between test and real rooms).
-   Navigate to:
-   `http://localhost:<port>/index.html?db=<dbUrl>`
-4. Most game-flow screens need **2 players** to start a round (see
-   `js/actions.js`: `players.length < 2` gate). Open a second tab, join with
-   the room code, and drive both from there when the thing under test is
-   turn-based.
-5. Batch clicks/types/screenshots with `browser_batch` instead of one call
-   per action.
-6. **Stale module cache gotcha**: if you edited a `.js` module the page
-   already had loaded and then re-navigate, you may see a spurious
-   `SyntaxError: ... does not provide an export named 'x'` from a cached
-   copy of the old file. Hard-reload (`cmd+shift+r`) before trusting a
-   module-loading error.
-7. Check `read_console_messages` (with `onlyErrors: true`) after any
-   interaction sequence - don't rely on screenshots alone to catch JS
-   exceptions.
-8. For frame-by-frame animation/timing bugs (e.g. a hover flicker), a
-   screen recording from Niko can be diagnosed without any live
-   interaction at all: extract frames with `ffmpeg` and tile them into one
-   contact sheet for a quick visual diff across time, e.g.:
-   ```
-   ffmpeg -y -i recording.mov -vf "crop=W:H:X:Y,fps=30,tile=6x15" tile.png
-   ```
-   This is often enough to pinpoint the bug and skip live Chrome entirely.
+### 1. Start a no-cache local server
+
+Module scripts need http(s), not `file://`. But a plain
+`python3 -m http.server` is **not acceptable on its own**: Safari has served
+stale cached ES modules from a previous session and made an already-fixed
+bug look unfixed. Write a small server script to the scratchpad dir that
+subclasses `SimpleHTTPRequestHandler` and adds to every response:
+
+```
+Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+Pragma: no-cache
+Expires: 0
+```
+
+chdir it to `/Users/nukropina/dev/claude/remi`, run it in the background.
+**Prefer a fresh port on every re-test** - Safari keys its cache by URL.
+
+Always tell Niko to confirm the version badge (bottom-right, `APP_VERSION`
+from `js/state.js`) shows the expected new version before trusting any
+result.
+
+### 2. Seed the game state, don't play up to it
+
+Do not manually play a game to reach the interesting point. Write a
+throwaway node script in the scratchpad dir that `PUT`s a complete room
+object straight into Firebase at `<dbUrl>/rooms/<CODE>.json`. The dbUrl is
+in the `reference-firebase-db-url` memory
+(`https://remi-8ed0e-default-rtdb.firebaseio.com`). **Always use a dedicated
+test room code**, never one a real game might use (rules are public
+read/write, no isolation).
+
+The room object should mirror what `setupRound` in `js/engine.js` returns,
+plus the fields `createRoom` in `js/room.js` adds: `code`,
+`phase: 'playing'`, `players`, `dealerIndex`, `round`, `scores`, `hands`,
+`stock`, `discard`, `melds`, `openedPlayers`, `currentPlayerIndex`,
+`turnPhase`, `specialBottomCard`, `log`, ...
+
+Craft the hands/piles so the change under test can be exercised in one or
+two clicks. Before opening any browser, verify the scenario is actually
+reachable with a quick node check, e.g.:
+```
+node --input-type=module -e "import { ... } from './js/engine.js'; ..."
+```
+(e.g. confirm a crafted hand really does form a veliki hand).
+
+### 3. Open Safari, one tab per player
+
+Two players by default; more only if the change genuinely needs it.
+
+Safari shares localStorage across normal tabs and the app stores a single
+session under `my-remi-session`, so tabs can't join as different players on
+their own. The trick that works: create a **throwaway bootstrap page in the
+repo root** (e.g. `test-session.html`) that reads a `?p=N` query param,
+writes a fixed `{playerId, name, roomCode}` into
+`localStorage['my-remi-session']` plus the db url into
+`localStorage['remi-db-url']`, then `location.replace`s to
+`index.html?db=...&room=CODE`.
+
+Then:
+```
+open -a Safari "http://localhost:<port>/test-session.html?p=1"
+# wait a couple of seconds
+open -a Safari "http://localhost:<port>/test-session.html?p=2"
+```
+Each tab keeps its identity in memory (the app only re-reads localStorage at
+boot / on rejoin), so this works. **Warn Niko** that reloading tab 1 will
+turn it into player 2, and that reopening the `?p=1` URL fixes it.
+
+### 4. Diagnosing without a browser at all
+
+For frame-by-frame animation/timing bugs (e.g. a hover flicker), a screen
+recording from Niko can be diagnosed with no live browser: extract frames
+with `ffmpeg` and tile them into one contact sheet for a quick visual diff
+across time, e.g.:
+```
+ffmpeg -y -i recording.mov -vf "crop=W:H:X:Y,fps=30,tile=6x15" tile.png
+```
+This is often enough to pinpoint the bug and skip the live test entirely.
 
 ## Always clean up before ending the turn
 
-1. `pkill -f "http.server <port>"` (or `kill $(lsof -ti:<port>)`).
-2. Close every tab this session opened with `tabs_close_mcp` (get IDs from
-   `tabs_context_mcp` first). The tab group auto-removes once its last tab
-   closes.
-3. Delete any scratchpad throwaway scripts/frames from steps 3 or 8 above.
+1. Kill the server: `pkill -f "<scratchpad server script>"` (or
+   `kill $(lsof -ti:<port>)`).
+2. Close the Safari tabs:
+   ```
+   osascript -e 'tell application "Safari" to close (every tab of every window whose URL contains "localhost:<port>")'
+   ```
+3. Delete the throwaway bootstrap page from the repo root
+   (`test-session.html`) - it must never be committed.
+4. Delete the seeded test room from Firebase:
+   `curl -X DELETE <dbUrl>/rooms/<CODE>.json`
+5. Delete the scratchpad scripts/frames.
 
 Exception: after a `git push origin main`, the post-push Safari verification
 window is meant to stay open for Niko to look at - that's a different flow,
-not this one, and isn't Chrome-based anyway (Safari, per the
-`feedback-post-push-workflow` memory).
+not this one (see the `feedback-post-push-workflow` memory).
