@@ -237,8 +237,11 @@ h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
    just finished. Older rows are plain history. */
 .round-end-history-winner th:nth-child(3),
 .round-end-history-winner tr:last-child td:nth-child(3){color:#ff8c00;font-weight:700;}
-.round-end-history-winner{table-layout:fixed;width:min(480px,100%);margin-left:auto;margin-right:auto;}
-.round-end-history-winner th,.round-end-history-winner td{padding:8px 20px;}
+.round-end-history-winner{table-layout:auto;width:auto;margin-left:auto;margin-right:auto;}
+.round-end-history-winner th,.round-end-history-winner td{padding:6px 18px;text-align:center;}
+.score-history-table td .num{
+  display:inline-block;min-width:4ch;text-align:right;font-variant-numeric:tabular-nums;
+}
 .winner-name-orange{color:#ff8c00;}
 .round-end-scores-panel{width:70%;margin-left:auto;margin-right:auto;}
 .score-history-table{table-layout:fixed;}

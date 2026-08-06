@@ -328,8 +328,17 @@ KORAK 5 - Prvo otvaranje
   .score-summary-table td.name{text-align:center;}
   .score-summary-table th,.score-summary-table td{padding:8px 22px;}
   .score-summary-table tr.winner-row td{color:#ff8c00;font-weight:700;}
-  .round-end-history-winner{table-layout:fixed;width:min(480px,100%);margin-left:auto;margin-right:auto;}
-  .round-end-history-winner th,.round-end-history-winner td{padding:8px 20px;}
+  /* Columns are content-sized (not stretched to a fixed table width) so a
+     two-player history doesn't end up with two very wide columns. Each number
+     sits in a fixed-width inline box (buildScoreHistoryTable's span.num):
+     digits are right-aligned inside that box, and the box itself is centered
+     under the player's name - so the column of numbers reads as one
+     right-aligned block, centered under the header. */
+  .round-end-history-winner{table-layout:auto;width:auto;margin-left:auto;margin-right:auto;}
+  .round-end-history-winner th,.round-end-history-winner td{padding:6px 18px;text-align:center;}
+  .score-history-table td .num{
+    display:inline-block;min-width:4ch;text-align:right;font-variant-numeric:tabular-nums;
+  }
   .round-end-history-winner th.winner-col,
   .round-end-history-winner td.winner-col{color:#ff8c00;font-weight:700;}
   .winner-banner{

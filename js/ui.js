@@ -99,7 +99,9 @@ export function buildScoreHistoryTable(room, winnerId = null) {
     const last = i === history.length - 1;
     const tr = document.createElement('tr');
     if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
-    tr.innerHTML = room.players.map(p => `<td${last ? cls(p) : ''}>${entry.totals[p.id] ?? 0}</td>`).join('');
+    // The number goes in its own <span class="num"> so CSS can right-align the
+    // digits inside a fixed-width box that stays centered under the name.
+    tr.innerHTML = room.players.map(p => `<td${last ? cls(p) : ''}><span class="num">${entry.totals[p.id] ?? 0}</span></td>`).join('');
     table.appendChild(tr);
   });
   return table;
