@@ -803,20 +803,16 @@ function renderHandAndActions(app) {
     if (!handOption) layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
-    const hasSelection = state.selectedIds.size > 0;
-    const clearBtn = el('button', 'btn btn-outline-gold btn-clear-toggle', opened || hasSelection ? 'Ponisti izbor' : 'Izaberi sve karte');
-    if (opened) {
-      clearBtn.disabled = !hasSelection;
+    // Undoing a selection only matters once there's a selection worth undoing:
+    // a single card is cleared by clicking it again, so the button appears
+    // only from two cards up. ("Izaberi sve karte", the other half this button
+    // used to toggle to, is gone - "Handiraj" already selects a whole ready
+    // hand on its own.)
+    if (state.selectedIds.size > 1) {
+      const clearBtn = el('button', 'btn btn-outline-gold', 'Ponisti izbor');
+      clearBtn.onclick = () => { state.selectedIds.clear(); render(); };
+      bar.appendChild(clearBtn);
     }
-    clearBtn.onclick = () => {
-      if (hasSelection) {
-        state.selectedIds.clear();
-      } else {
-        myHand().forEach(c => state.selectedIds.add(c.id));
-      }
-      render();
-    };
-    bar.appendChild(clearBtn);
 
     const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
     const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
