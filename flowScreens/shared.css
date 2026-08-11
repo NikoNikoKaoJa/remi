@@ -80,7 +80,6 @@ h1,h2,h3{font-family:var(--font-display);font-weight:600;margin:0;}
 .btn-outline-gold:hover{background:rgba(212,175,55,0.12);}
 .btn-danger{background:var(--danger);color:var(--cream);}
 .btn:disabled{opacity:0.35;cursor:not-allowed;transform:none;}
-.btn-clear-toggle{min-width:195px;}
 .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
 .row{display:flex;gap:10px;}
 .row > *{flex:1;}
