@@ -186,10 +186,6 @@ export function showScoreHistoryModal(room) {
   overlay.className = 'modal-overlay';
   const box = document.createElement('div');
   box.className = 'modal-box modal-box-wide';
-  const h = document.createElement('h3');
-  h.textContent = 'Rezultat';
-  h.style.marginBottom = '10px';
-  box.appendChild(h);
   // Same treatment as the round-end scores screen: names row fixed above a
   // scrolling body, opened on the newest round. No scroll-position bookkeeping
   // here - the modal hangs off #remi-root rather than #app, so a poll's
