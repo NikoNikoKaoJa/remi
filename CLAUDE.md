@@ -153,7 +153,19 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    `actionReplaceJoker`/`actionDeclare{Mali,Veliki}Hand`/
    `actionTryBottomCard`.
 8. **`js/render.js`** — `el()` DOM helper, `render` dispatcher, and all
-   `render*` view functions.
+   `render*` view functions. The hand-card pointer drag (`enableHandReorder`)
+   does double duty: dropped back on the hand row it reorders, dropped on a
+   registered drop target it plays the card. Targets are marked per render
+   with `markDropTarget(node, kind, onDrop)` — the otpad pile (→
+   `actionDiscard`) and each meld group (→ krpljenje via `dropCardOnMeld`,
+   which makes the dragged card the selection and calls `actionAddToMeld`),
+   both only during your own `'meld'` phase. The card under the talon drags
+   the other way (`enablePileDrag`), onto the hand row (→
+   `actionTryBottomCard`), only during your own `'draw'` phase. Targets are
+   typed (`DROP_FROM_HAND` / `DROP_FROM_PILE`) so the hand row doesn't
+   swallow a hand card being dropped back into its own row for a reorder.
+   The equivalent buttons/clicks all remain: dragging is an additional
+   route, never the only one.
 9. **`js/main.js`** — boot only: resolves the DB URL, attempts `rejoin()`,
    first `render()`.
 

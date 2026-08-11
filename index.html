@@ -265,6 +265,12 @@ KORAK 5 - Prvo otvaranje
   }
   .meld-group.targetable{cursor:pointer;border:1px dashed var(--gold);}
   .meld-group.targetable:hover{background:rgba(201,162,39,0.12);}
+  /* A card being dragged out of the hand can be dropped here (otpad / meld).
+     .drop-hover is toggled by the drag itself while the pointer is over it. */
+  /* The otpad is "disabled" during the meld phase (you can't draw from it any
+     more), but it IS a valid drag target then - so don't grey it out. */
+  .pile-stack.disabled.drop-target{opacity:1;cursor:default;}
+  .drop-target.drop-hover{outline:2px solid var(--gold-bright);outline-offset:3px;border-radius:8px;background:rgba(201,162,39,0.18);}
   .meld-cards{display:flex;flex-wrap:wrap;gap:4px;}
   .meld-cards .card{margin-left:0;}
 

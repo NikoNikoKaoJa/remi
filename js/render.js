@@ -43,6 +43,120 @@ function cardCountLabel(n) {
 // the new left-to-right DOM order is saved to room.handOrders so it survives
 // reconnects/other devices (see orderHand in cards.js for how it's applied).
 const HAND_DRAG_THRESHOLD = 8;
+
+// ===== Drag to play =====
+// A drag can END somewhere other than where it began: a hand card dropped on
+// the otpad (= discard it) or on a meld group (= krpljenje, add it to the
+// meld), or the card under the talon dropped on the hand row (= take it for a
+// hand). A render* function marks such an element by calling markDropTarget()
+// on it; the drag looks for the nearest marked ancestor under the pointer and,
+// if it finds one, runs its handler. The buttons and clicks ("Baci", clicking
+// a meld group with cards selected, clicking the card under the talon) still
+// do exactly what they did - dragging is an extra route, not a replacement.
+//
+// Targets are typed by which drag they accept: the hand row accepts a card
+// coming off a pile, and must NOT swallow a hand card being dropped back into
+// its own row (that's an ordinary reorder).
+const DROP_FROM_HAND = 'from-hand';
+const DROP_FROM_PILE = 'from-pile';
+
+function markDropTarget(node, kind, onDrop) {
+  node._remiDrop = { kind, onDrop };
+  node.classList.add('drop-target');
+}
+
+function findDropTarget(x, y, kind) {
+  let hit = document.elementFromPoint(x, y);
+  while (hit) {
+    if (hit._remiDrop && hit._remiDrop.kind === kind) return hit;
+    hit = hit.parentElement;
+  }
+  return null;
+}
+
+// Drops a single hand card on a meld. actionAddToMeld works off the current
+// selection, so the dragged card becomes the selection for the duration of the
+// call - which is also what the player just expressed by dragging it.
+async function dropCardOnMeld(cardId, ownerId, meldIdx) {
+  state.selectedIds = new Set([cardId]);
+  render();
+  await actionAddToMeld(ownerId, meldIdx);
+}
+
+// The other direction: drag a card off a pile and drop it on the hand row to
+// take it. Simpler than the hand drag - nothing reorders, the card either
+// lands on the hand (run `onDrop`) or the drag is a no-op - but it uses the
+// same ghost so both gestures feel alike. `node` keeps its own onclick; a
+// drag sets a short-lived flag so the click that follows pointerup doesn't
+// fire the action a second time.
+function enablePileDrag(node, onDrop) {
+  let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
+  let hoverTarget = null;
+
+  function setHoverTarget(t) {
+    if (hoverTarget === t) return;
+    if (hoverTarget) hoverTarget.classList.remove('drop-hover');
+    hoverTarget = t;
+    if (hoverTarget) hoverTarget.classList.add('drop-hover');
+  }
+
+  node.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    dragging = false;
+    pointerId = e.pointerId;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
+
+  function onMove(e) {
+    if (e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!dragging) {
+      if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
+      dragging = true;
+      state.handDragActive = true; // same reason as the hand drag: no poll re-render mid-drag
+      const rect = node.getBoundingClientRect();
+      offsetX = startX - rect.left;
+      offsetY = startY - rect.top;
+      ghost = node.cloneNode(true);
+      ghost.style.position = 'fixed';
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      ghost.style.margin = '0';
+      ghost.style.pointerEvents = 'none';
+      ghost.style.zIndex = '1000';
+      ghost.style.transform = 'scale(1.08)';
+      ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
+      document.body.appendChild(ghost);
+      node.style.opacity = '0.25';
+    }
+    e.preventDefault();
+    ghost.style.left = (e.clientX - offsetX) + 'px';
+    ghost.style.top = (e.clientY - offsetY) + 'px';
+    setHoverTarget(findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE));
+  }
+
+  async function onUp(e) {
+    if (e.pointerId !== pointerId) return;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    if (!dragging) return;
+    node.style.opacity = '';
+    if (ghost) { ghost.remove(); ghost = null; }
+    state.handDragActive = false;
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE);
+    setHoverTarget(null);
+    node.dataset.justDragged = '1';
+    setTimeout(() => { delete node.dataset.justDragged; }, 300);
+    if (target) await target._remiDrop.onDrop();
+  }
+}
 // Just enough to bridge the 6px gap between two wrapped rows of cards, so
 // the seam between them belongs to one row or the other rather than to
 // neither. Anything more starts swallowing the dead space above the hand.
@@ -51,6 +165,14 @@ const ROW_BAND_SLACK = 4;
 function enableHandReorder(node, container) {
   let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
   let origNext = null; // the sibling the card sat in front of when the drag started
+  let hoverTarget = null; // the drop target (otpad / meld) currently under the pointer
+
+  function setHoverTarget(t) {
+    if (hoverTarget === t) return;
+    if (hoverTarget) hoverTarget.classList.remove('drop-hover');
+    hoverTarget = t;
+    if (hoverTarget) hoverTarget.classList.add('drop-hover');
+  }
 
   // Is the pointer actually over the hand row? Anywhere else (the table, the
   // melds, the action bar, off the panel entirely) is not a placement, and
@@ -129,7 +251,12 @@ function enableHandReorder(node, container) {
     e.preventDefault();
     ghost.style.left = (e.clientX - offsetX) + 'px';
     ghost.style.top = (e.clientY - offsetY) + 'px';
-    reflow(e.clientX, e.clientY);
+    // Over the otpad or a meld the hand row shouldn't preview a reorder at all
+    // - the card is leaving the hand, so it stays where it was until the drop
+    // is either taken (the action re-renders) or refused (nothing moved).
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND);
+    setHoverTarget(target);
+    if (target) snapBack(); else reflow(e.clientX, e.clientY);
   }
 
   // Moves `node` next to whichever card of that row the pointer is nearest -
@@ -166,6 +293,16 @@ function enableHandReorder(node, container) {
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND);
+    setHoverTarget(null);
+    if (target) {
+      // Played, not reordered: hand out the card and leave handOrders alone.
+      // The action re-renders on its own (and on a refused move it toasts and
+      // leaves the hand exactly as it was - snapBack already restored it).
+      setTimeout(() => { state.suppressNextCardClick = false; }, 300);
+      await target._remiDrop.onDrop(node.dataset.cardId);
+      return;
+    }
     if (!dropRow(e.clientX, e.clientY)) {
       // Dropped off the cards - cancel the reorder. render() rebuilds the
       // row straight from the untouched handOrders, putting the card back
@@ -448,7 +585,14 @@ function renderCenterTable(app) {
     const peekWrap = el('div', 'talon-peek-wrap');
     const peekCard = cardEl(state.room.specialBottomCard.card, {});
     peekWrap.appendChild(peekCard);
-    peekWrap.onclick = stockClickable ? actionTryBottomCard : null;
+    peekWrap.onclick = stockClickable ? () => {
+      if (peekWrap.dataset.justDragged) return; // the drag already handled it
+      actionTryBottomCard();
+    } : null;
+    // Dragging the card under the talon into your hand takes it, exactly as
+    // clicking it does - actionTryBottomCard still enforces that it's only
+    // handed over when a hand is actually available.
+    if (stockClickable) enablePileDrag(peekWrap, actionTryBottomCard);
     if (!stockClickable) peekWrap.style.cursor = 'not-allowed';
     stockStack.appendChild(peekWrap);
   }
@@ -473,6 +617,12 @@ function renderCenterTable(app) {
     discardStack.appendChild(d);
   }
   discardStack.onclick = discardClickable ? actionDrawDiscard : null;
+  // Dragging a card from the hand onto the otpad throws it - the same thing
+  // the "Baci" button does (which stays where it is). actionDiscard validates,
+  // so a card that isn't free to be thrown just toasts as it would on click.
+  if (isMyTurn() && state.room.turnPhase === 'meld') {
+    markDropTarget(discardStack, DROP_FROM_HAND, (cardId) => actionDiscard(cardId));
+  }
   discardWrap.appendChild(discardStack);
   discardWrap.appendChild(el('div', 'pile-label', `Otpad (${state.room.discard.length})`));
   pilesRow.appendChild(discardWrap);
@@ -523,6 +673,12 @@ function renderMeldsForPlayers(container, { clickable }) {
       });
       groupDiv.appendChild(cardsDiv);
       if (canTarget) groupDiv.onclick = () => actionAddToMeld(p.id, idx);
+      // Krpljenje by drag: unlike the click path this needs no prior
+      // selection (the dragged card IS the selection), so it's offered
+      // whenever the player could add cards at all.
+      const canDropOn = clickable && isMyTurn() && state.room.turnPhase === 'meld'
+        && state.room.openedPlayers.includes(state.session.playerId);
+      if (canDropOn) markDropTarget(groupDiv, DROP_FROM_HAND, (cardId) => dropCardOnMeld(cardId, p.id, idx));
       line.appendChild(groupDiv);
     });
     meldsArea.appendChild(line);
@@ -579,6 +735,12 @@ function renderHandAndActions(app) {
     enableHandReorder(flexItem, cardsRow);
     cardsRow.appendChild(flexItem);
   });
+  // Landing zone for the card dragged out from under the talon (the click on
+  // that card does the same thing). Only during your own draw phase, which is
+  // the only time it can be taken at all.
+  if (myTurn && state.room.turnPhase === 'draw') {
+    markDropTarget(cardsRow, DROP_FROM_PILE, () => actionTryBottomCard());
+  }
   handWrap.appendChild(cardsRow);
   app.appendChild(handWrap);
 
