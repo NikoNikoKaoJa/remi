@@ -334,8 +334,15 @@ KORAK 5 - Prvo otvaranje
   .hist-head th{border-bottom:2px solid var(--gold-bright);}
   .hist-body{margin:0;}
   .hist-body-wrap{max-height:300px;overflow-y:auto;overflow-x:hidden;}
-  /* Off-screen measuring pass - must be laid out, just not visible. */
+  /* Off-screen measuring pass - must be laid out, just not visible. The table
+     inside it must be content-sized: .score-table is width:100%, and inside an
+     absolutely positioned box with no width of its own that percentage has no
+     sane basis, so the measured columns came out absurdly wide and the numbers
+     ended up centered far outside the modal (the "Stanje" modal looked empty).
+     The round-end variant already sets width:auto via .round-end-history-winner;
+     this makes the winner-less "Stanje" case measure the same way. */
   .score-history-probe{position:absolute;visibility:hidden;pointer-events:none;left:-9999px;top:0;}
+  .score-history-probe .score-history-table{width:auto;table-layout:auto;}
   /* Round-end scores screen (flowScreens/07-round-end-scores.html): the
      round's deltas sit in a narrow centered table with the winner's row in
      orange, and the winner's column of the history table is marked the same
