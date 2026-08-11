@@ -212,16 +212,44 @@ function removeCardsFromHand(hand, cards) {
   });
 }
 
+// Jokers a player has swapped off the table this turn and still owes a place
+// on it. More than one may be outstanding at a time - a turn that frees a
+// second joker is a legal (and satisfying) play, so nothing refuses it; they
+// simply all have to be down before the player can discard.
+//
+// Shape: { playerId, jokerCardIds: [...] }. Rooms written before this could
+// hold more than one joker used { playerId, jokerCardId }, and a room can
+// round-trip through Firebase mid-turn, so that older shape is still read.
+export function pendingJokerIds(r, playerId) {
+  const p = r && r.pendingJokerToPlace;
+  if (!p || p.playerId !== playerId) return [];
+  if (Array.isArray(p.jokerCardIds)) return p.jokerCardIds;
+  return p.jokerCardId ? [p.jokerCardId] : [];
+}
+
+export function hasPendingJoker(r, playerId) {
+  return pendingJokerIds(r, playerId).length > 0;
+}
+
+function addPendingJoker(r, jokerCardId) {
+  const ids = pendingJokerIds(r, state.session.playerId).concat([jokerCardId]);
+  r.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardIds: ids };
+}
+
 // The two obligations a lay/add can discharge, checked the same way wherever
 // cards leave the hand for the table:
-// - a joker freed by actionReplaceJoker has now been placed. Jokers are
-//   fungible, so laying down ANY joker satisfies it, not just that exact id.
+// - jokers freed by actionReplaceJoker have now been placed. Jokers are
+//   fungible, so laying down ANY joker satisfies one of them, not just that
+//   exact id - so N jokers laid discharge N of the outstanding ones.
 // - the card pulled off the otpad this turn no longer owes a lay once it's
 //   gone from the hand.
 function clearSatisfiedObligations(r, laidCards, hand) {
-  if (r.pendingJokerToPlace && r.pendingJokerToPlace.playerId === state.session.playerId
-      && laidCards.some(c => c.joker)) {
-    r.pendingJokerToPlace = null;
+  const laidJokers = laidCards.filter(c => c.joker).length;
+  if (laidJokers > 0) {
+    const left = pendingJokerIds(r, state.session.playerId).slice(laidJokers);
+    r.pendingJokerToPlace = left.length
+      ? { playerId: state.session.playerId, jokerCardIds: left }
+      : null;
   }
   if (r.discardDrawCardId && !hand.some(c => c.id === r.discardDrawCardId)) {
     r.discardDrawCardId = null;
@@ -284,8 +312,8 @@ export async function actionDrawDiscard() {
 
 export async function actionDiscard(cardId) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-    showToast('Prvo moras da spustis dzokera kog si zamenio (nova kombinacija ili dodavanje na postojeci niz).');
+  if (hasPendingJoker(state.room, state.session.playerId)) {
+    showToast('Prvo moras da spustis dzokere koje si zamenio (nova kombinacija ili dodavanje na postojeci niz).');
     return;
   }
   if (state.room.discardDrawCardId && state.room.discardDrawCardId !== cardId) {
@@ -427,7 +455,7 @@ async function autoDiscardLastCard() {
   const hand = state.room.hands[state.session.playerId] || [];
   if (hand.length !== 1) return false;
   if (state.room.discardDrawCardId || state.room.bottomDrawCardId) return false;
-  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) return false;
+  if (hasPendingJoker(state.room, state.session.playerId)) return false;
   const [card] = hand.splice(0, 1);
   state.room.discard.push(card);
   state.selectedIds.clear();
@@ -581,10 +609,6 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     // joker itself still works; this just makes the whole group a drop target.
     const jokerCardId = planJokerSwapAdd(meld, cards);
     if (jokerCardId) {
-      if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-        showToast('Prvo moras da spustis prethodnog dzokera koga si zamenio.');
-        return;
-      }
       await applyJokerSwapAdd(meld, cards, jokerCardId);
       return;
     }
@@ -665,7 +689,7 @@ async function applyJokerSwapAdd(meld, cards, jokerCardId) {
   meld.cards = meld.cards.filter(c => c.id !== jokerCardId).concat(cards);
   markMeldTouched(state.room, meld);
   hand.push(jokerObj);
-  state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
+  addPendingJoker(state.room, jokerObj.id);
   // Not clearSatisfiedObligations: this move CREATES the pending-joker
   // obligation it would discharge, so only the otpad half applies here.
   if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
@@ -680,10 +704,9 @@ async function applyJokerSwapAdd(meld, cards, jokerCardId) {
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-    showToast('Prvo moras da spustis prethodnog dzokera koga si zamenio.');
-    return;
-  }
+  // Holding a joker you already swapped out is no reason to refuse a second
+  // one - taking both is a legal play. They all just have to be laid down
+  // before you can discard (see actionDiscard).
   if (state.room.bottomDrawCardId) {
     showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
     return;
@@ -737,7 +760,7 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   meld.cards[meldIdx2] = candidate;
   markMeldTouched(state.room, meld);
   hand.push(jokerObj);
-  state.room.pendingJokerToPlace = { playerId: state.session.playerId, jokerCardId: jokerObj.id };
+  addPendingJoker(state.room, jokerObj.id);
   if (state.room.discardDrawCardId === candidate.id) {
     state.room.discardDrawCardId = null;
   }

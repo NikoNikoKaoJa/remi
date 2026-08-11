@@ -86,7 +86,13 @@ There are two builds of the same game:
   for the real card it represents (exact rank+suit for a run; correct rank + a
   suit not already present for a set). The freed joker goes to their hand and MUST
   be laid down that same turn (new meld, or added to an existing one) before they
-  can discard.
+  can discard. **Several jokers may be taken in the same turn** — holding one
+  never blocks taking another; each one taken just has to be down before the
+  discard (`pendingJokerIds`/`hasPendingJoker` in `js/actions.js`, stored as
+  `pendingJokerToPlace = { playerId, jokerCardIds: [...] }`; the older
+  single-`jokerCardId` shape is still read, since a room can round-trip
+  through Firebase mid-turn). Jokers are fungible, so laying N jokers
+  discharges N of the outstanding ones, whichever they are.
 - **Completed real 4-of-a-kind** (four identical real cards, no joker) is swept
   off the table to the BOTTOM of the discard pile, and every player sees a
   dismissible dialog with the four cards highlighted in fluorescent green.
@@ -159,7 +165,14 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    with `markDropTarget(node, kind, onDrop)` — the otpad pile (→
    `actionDiscard`) and each meld group (→ krpljenje via `dropCardOnMeld`,
    which makes the dragged card the selection and calls `actionAddToMeld`),
-   both only during your own `'meld'` phase — dragging the card you pulled
+   — but a card dropped on a meld it is the **joker's real card** for is a
+   joker swap instead (`jokerSlotFilledBy` → `actionReplaceJoker`), anywhere
+   on the meld, not just on the joker: the dragged ghost covers the joker,
+   so "hit the joker exactly" is not aimable. This gives up one rare play on
+   the drag path — extending a run with the card its joker stands for and
+   letting the joker slide to an end (5-[6]-7 + real 6 → 5-6-7-[4 or 8]);
+   that stays reachable by clicking the group with the card selected. All
+   only during your own `'meld'` phase — dragging the card you pulled
    off the otpad back onto the otpad is "Vrati kartu na otpad", since
    `actionDiscard` already routes that card to the turn-rewind rather than a
    real discard. The card under the talon drags the other way

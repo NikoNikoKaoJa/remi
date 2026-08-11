@@ -10,6 +10,7 @@ import {
   findHandOption, actionDeclareHand,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
+  pendingJokerIds,
 } from './actions.js';
 import { createRoom, joinRoom, leaveRoom } from './room.js';
 
@@ -74,12 +75,53 @@ function findDropTarget(x, y, kind) {
   return null;
 }
 
-// Drops a single hand card on a meld. actionAddToMeld works off the current
-// selection, so the dragged card becomes the selection for the duration of the
-// call - which is also what the player just expressed by dragging it.
+// The id of the joker in `meld` that `card` is the real card for, or null if
+// it isn't one. Mirrors actionReplaceJoker's own checks exactly, so a "yes"
+// here can't turn into a toast there: a run's joker slot is one rank+suit, a
+// set's is a rank plus a suit not already down, and a set's joker has no
+// settled identity until 3 real cards are on the table.
+function jokerSlotFilledBy(meld, card) {
+  if (!card || card.joker) return null;
+  const resolved = resolveMeld(meld.cards);
+  if (!resolved) return null;
+  const real = meld.cards.filter(c => !c.joker);
+  if (resolved.type === 'set' && real.length < 3) return null;
+  for (const item of resolved.cards) {
+    if (!item.isJoker) continue;
+    if (item.substitutes.rank !== card.rank) continue;
+    if (resolved.type === 'set') {
+      if (real.some(c => c.suit === card.suit)) continue;
+    } else if (item.substitutes.suit !== card.suit) {
+      continue;
+    }
+    return item.jokerCardId;
+  }
+  return null;
+}
+
+// Drops a single hand card on a meld. actionAddToMeld/actionReplaceJoker both
+// work off the current selection, so the dragged card becomes the selection
+// for the call - which is also what the player just expressed by dragging it.
+//
+// A card dropped anywhere on a meld it's the joker's real card for means
+// "take the joker" - that's what dragging it there is for, and hitting the
+// joker itself is not something anyone can aim at while the dragged ghost is
+// covering it. Anything else is an ordinary krpljenje.
+//
+// This deliberately gives up one rare play on the drag path: extending a run
+// with the very card its joker stands for, letting the joker slide to an end
+// (5-[6]-7 + the real 6 -> 5-6-7-[4 or 8]). That's still reachable by
+// clicking the meld group with the card selected, which is unchanged.
 async function dropCardOnMeld(cardId, ownerId, meldIdx) {
   state.selectedIds = new Set([cardId]);
   render();
+  const meld = state.room.melds[meldIdx];
+  const card = myHand().find(c => c.id === cardId);
+  const jokerCardId = meld ? jokerSlotFilledBy(meld, card) : null;
+  if (jokerCardId) {
+    await actionReplaceJoker(meldIdx, jokerCardId);
+    return;
+  }
   await actionAddToMeld(ownerId, meldIdx);
 }
 
@@ -657,12 +699,12 @@ function renderMeldsForPlayers(container, { clickable }) {
       const canTarget = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.room.openedPlayers.includes(state.session.playerId) && state.selectedIds.size > 0;
       const groupDiv = el('div', 'meld-group' + (canTarget ? ' targetable' : ''));
       const cardsDiv = el('div', 'meld-cards');
-      const canReplaceJoker = clickable && isMyTurn() && state.room.turnPhase === 'meld' && !state.room.pendingJokerToPlace && state.selectedIds.size === 1;
       // A set's joker only has an unambiguous identity (and so can be
       // exchanged) once 3 real cards of that rank are already down, leaving
       // exactly one missing suit - with only 2 real cards it could stand for
       // either remaining suit, so it isn't offered as a replace target yet.
       const meldResolved = resolveMeld(m.cards);
+      const canReplaceJoker = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.selectedIds.size === 1;
       const jokerReplaceEligible = canReplaceJoker &&
         (!meldResolved || meldResolved.type !== 'set' || m.cards.filter(cc => !cc.joker).length >= 3);
       // On the read-only round-end snapshot, highlight only the meld(s) the
@@ -717,6 +759,7 @@ function renderHandAndActions(app) {
   handWrap.appendChild(titleRow);
 
   const selectedCards = getSelectedCards();
+  const myPendingJokers = pendingJokerIds(state.room, state.session.playerId);
 
   const myTurn = isMyTurn();
   const canPick = myTurn && state.room.turnPhase === 'meld';
@@ -729,7 +772,7 @@ function renderHandAndActions(app) {
   orderHand(myHand(), myHandOrder, myPinnedCardId).forEach(c => {
     const selected = state.selectedIds.has(c.id);
     const drawn = state.room.lastDrawnPlayerId === state.session.playerId && state.room.lastDrawnCardId === c.id;
-    const pending = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId && state.room.pendingJokerToPlace.jokerCardId === c.id;
+    const pending = myPendingJokers.includes(c.id);
     const cd = cardEl(c, {
       clickable: canPick,
       selected,
@@ -766,8 +809,11 @@ function renderHandAndActions(app) {
   }
   app.appendChild(banner);
 
-  if (myTurn && state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId) {
-    const warn = el('div', 'small center', '⚠️ Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
+  if (myTurn && myPendingJokers.length > 0) {
+    const many = myPendingJokers.length > 1;
+    const warn = el('div', 'small center', many
+      ? `⚠️ Imas ${myPendingJokers.length} dzokera (u ruci su oiviceni crvenom isprekidanom linijom) koje moras da spustis - novim kombinacijama ili dodavanjem na postojece nizove - pre nego sto bacis kartu.`
+      : '⚠️ Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
     warn.style.color = 'var(--gold-bright)';
     warn.style.marginBottom = '10px';
     app.appendChild(warn);
@@ -814,7 +860,7 @@ function renderHandAndActions(app) {
       bar.appendChild(clearBtn);
     }
 
-    const hasPendingJoker = state.room.pendingJokerToPlace && state.room.pendingJokerToPlace.playerId === state.session.playerId;
+    const hasPendingJoker = myPendingJokers.length > 0;
     const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
     const selectedIsBottomDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.bottomDrawCardId;
     const selectedJokerNotLastCard = state.selectedIds.size === 1 && !selectedIsDiscardDraw && !selectedIsBottomDraw
