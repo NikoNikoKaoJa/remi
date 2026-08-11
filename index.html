@@ -270,6 +270,14 @@ KORAK 5 - Prvo otvaranje
   /* The otpad is "disabled" during the meld phase (you can't draw from it any
      more), but it IS a valid drag target then - so don't grey it out. */
   .pile-stack.disabled.drop-target{opacity:1;cursor:default;}
+  /* Placeholder for an empty pile. Faint on its own, but legible once the
+     pile is a drop target - pulling the otpad's last card leaves it empty
+     and the card can still be returned there. */
+  .card.empty-pile{opacity:0.25;}
+  .pile-stack.drop-target .card.empty-pile{opacity:0.6;border:1px dashed var(--gold);}
+  /* Widen the hit area without moving anything: a card-sized pile is a small
+     target for a dropped card, especially the empty-otpad placeholder. */
+  .pile-stack.drop-target::after{content:'';position:absolute;inset:-14px;}
   .drop-target.drop-hover{outline:2px solid var(--gold-bright);outline-offset:3px;border-radius:8px;background:rgba(201,162,39,0.18);}
   .meld-cards{display:flex;flex-wrap:wrap;gap:4px;}
   .meld-cards .card{margin-left:0;}

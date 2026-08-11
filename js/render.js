@@ -600,6 +600,14 @@ function renderCenterTable(app) {
   if (hasPeek) frontCard.classList.add('talon-front');
   frontCard.onclick = stockClickable ? actionDrawStock : null;
   if (!stockClickable) stockStack.classList.add('disabled');
+  // Taking the card from under the talon has a drag; so does putting it back.
+  // Dropping it on the talon is "Vrati kartu ispod talona" - actionDiscard
+  // routes that card to returnBottomCard rather than the otpad. Only offered
+  // while that card is actually in hand, so the talon isn't a live target for
+  // ordinary cards (which actionDiscard would refuse anyway).
+  if (isMyTurn() && state.room.turnPhase === 'meld' && state.room.bottomDrawCardId) {
+    markDropTarget(stockStack, DROP_FROM_HAND, (cardId) => actionDiscard(cardId));
+  }
   stockStack.appendChild(frontCard);
   stockWrap.appendChild(stockStack);
   stockWrap.appendChild(el('div', 'pile-label', `Talon (${state.room.stock.length})`));
@@ -613,8 +621,10 @@ function renderCenterTable(app) {
   if (state.room.discard.length > 0) {
     discardStack.appendChild(cardEl(state.room.discard[state.room.discard.length - 1], {}));
   } else {
-    const d = el('div', 'card'); d.style.opacity = '0.25'; d.textContent = '—';
-    discardStack.appendChild(d);
+    // Class, not an inline opacity: an empty otpad is still a drop target
+    // (that's exactly the state after pulling its last card), and it has to
+    // look like one rather than like a 25%-opacity ghost - see .empty-pile.
+    discardStack.appendChild(el('div', 'card empty-pile', '—'));
   }
   discardStack.onclick = discardClickable ? actionDrawDiscard : null;
   // Dragging a card from the hand onto the otpad throws it - the same thing

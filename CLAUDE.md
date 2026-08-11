@@ -159,9 +159,15 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    with `markDropTarget(node, kind, onDrop)` — the otpad pile (→
    `actionDiscard`) and each meld group (→ krpljenje via `dropCardOnMeld`,
    which makes the dragged card the selection and calls `actionAddToMeld`),
-   both only during your own `'meld'` phase. The card under the talon drags
-   the other way (`enablePileDrag`), onto the hand row (→
-   `actionTryBottomCard`), only during your own `'draw'` phase. Targets are
+   both only during your own `'meld'` phase — dragging the card you pulled
+   off the otpad back onto the otpad is "Vrati kartu na otpad", since
+   `actionDiscard` already routes that card to the turn-rewind rather than a
+   real discard. The card under the talon drags the other way
+   (`enablePileDrag`), onto the hand row (→ `actionTryBottomCard`), only
+   during your own `'draw'` phase; dropping it back on the talon is "Vrati
+   kartu ispod talona" (again `actionDiscard`, which routes it to
+   `returnBottomCard`), a target marked only while `bottomDrawCardId` is
+   set. Targets are
    typed (`DROP_FROM_HAND` / `DROP_FROM_PILE`) so the hand row doesn't
    swallow a hand card being dropped back into its own row for a reorder.
    The equivalent buttons/clicks all remain: dragging is an additional
