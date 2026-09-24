@@ -684,6 +684,17 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   commitMove();
 }
 
+// Whether actionAddToMeld would take `cards` onto `meld` (as a plain add or a
+// joker swap) rather than answer with a toast - the same checks, minus the
+// side effects, so a drag only lights up a meld the card can actually join.
+export function canAddToMeld(meld, cards) {
+  if (!meld || cards.length === 0) return false;
+  if (!state.room.openedPlayers.includes(state.session.playerId)) return false;
+  if (state.room.bottomDrawCardId) return false;
+  if (cards.length === state.room.hands[state.session.playerId].length) return false;
+  return isValidMeld(meld.cards.concat(cards)) || !!planJokerSwapAdd(meld, cards);
+}
+
 // Id of the joker `cards` would displace if they were all added to `meld`, or
 // null if this isn't a swap at all. The whole selection goes into the meld and
 // the joker comes back out, so it only applies when the meld's single joker is

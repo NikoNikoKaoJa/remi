@@ -6,7 +6,7 @@ import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHist
 import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
-  actionAddToMeld, actionLayMultipleSelected, actionDiscard,
+  actionAddToMeld, canAddToMeld, actionLayMultipleSelected, actionDiscard,
   findHandOption, actionDeclareHand, canLaySelected,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
@@ -50,8 +50,9 @@ const HAND_DRAG_THRESHOLD = 8;
 // the otpad (= discard it) or on a meld group (= krpljenje, add it to the
 // meld), or the card under the talon dropped on the hand row (= take it for a
 // hand). A render* function marks such an element by calling markDropTarget()
-// on it; the drag looks for the nearest marked ancestor under the pointer and,
-// if it finds one, runs its handler. The buttons and clicks ("Baci", clicking
+// on it; the drag looks for a marked target under the pointer or touched by
+// the dragged card (see findDropTarget) and, if it finds one, runs its
+// handler. The buttons and clicks ("Baci", clicking
 // a meld group with cards selected, clicking the card under the talon) still
 // do exactly what they did - dragging is an extra route, not a replacement.
 //
@@ -61,18 +62,37 @@ const HAND_DRAG_THRESHOLD = 8;
 const DROP_FROM_HAND = 'from-hand';
 const DROP_FROM_PILE = 'from-pile';
 
-function markDropTarget(node, kind, onDrop) {
-  node._remiDrop = { kind, onDrop };
+// `accepts(cardId)`, if given, says whether this particular card may land here
+// - a target that would refuse it neither lights up nor catches the drop.
+function markDropTarget(node, kind, onDrop, accepts) {
+  node._remiDrop = { kind, onDrop, accepts };
   node.classList.add('drop-target');
 }
 
-function findDropTarget(x, y, kind) {
-  let hit = document.elementFromPoint(x, y);
-  while (hit) {
-    if (hit._remiDrop && hit._remiDrop.kind === kind) return hit;
-    hit = hit.parentElement;
+// The target a drag is over: the one under the pointer, else - so the card
+// only has to touch a target, not be aimed into it - whichever one the
+// dragged `ghost` overlaps most. `ownRow` (the hand row, for a hand card)
+// opts out of the overlap while the pointer is over it: that's a reorder,
+// and a card near the top of the hand would otherwise catch a meld above.
+// Only targets that accept `cardId` count.
+function findDropTarget(x, y, kind, ghost, ownRow, cardId) {
+  const fits = (t) => t._remiDrop && t._remiDrop.kind === kind
+    && (!t._remiDrop.accepts || t._remiDrop.accepts(cardId));
+  const underPointer = document.elementFromPoint(x, y);
+  for (let hit = underPointer; hit; hit = hit.parentElement) {
+    if (fits(hit)) return hit;
   }
-  return null;
+  if (!ghost || (ownRow && underPointer && ownRow.contains(underPointer))) return null;
+  const g = ghost.getBoundingClientRect();
+  let best = null, bestArea = 0;
+  document.querySelectorAll('.drop-target').forEach(t => {
+    if (!fits(t)) return;
+    const r = t.getBoundingClientRect();
+    const w = Math.min(g.right, r.right) - Math.max(g.left, r.left);
+    const h = Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top);
+    if (w > 0 && h > 0 && w * h > bestArea) { best = t; bestArea = w * h; }
+  });
+  return best;
 }
 
 // The id of the joker in `meld` that `card` is the real card for, or null if
@@ -97,6 +117,14 @@ function jokerSlotFilledBy(meld, card) {
     return item.jokerCardId;
   }
   return null;
+}
+
+// Whether a dragged hand card may land on `meld` - dropCardOnMeld's two
+// outcomes (joker swap, or krpljenje) checked without doing either.
+function meldAccepts(meld, cardId) {
+  const card = myHand().find(c => c.id === cardId);
+  if (!card || state.room.bottomDrawCardId) return false;
+  return !!jokerSlotFilledBy(meld, card) || canAddToMeld(meld, [card]);
 }
 
 // Drops a single hand card on a meld. actionAddToMeld/actionReplaceJoker both
@@ -180,7 +208,7 @@ function enablePileDrag(node, onDrop) {
     e.preventDefault();
     ghost.style.left = (e.clientX - offsetX) + 'px';
     ghost.style.top = (e.clientY - offsetY) + 'px';
-    setHoverTarget(findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE));
+    setHoverTarget(findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE, ghost));
   }
 
   async function onUp(e) {
@@ -189,10 +217,10 @@ function enablePileDrag(node, onDrop) {
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
     if (!dragging) return;
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE, ghost);
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE);
     setHoverTarget(null);
     node.dataset.justDragged = '1';
     setTimeout(() => { delete node.dataset.justDragged; }, 300);
@@ -296,7 +324,7 @@ function enableHandReorder(node, container) {
     // Over the otpad or a meld the hand row shouldn't preview a reorder at all
     // - the card is leaving the hand, so it stays where it was until the drop
     // is either taken (the action re-renders) or refused (nothing moved).
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND);
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND, ghost, container, node.dataset.cardId);
     setHoverTarget(target);
     if (target) snapBack(); else reflow(e.clientX, e.clientY);
   }
@@ -332,10 +360,10 @@ function enableHandReorder(node, container) {
     window.removeEventListener('pointercancel', onUp);
     if (!dragging) return;
     state.suppressNextCardClick = true;
+    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND, ghost, container, node.dataset.cardId);
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND);
     setHoverTarget(null);
     if (target) {
       // Played, not reordered: hand out the card and leave handOrders alone.
@@ -704,7 +732,8 @@ function renderMeldsForPlayers(container, { clickable }) {
       // whenever the player could add cards at all.
       const canDropOn = clickable && isMyTurn() && state.room.turnPhase === 'meld'
         && state.room.openedPlayers.includes(state.session.playerId);
-      if (canDropOn) markDropTarget(groupDiv, DROP_FROM_HAND, (cardId) => dropCardOnMeld(cardId, p.id, idx));
+      if (canDropOn) markDropTarget(groupDiv, DROP_FROM_HAND, (cardId) => dropCardOnMeld(cardId, p.id, idx),
+        (cardId) => meldAccepts(m, cardId));
       line.appendChild(groupDiv);
     });
     meldsArea.appendChild(line);

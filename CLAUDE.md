@@ -182,7 +182,10 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    during your own `'draw'` phase; dropping it back on the talon is "Vrati
    kartu ispod talona" (again `actionDiscard`, which routes it to
    `returnBottomCard`), a target marked only while `bottomDrawCardId` is
-   set. Targets are
+   set. A target lights up (and catches the drop) as soon as the dragged
+   card *touches* it - pointer hit first, else the target the ghost overlaps
+   most (`findDropTarget`) - and a meld only if that card can actually go on
+   it (`meldAccepts` → `jokerSlotFilledBy` / `canAddToMeld`). Targets are
    typed (`DROP_FROM_HAND` / `DROP_FROM_PILE`) so the hand row doesn't
    swallow a hand card being dropped back into its own row for a reorder.
    The equivalent buttons/clicks all remain: dragging is an additional
