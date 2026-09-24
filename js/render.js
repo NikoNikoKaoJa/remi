@@ -7,7 +7,7 @@ import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
   actionAddToMeld, actionLayMultipleSelected, actionDiscard,
-  findHandOption, actionDeclareHand,
+  findHandOption, actionDeclareHand, canLaySelected,
   hostStartGame, hostResetGame,
   actionReadyForScores, actionReadyForNextRound, actionForceNextRound,
   pendingJokerIds,
@@ -797,10 +797,6 @@ function renderHandAndActions(app) {
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
   if (myTurn && state.room.turnPhase === 'meld') {
-    // A player must always keep at least one card back to discard - the
-    // hand can never be emptied purely by laying/adding melds (that's the
-    // discard action's job, per actionDiscard's own hand.length===0 check).
-    const selectingWholeHand = state.selectedIds.size === myHand().length && myHand().length > 0;
     const layBtn = el('button', 'btn btn-gold');
     // A ready hand (mali or veliki) wins the round outright, so it replaces
     // the usual opening lay entirely - one click lays it down, throws the odd
@@ -812,13 +808,13 @@ function renderHandAndActions(app) {
       layBtn.onclick = actionDeclareHand;
     } else if (opened) {
       layBtn.textContent = 'Izlozi se';
-      layBtn.disabled = state.selectedIds.size < 3 || selectingWholeHand;
+      layBtn.disabled = !canLaySelected();
     } else {
       layBtn.append(
         'Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))),
         ') [', el('span', 'lay-btn-sum', String(maliHandValue(selectedCards))), ']'
       );
-      layBtn.disabled = state.selectedIds.size === 0;
+      layBtn.disabled = !canLaySelected();
     }
     if (!handOption) layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);

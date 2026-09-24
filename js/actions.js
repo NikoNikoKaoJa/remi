@@ -463,6 +463,50 @@ async function autoDiscardLastCard() {
   return true;
 }
 
+// Whether actionLayMultipleSelected would accept the current selection - the
+// same checks, minus the side effects, so "Izlozi se" can be greyed out
+// instead of answering a click with a toast. Memoised per exact selection,
+// since the partition search is expensive and render() runs often.
+let canLayCache = { key: null, value: false };
+
+export function canLaySelected() {
+  if (!isMyTurn() || state.room.turnPhase !== 'meld') return false;
+  const cards = getSelectedCards();
+  const hand = state.room.hands[state.session.playerId] || [];
+  if (cards.length < 3 || cards.length === hand.length) return false;
+  const opened = state.room.openedPlayers.includes(state.session.playerId);
+  const goingOutAttempt = !opened && cards.length === hand.length - 1;
+  if (state.room.bottomDrawCardId && !goingOutAttempt) return false;
+
+  const key = [state.session.playerId, opened, hand.length, state.room.bottomDrawCardId || '',
+    cards.map(c => c.id).sort().join(',')].join('|');
+  if (canLayCache.key === key) return canLayCache.value;
+
+  let value;
+  const partitions = findAllPartitions(cards);
+  if (goingOutAttempt) {
+    value = partitions.length > 0 || !!findPartition(cards) || maliHandValue(cards) < 51;
+  } else if (partitions.length === 0) {
+    value = false;
+  } else if (opened) {
+    value = true;
+  } else {
+    // Any arrangement reaching 51 is enough - the player picks it from the
+    // choice modal. A joker's run window can change the sum, so each option
+    // is scored with its locks applied, then the locks are taken back off.
+    value = expandPartitionOptions(partitions).some(option => {
+      const locked = option.perGroup.filter(({ opt }) => opt)
+        .map(({ group }) => group.find(c => c.joker && c._lockedRank === undefined));
+      applyResolvedOptionLocks(option);
+      const val = sumOpeningValue(option.partition);
+      locked.forEach(c => { delete c._lockedRank; delete c._lockedAceHigh; });
+      return val >= 51;
+    });
+  }
+  canLayCache = { key, value };
+  return value;
+}
+
 export async function actionLayMultipleSelected() {
   // Lay out ALL currently selected cards at once, auto-partitioned into melds.
   // Used for the opening play when it takes multiple melds to reach 51 points.
