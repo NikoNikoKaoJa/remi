@@ -69,6 +69,7 @@ KORAK 5 - Prvo otvaranje
     --panel-line:rgba(233,226,207,0.14);
     --danger:#c0483a;
     --good:#5fae72;
+    --drop-green:61,220,132; /* rgb triplet: used at several alphas */
     --font-display:'Inter', system-ui, sans-serif;
     --font-body:'Inter', system-ui, sans-serif;
     --font-mono:'Inter', system-ui, sans-serif;
@@ -261,8 +262,6 @@ KORAK 5 - Prvo otvaranje
   }
   .meld-group.targetable{cursor:pointer;border:1px dashed var(--gold);}
   .meld-group.targetable:hover{background:rgba(201,162,39,0.12);}
-  /* A card being dragged out of the hand can be dropped here (otpad / meld).
-     .drop-hover is toggled by the drag itself while the pointer is over it. */
   /* The otpad is "disabled" during the meld phase (you can't draw from it any
      more), but it IS a valid drag target then - so don't grey it out. */
   .pile-stack.disabled.drop-target{opacity:1;cursor:default;}
@@ -274,9 +273,11 @@ KORAK 5 - Prvo otvaranje
   /* Widen the hit area without moving anything: a card-sized pile is a small
      target for a dropped card, especially the empty-otpad placeholder. */
   .pile-stack.drop-target::after{content:'';position:absolute;inset:-14px;}
-  /* Green, thick and pushed well out (outline-offset doesn't affect layout,
+  /* A card being dragged can be dropped here (otpad / meld / talon / hand).
+     .drop-hover is toggled by the drag itself while the pointer is over it.
+     Green, thick and pushed well out (outline-offset doesn't affect layout,
      so nothing shifts) - the landing zone has to read at a glance mid-drag. */
-  .drop-target.drop-hover{outline:4px solid #3ddc84;outline-offset:10px;border-radius:10px;background:rgba(61,220,132,0.22);box-shadow:0 0 18px 6px rgba(61,220,132,0.45);}
+  .drop-target.drop-hover{outline:4px solid rgb(var(--drop-green));outline-offset:10px;border-radius:10px;background:rgba(var(--drop-green),0.22);box-shadow:0 0 18px 6px rgba(var(--drop-green),0.45);}
   .meld-cards{display:flex;flex-wrap:wrap;gap:4px;}
   .meld-cards .card{margin-left:0;}
 
