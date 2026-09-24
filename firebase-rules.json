@@ -1,0 +1,19 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$code": {
+        ".read": true,
+        ".write": "newData.exists() ? (newData.hasChildren(['code', 'phase', 'players']) && newData.child('code').val() === $code) : true",
+        ".validate": "$code.length >= 4 && $code.length <= 8 && $code.matches(/^[A-Z0-9]+$/)",
+        "updatedAt": {
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        },
+        "players": {
+          ".validate": "newData.hasChildren() && !newData.hasChild('8')"
+        }
+      }
+    }
+  }
+}
