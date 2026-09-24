@@ -147,10 +147,23 @@ This is often enough to pinpoint the bug and skip the live test entirely.
 
 1. Kill the server: `pkill -f "<scratchpad server script>"` (or
    `kill $(lsof -ti:<port>)`).
-2. Close the test window (only tabs on the test port, so Niko's own windows
-   are never touched):
+2. Close every Safari tab/window opened for testing - on EVERY test port used
+   this session, not just the last one (only localhost test tabs, so Niko's
+   own windows are never touched). The one-liner
+   `close (every tab of every window whose URL contains ...)` silently does
+   nothing - use the explicit backwards loop, then verify:
    ```
-   osascript -e 'tell application "Safari" to close (every tab of every window whose URL contains "localhost:<port>")'
+   osascript <<'EOF'
+   tell application "Safari"
+     repeat with wi from (count of windows) to 1 by -1
+       set w to window wi
+       repeat with ti from (count of tabs of w) to 1 by -1
+         if (URL of tab ti of w as text) contains "localhost:" then close tab ti of w
+       end repeat
+     end repeat
+   end tell
+   EOF
+   osascript -e 'tell application "Safari" to get URL of every tab of every window' | tr ',' '\n' | grep -c localhost   # must print 0
    ```
 3. Delete the throwaway bootstrap page from the repo root
    (`test-session.html`) - it must never be committed.
