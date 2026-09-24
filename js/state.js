@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v1.14';
+export const APP_VERSION = 'v1.15';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -25,6 +25,10 @@ export const state = {
   suppressNextCardClick: false, // set right before a reorder drag's synthetic click fires, so it doesn't also toggle card selection
 };
 
+// The game's own Firebase DB, so nobody has to paste it on first visit. A ?db=
+// link or a previously saved URL still takes precedence.
+export const DEFAULT_DB_URL = 'https://remi-8ed0e-default-rtdb.firebaseio.com';
+
 export function resolveDbUrl() {
   const params = new URLSearchParams(location.search);
   const fromQuery = params.get('db');
@@ -33,7 +37,7 @@ export function resolveDbUrl() {
     localStorage.setItem('remi-db-url', decoded);
     return decoded;
   }
-  return localStorage.getItem('remi-db-url');
+  return localStorage.getItem('remi-db-url') || DEFAULT_DB_URL;
 }
 
 export function loadDismissedQuadAnnouncements() {

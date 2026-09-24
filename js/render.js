@@ -1,4 +1,4 @@
-import { state, APP_VERSION } from './state.js';
+import { state, APP_VERSION, DEFAULT_DB_URL } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
@@ -380,9 +380,7 @@ export function render() {
     (state.room.phase === 'playing' || state.room.phase === 'round_end');
   if (!isGameScreen) renderBrand(app);
 
-  if (!state.dbUrl) {
-    renderDbSetup(app);
-  } else if (!state.session.roomCode || !state.room) {
+  if (!state.session.roomCode || !state.room) {
     renderLanding(app);
   } else if (state.room.phase === 'lobby') {
     renderLobby(app);
@@ -395,32 +393,6 @@ export function render() {
   }
   app.appendChild(versionBadge());
   checkQuadAnnouncement();
-}
-
-function renderDbSetup(app) {
-  const panel = el('div', 'card-panel');
-  panel.appendChild(el('h2', null, 'Podesavanje (samo prvi put)'));
-  panel.appendChild(el('div', 'small', 'Ova igra cuva stanje partije u besplatnoj Firebase bazi (ne treba Claude nalog). Ako je host vec podesio bazu i poslao ti link, samo otvori taj link - ovaj korak ce se preskociti automatski. Ako si host i tek podesavas, nalepi ovde "Database URL" tvog Firebase Realtime Database projekta.'));
-  const field = el('div', 'field');
-  field.innerHTML = '<label>Firebase Database URL</label>';
-  const input = document.createElement('input');
-  input.placeholder = 'https://tvoj-projekat-default-rtdb.firebaseio.com';
-  field.appendChild(input);
-  panel.appendChild(field);
-  const btn = el('button', 'btn btn-gold', 'Sacuvaj i nastavi');
-  btn.style.width = '100%';
-  btn.onclick = () => {
-    const v = input.value.trim().replace(/\/$/, '');
-    if (!v.startsWith('https://')) { showToast('Unesi validan https:// URL.'); return; }
-    localStorage.setItem('remi-db-url', v);
-    state.dbUrl = v;
-    render();
-  };
-  panel.appendChild(btn);
-  app.appendChild(panel);
-  const note = el('div', 'small center', 'Uputstvo za podesavanje Firebase baze je u komentaru na vrhu HTML fajla.');
-  note.style.marginTop = '14px';
-  app.appendChild(note);
 }
 
 function renderLanding(app) {
@@ -505,7 +477,9 @@ function renderLobby(app) {
   panel.appendChild(el('h2', null, 'Cekaonica'));
   panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima igracim - kad ga otvore, sve je vec podeseno'));
 
-  const shareUrl = `${location.origin}${location.pathname}?db=${encodeURIComponent(state.dbUrl)}&room=${state.room.code}`;
+  // ?db= only when this room lives somewhere other than the built-in DB.
+  const dbParam = state.dbUrl === DEFAULT_DB_URL ? '' : `db=${encodeURIComponent(state.dbUrl)}&`;
+  const shareUrl = `${location.origin}${location.pathname}?${dbParam}room=${state.room.code}`;
   const linkBox = el('div', 'field');
   const linkInput = document.createElement('input');
   linkInput.value = shareUrl;

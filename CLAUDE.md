@@ -37,8 +37,10 @@ There are two builds of the same game:
 
 - Free Realtime Database, public read/write rules (fine for casual play — nothing
   sensitive is stored, only game state).
-- The DB URL is passed to the app via `?db=...` query param and cached in
-  `localStorage` under `remi-db-url`. Room code is passed via `?room=...`.
+- The DB URL is built in (`DEFAULT_DB_URL` in `js/state.js`), so there is no
+  setup screen. A `?db=...` query param still overrides it and is cached in
+  `localStorage` under `remi-db-url`; share links only carry `?db=` when the
+  room isn't on the built-in DB. Room code is passed via `?room=...`.
 - **Gotcha:** Firebase silently converts empty objects/arrays (`{}` / `[]`) to
   `null` on save. `hydrateRoom()` restores sane defaults after every load. Any
   new always-present-collection field MUST be defaulted there too.
