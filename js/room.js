@@ -156,6 +156,17 @@ function applyAtPath(obj, path, value, merge) {
   return root;
 }
 
+// A move already on screen never reached Firebase (see commitMove in
+// js/actions.js): put the screen back to the room as the server has it. If
+// that fetch fails too, the stream (or fallback poll) does it once the
+// connection is back - saveRoom has stopped waiting for its echo either way.
+export async function resyncAfterFailedSave() {
+  if (!state.session.roomCode) return;
+  showToast('Potez nije sacuvan - proveri internet vezu.');
+  const loaded = await loadRoom(state.session.roomCode);
+  if (loaded !== undefined) receiveRoom(loaded);
+}
+
 // Applies a room that just arrived from Firebase (stream or fallback poll).
 function receiveRoom(r) {
   if (state.session.roomCode == null) return;

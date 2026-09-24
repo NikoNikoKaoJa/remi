@@ -209,6 +209,14 @@ are ignored (`receiveRoom`) - otherwise an update in flight during your move
 would briefly undo it. Updates arriving mid-action (`state.busy`) or mid-drag
 are held and retried ~150ms later.
 
+Your own moves render **before** they're saved: every in-game action ends in
+`commitMove()` (`js/actions.js`), which re-renders at once and saves in the
+background. `saveRoom` serializes the room synchronously, then queues the PUT
+behind any earlier one for the same room (writes land in order; a queued
+write superseded by a newer one is skipped, since each carries the whole
+room). It resolves `false` only when the newest write fails, and then
+`resyncAfterFailedSave` (`js/room.js`) toasts and reloads the server's room.
+
 **Round-end flow** (`room.phase`: `'round_end'` → `'cutting'` → `'playing'`):
 after a win, everyone sees a winner announcement (final board still visible),
 then clicks through to a score table. The score-table "Sledeca partija" is

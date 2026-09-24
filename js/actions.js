@@ -10,7 +10,16 @@ import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
 import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
-import { stopSync } from './room.js';
+import { stopSync, resyncAfterFailedSave } from './room.js';
+
+// Shows the move straight away and saves it in the background, instead of
+// leaving the screen unchanged for the whole round trip to Firebase (~0.2s,
+// up to ~1s on mobile data). saveRoom keeps the writes in order; if one
+// fails, the screen is put back to what the server has.
+function commitMove() {
+  saveRoom(state.room).then(ok => { if (!ok) resyncAfterFailedSave(); });
+  render();
+}
 
 // ===== Round setup -> cut-reveal -> deal =====
 // Every round (including the very first) goes through a 'cutting' phase that
@@ -37,9 +46,8 @@ export async function hostStartGame() {
   if (!state.room.scores) state.room.scores = {};
   beginCutReveal(state.room);
   scheduleCutAdvance();
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export function applyPendingRound(r) {
@@ -86,11 +94,10 @@ export function applyPendingRound(r) {
 }
 
 function scheduleCutAdvance() {
-  setTimeout(async () => {
+  setTimeout(() => {
     if (state.room && state.room.phase === 'cutting' && state.room.pendingRound) {
       applyPendingRound(state.room);
-      await saveRoom(state.room);
-      render();
+      commitMove();
     }
   }, CUT_REVEAL_MS);
 }
@@ -113,9 +120,8 @@ export async function actionReadyForNextRound() {
     startCutReveal(state.room);
     scheduleCutAdvance();
   }
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function actionForceNextRound() {
@@ -124,9 +130,8 @@ export async function actionForceNextRound() {
   state.busy = true;
   startCutReveal(state.room);
   scheduleCutAdvance();
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function hostResetGame() {
@@ -275,9 +280,8 @@ export async function actionDrawStock() {
   const card = state.room.stock.shift();
   myHandPush(card);
   state.room.turnPhase = 'meld';
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 function myHandPush(card) {
   const me = state.session.playerId;
@@ -306,9 +310,8 @@ export async function actionDrawDiscard() {
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.discardDrawCardId = card.id;
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function actionDiscard(cardId) {
@@ -358,9 +361,8 @@ export async function actionDiscard(cardId) {
   } else {
     advanceTurn(state.room);
   }
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 // Undo of actionTryBottomCard: slide the card back under the talon and rewind
@@ -382,9 +384,8 @@ async function returnBottomCard(cardId) {
   if (state.room.pinnedCardIds && state.room.pinnedCardIds[state.session.playerId] === cardId) {
     state.room.pinnedCardIds[state.session.playerId] = null;
   }
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 // ===== "Handiraj" - going out in a single move =====
@@ -559,9 +560,8 @@ export async function actionLayMultipleSelected() {
       state.room.discard.push(leftoverCard);
       state.selectedIds.clear();
       await endRoundWithWinner(state.room, state.session.playerId, 'mali');
-      await saveRoom(state.room);
       state.busy = false;
-      render();
+      commitMove();
       return;
     }
     showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.');
@@ -608,9 +608,8 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
     // pointless "4 cards removed" dialog and hide part of the winning hand
     // from the round-end reveal.
     await endRoundWithWinner(state.room, state.session.playerId, 'veliki');
-    await saveRoom(state.room);
     state.busy = false;
-    render();
+    commitMove();
     return;
   }
 
@@ -626,9 +625,8 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
   clearSatisfiedObligations(state.room, cards, hand);
   sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
@@ -682,9 +680,8 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   clearSatisfiedObligations(state.room, cards, hand);
   sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 // Id of the joker `cards` would displace if they were all added to `meld`, or
@@ -742,9 +739,8 @@ async function applyJokerSwapAdd(meld, cards, jokerCardId) {
   }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
@@ -811,9 +807,8 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
-  await saveRoom(state.room);
   state.busy = false;
-  render();
+  commitMove();
 }
 
 export async function actionTryBottomCard() {
@@ -838,8 +833,7 @@ export async function actionTryBottomCard() {
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.bottomDrawCardId = card.id;
-  await saveRoom(state.room);
   state.busy = false;
   showToast('Uzeo si otkrivenu kartu! Sad moras da proglasis hand ili da je vratis ispod talona.', 3400);
-  render();
+  commitMove();
 }

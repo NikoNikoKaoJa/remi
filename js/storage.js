@@ -52,8 +52,19 @@ export function hydrateRoom(r) {
   r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
   return r;
 }
-export async function saveRoom(r) {
-  if (!state.dbUrl) return;
+// Moves are shown before they're saved (see commitMove in js/actions.js), so
+// a player can make the next move while the last one is still uploading.
+// Each room's writes therefore go out one at a time, in order - two PUTs in
+// flight at once could land the wrong way round - and a queued write that a
+// newer one has already replaced is skipped, since every write carries the
+// whole room.
+const saveQueues = {};
+const latestWriteIds = {};
+
+// Resolves true once the room is saved (or a newer write took this one's
+// place), false if this was the newest write and it didn't make it.
+export function saveRoom(r) {
+  if (!state.dbUrl) return Promise.resolve(true);
   r.updatedAt = Date.now();
   // Tags this write so incoming updates can be told apart from the room as
   // it was BEFORE it (see receiveRoom in js/room.js): until our own write
@@ -70,14 +81,24 @@ export async function saveRoom(r) {
   // older room, so it's the truth now) or it never shows up - e.g. another
   // player overwrote it before our copy of the stream saw it.
   const giveUp = () => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; };
-  try {
-    const res = await fetch(`${state.dbUrl}/rooms/${r.code}.json`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    });
-    if (!res.ok) giveUp(); else setTimeout(giveUp, 5000);
-  } catch (e) { giveUp(); }
+  const code = r.code;
+  latestWriteIds[code] = writeId;
+  const send = async () => {
+    if (latestWriteIds[code] !== writeId) return true;
+    try {
+      const res = await fetch(`${state.dbUrl}/rooms/${code}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      if (res.ok) { setTimeout(giveUp, 5000); return true; }
+    } catch (e) { /* network error - same as a refused write */ }
+    giveUp();
+    return latestWriteIds[code] !== writeId;
+  };
+  const result = (saveQueues[code] || Promise.resolve()).then(send);
+  saveQueues[code] = result;
+  return result;
 }
 
 export async function deleteRoom(code) {
