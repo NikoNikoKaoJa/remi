@@ -55,16 +55,29 @@ export function hydrateRoom(r) {
 export async function saveRoom(r) {
   if (!state.dbUrl) return;
   r.updatedAt = Date.now();
+  // Tags this write so incoming updates can be told apart from the room as
+  // it was BEFORE it (see receiveRoom in js/room.js): until our own write
+  // comes back from Firebase, anything else that arrives is older than what
+  // we already show, and applying it would briefly undo our move.
+  const writeId = Math.random().toString(36).slice(2, 10);
+  r.writeId = writeId;
+  state.awaitingWriteId = writeId;
   const body = JSON.stringify(r);
-  // Doubles as the baseline the polling loop diffs against (see startPolling
-  // in js/room.js), so the poll right after our own write sees "unchanged"
-  // and skips a pointless full re-render.
+  // Doubles as the baseline the sync loop diffs against (see receiveRoom),
+  // so our own write coming back doesn't trigger a pointless re-render.
   state.roomSnapshot = body;
-  await fetch(`${state.dbUrl}/rooms/${r.code}.json`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
+  // Stop waiting for the echo if the write failed (the server still has the
+  // older room, so it's the truth now) or it never shows up - e.g. another
+  // player overwrote it before our copy of the stream saw it.
+  const giveUp = () => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; };
+  try {
+    const res = await fetch(`${state.dbUrl}/rooms/${r.code}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!res.ok) giveUp(); else setTimeout(giveUp, 5000);
+  } catch (e) { giveUp(); }
 }
 
 export async function deleteRoom(code) {

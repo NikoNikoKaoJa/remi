@@ -10,6 +10,7 @@ import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
 import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
+import { stopSync } from './room.js';
 
 // ===== Round setup -> cut-reveal -> deal =====
 // Every round (including the very first) goes through a 'cutting' phase that
@@ -132,7 +133,7 @@ export async function hostResetGame() {
   const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise sobu za sve igrace.');
   if (!ok) return;
   state.busy = true;
-  clearInterval(state.pollTimer);
+  stopSync();
   const code = state.room.code;
   state.dismissedQuadAnnouncements.clear();
   saveDismissedQuadAnnouncements();

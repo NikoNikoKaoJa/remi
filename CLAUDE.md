@@ -150,7 +150,7 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
 5. **`js/ui.js`** — `showToast`, `showChoiceModal`, `showQuadAnnouncementModal`,
    `checkQuadAnnouncement`.
 6. **`js/room.js`** — room lifecycle + session identity: `createRoom`,
-   `joinRoom`, `leaveRoom`, `rejoin`, `startPolling`, `mySession`/`saveSession`,
+   `joinRoom`, `leaveRoom`, `rejoin`, `startSync`/`stopSync`, `mySession`/`saveSession`,
    `newRoomCode`/`uid`.
 7. **`js/actions.js`** — turn helpers (`myIndex`/`isMyTurn`/`myHand`/
    `advanceTurn`/`endRoundWithWinner`/`getSelectedCards`) + round-start wrapper
@@ -194,9 +194,20 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
 action functions as button handlers; actions call `render()` after mutating
 state) — this circular import is intentional and safe in native ESM, since
 neither side calls the other during module-evaluation time, only from inside
-event handlers/async functions that run later. `room.js` also imports
-`applyPendingRound` from `actions.js` (one-directional, not circular) as a
-polling-loop fallback for the `'cutting'` phase (see round-end flow below).
+event handlers/async functions that run later. `room.js` and `actions.js`
+import each other the same way: `actions.js` takes `stopSync` (host reset),
+and `room.js` takes `applyPendingRound` as a
+sync-loop fallback for the `'cutting'` phase (see round-end flow below).
+
+**Sync** (`startSync` in `js/room.js`): other players' moves arrive over a
+Firebase REST stream (`EventSource` on `rooms/<code>.json`, `put`/`patch`
+events), not polling. A 2.2s fallback timer re-fetches only while the stream
+isn't open, and runs the cut-reveal fallback. Every `saveRoom` stamps a fresh
+`room.writeId` and sets `state.awaitingWriteId`; until that write comes back,
+incoming rooms with a different `writeId` are older than what's on screen and
+are ignored (`receiveRoom`) - otherwise an update in flight during your move
+would briefly undo it. Updates arriving mid-action (`state.busy`) or mid-drag
+are held and retried ~150ms later.
 
 **Round-end flow** (`room.phase`: `'round_end'` → `'cutting'` → `'playing'`):
 after a win, everyone sees a winner announcement (final board still visible),
@@ -207,8 +218,8 @@ next round is precomputed via `setupRound` and stashed in `room.pendingRound`
 (phase `'cutting'`) so a brief cut-reveal can show before it's actually
 applied to `hands`/`stock`/etc. ~`CUT_REVEAL_MS` (3.5s) later, via
 `applyPendingRound` — either from the triggering client's own timer
-(`scheduleCutAdvance`) or, as a fallback, the next poller past
-`room.cutRevealedAt + CUT_REVEAL_MS` in `js/room.js`'s `startPolling`. The
+(`scheduleCutAdvance`) or, as a fallback, the next client past
+`room.cutRevealedAt + CUT_REVEAL_MS` in `js/room.js`'s `startSync` timer. The
 `'announce'`/`'scores'` sub-stage within `'round_end'` is local-only UI state
 (`state.roundEndStage`), not synced.
 
@@ -235,7 +246,7 @@ it's neither of the other two.
 `applyPendingRound` re-defaults `pendingRound.melds`/`discard`/
 `openedPlayers`/`stock` to `[]` if missing before merging — `pendingRound`
 can round-trip through Firebase (saved during `'cutting'`, reloaded by a
-different client or the polling fallback) and Firebase drops empty-array
+different client or the sync fallback) and Firebase drops empty-array
 fields on save, so a fresh round's empty collections would otherwise silently
 inherit the previous round's values.
 

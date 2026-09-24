@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { loadRoom, saveRoom } from './storage.js';
+import { loadRoom, saveRoom, hydrateRoom } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
 import { applyPendingRound, CUT_REVEAL_MS } from './actions.js';
@@ -39,7 +39,7 @@ export async function createRoom(name) {
   };
   await saveRoom(r);
   state.room = r;
-  startPolling();
+  startSync();
   render();
 }
 
@@ -54,12 +54,12 @@ export async function joinRoom(code, name) {
   r.players.push({ id: state.session.playerId, name });
   await saveRoom(r);
   state.room = r;
-  startPolling();
+  startSync();
   render();
 }
 
 export async function leaveRoom() {
-  clearInterval(state.pollTimer);
+  stopSync();
   const leftRoom = state.room;
   const leftPlayerId = state.session.playerId;
   localStorage.removeItem('my-remi-session');
@@ -82,41 +82,123 @@ export async function rejoin() {
   state.session = s;
   state.room = r;
   state.roomSnapshot = JSON.stringify(r);
-  startPolling();
+  startSync();
   return true;
 }
 
-export function startPolling() {
+// ===== Sync =====
+// Other players' moves arrive over a Firebase REST stream (EventSource): the
+// server pushes every change to the room as it happens. A slow timer backs
+// it up - re-fetching only while the stream is down, and running the
+// cut-reveal fallback, which is triggered by time passing, not by a change.
+
+const FALLBACK_TICK_MS = 2200;
+
+export function stopSync() {
   clearInterval(state.pollTimer);
+  if (state.roomStream) { state.roomStream.close(); state.roomStream = null; }
+}
+
+export function startSync() {
+  stopSync();
+  const code = state.session.roomCode;
+  // The stream sends the whole room first ('put' at "/"), then each change
+  // as a 'put' (replace) or 'patch' (merge) at a path inside it; `raw` is the
+  // room as Firebase has it, kept up to date from those.
+  let raw;
+  const stream = new EventSource(`${state.dbUrl}/rooms/${code}.json`);
+  const onEvent = (merge) => (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch (err) { return; }
+    raw = applyAtPath(raw, msg.path, msg.data, merge);
+    // A structuredClone because hydrateRoom and every action mutate the room
+    // in place, while `raw` has to stay exactly what the server sent.
+    receiveRoom(raw == null ? null : hydrateRoom(structuredClone(raw)));
+  };
+  stream.addEventListener('put', onEvent(false));
+  stream.addEventListener('patch', onEvent(true));
+  state.roomStream = stream;
+
   state.pollTimer = setInterval(async () => {
-    if (!state.session.roomCode || state.busy) return;
-    const r = await loadRoom(state.session.roomCode);
-    if (r === undefined) return; // request failed - try again next poll
-    if (r === null || (state.session.playerId && !r.players.find(p => p.id === state.session.playerId))) {
-      clearInterval(state.pollTimer);
-      localStorage.removeItem('my-remi-session');
-      state.session = { playerId: null, name: null, roomCode: null };
-      state.room = null;
-      showToast('Host je resetovao igru. Pridruzi se ponovo preko linka.');
-      render();
-      return;
-    }
-    if (r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt && Date.now() - r.cutRevealedAt > CUT_REVEAL_MS) {
+    if (!state.session.roomCode) return;
+    const r = state.room;
+    if (!state.busy && r && r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt
+        && Date.now() - r.cutRevealedAt > CUT_REVEAL_MS) {
+      state.busy = true;
       applyPendingRound(r);
       await saveRoom(r);
+      state.busy = false;
+      render();
     }
-    // Skip the (expensive, full-DOM-rebuild) render() when nothing actually
-    // changed - otherwise every idle poll tears down and recreates every card
-    // element, which drops the browser's :hover state on whatever card the
-    // mouse happens to be resting on and makes it visibly flicker.
-    // Only the incoming room is serialized: the previous tick's string is
-    // kept, so an idle poll stringifies ~108 cards once rather than twice.
-    const snapshot = JSON.stringify(r);
-    const changed = snapshot !== state.roomSnapshot;
-    state.roomSnapshot = snapshot;
-    state.room = r;
-    // Also skip while a hand-card reorder drag is in progress - a full
-    // render() would tear down and rebuild the hand DOM mid-gesture.
-    if (changed && !state.handDragActive) render();
-  }, 2200);
+    if (stream.readyState !== EventSource.OPEN) {
+      const loaded = await loadRoom(code);
+      if (loaded !== undefined) receiveRoom(loaded); // undefined = request failed - try again next tick
+    }
+  }, FALLBACK_TICK_MS);
+}
+
+// Sets `value` at a Firebase path ("/", "/hands/pl_x", ...) inside `obj`
+// (null deletes). A 'patch' is a set of such writes, keyed by path relative
+// to its own. Returns the (possibly new) root.
+function applyAtPath(obj, path, value, merge) {
+  if (merge) {
+    Object.entries(value || {}).forEach(([k, v]) => { obj = applyAtPath(obj, `${path}/${k}`, v, false); });
+    return obj;
+  }
+  const keys = path.split('/').filter(Boolean);
+  if (keys.length === 0) return value;
+  const root = obj || {};
+  let node = root;
+  keys.slice(0, -1).forEach(k => { if (node[k] == null || typeof node[k] !== 'object') node[k] = {}; node = node[k]; });
+  const last = keys[keys.length - 1];
+  if (value == null) delete node[last];
+  else node[last] = value;
+  return root;
+}
+
+// Applies a room that just arrived from Firebase (stream or fallback poll).
+function receiveRoom(r) {
+  if (state.session.roomCode == null) return;
+  // Mid-action or mid-drag: the room object is being worked on (or the hand
+  // DOM is mid-gesture), so hold the update and look at it again shortly.
+  // Only the newest one is kept - each carries the whole room.
+  if (state.busy || state.handDragActive) {
+    state.deferredRoom = r;
+    clearTimeout(state.deferredRoomTimer);
+    state.deferredRoomTimer = setTimeout(() => {
+      const next = state.deferredRoom;
+      state.deferredRoom = undefined;
+      if (next !== undefined) receiveRoom(next);
+    }, 150);
+    return;
+  }
+  if (r === null || (state.session.playerId && !r.players.find(p => p.id === state.session.playerId))) {
+    stopSync();
+    localStorage.removeItem('my-remi-session');
+    state.session = { playerId: null, name: null, roomCode: null };
+    state.room = null;
+    showToast('Host je resetovao igru. Pridruzi se ponovo preko linka.');
+    render();
+    return;
+  }
+  // We saved and Firebase hasn't sent that write back yet, so this is the
+  // room from before it - showing it would make our move vanish until the
+  // next update. Our own echo (or saveRoom giving up on it) ends the wait.
+  // The echo itself is what's already on screen, so it only resets the
+  // baseline (Firebase reorders keys, so its JSON differs from what we sent).
+  if (state.awaitingWriteId) {
+    if (r.writeId !== state.awaitingWriteId) return;
+    state.awaitingWriteId = null;
+    state.roomSnapshot = JSON.stringify(r);
+    return;
+  }
+  // Skip the (expensive, full-DOM-rebuild) render() when nothing actually
+  // changed - otherwise every no-op update tears down and recreates every
+  // card element, which drops the browser's :hover state on whatever card
+  // the mouse happens to be resting on and makes it visibly flicker.
+  const snapshot = JSON.stringify(r);
+  const changed = snapshot !== state.roomSnapshot;
+  state.roomSnapshot = snapshot;
+  state.room = r;
+  if (changed) render();
 }
