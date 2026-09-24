@@ -274,7 +274,9 @@ KORAK 5 - Prvo otvaranje
   /* Widen the hit area without moving anything: a card-sized pile is a small
      target for a dropped card, especially the empty-otpad placeholder. */
   .pile-stack.drop-target::after{content:'';position:absolute;inset:-14px;}
-  .drop-target.drop-hover{outline:2px solid var(--gold-bright);outline-offset:3px;border-radius:8px;background:rgba(201,162,39,0.18);}
+  /* Green, thick and pushed well out (outline-offset doesn't affect layout,
+     so nothing shifts) - the landing zone has to read at a glance mid-drag. */
+  .drop-target.drop-hover{outline:4px solid #3ddc84;outline-offset:10px;border-radius:10px;background:rgba(61,220,132,0.22);box-shadow:0 0 18px 6px rgba(61,220,132,0.45);}
   .meld-cards{display:flex;flex-wrap:wrap;gap:4px;}
   .meld-cards .card{margin-left:0;}
 
