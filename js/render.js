@@ -690,9 +690,36 @@ function renderCenterTable(app) {
 
   center.appendChild(pilesRow);
 
+  renderTurnStatus(center);
+
   renderMeldsForPlayers(center, { clickable: true });
 
   app.appendChild(center);
+}
+
+// Whose turn it is (and, on your own turn, what to do next), plus the
+// "lay down your joker" warning - centered between the piles and the melds,
+// so it's read together with the table rather than under the hand.
+function renderTurnStatus(container) {
+  const myTurn = isMyTurn();
+  const banner = el('div', 'turn-banner');
+  if (myTurn) {
+    banner.textContent = state.room.turnPhase === 'draw' ? 'Tvoj red - vuci kartu' : 'Tvoj red - odigraj i baci';
+  } else {
+    banner.textContent = `Na potezu: ${state.room.players[state.room.currentPlayerIndex].name}`;
+  }
+  container.appendChild(banner);
+
+  const myPendingJokers = pendingJokerIds(state.room, state.session.playerId);
+  if (myTurn && myPendingJokers.length > 0) {
+    const many = myPendingJokers.length > 1;
+    const warn = el('div', 'small center', many
+      ? `⚠️ Imas ${myPendingJokers.length} dzokera (u ruci su oiviceni crvenom isprekidanom linijom) koje moras da spustis - novim kombinacijama ili dodavanjem na postojece nizove - pre nego sto bacis kartu.`
+      : '⚠️ Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
+    warn.style.color = 'var(--gold-bright)';
+    warn.style.marginBottom = '10px';
+    container.appendChild(warn);
+  }
 }
 
 // Melds on table, grouped by owner. `clickable: false` renders a read-only
@@ -806,28 +833,6 @@ function renderHandAndActions(app) {
   }
   handWrap.appendChild(cardsRow);
   app.appendChild(handWrap);
-
-  // Turn banner
-  const banner = el('div', 'turn-banner');
-  if (state.room.phase === 'playing') {
-    const cur = state.room.players[state.room.currentPlayerIndex];
-    if (myTurn) {
-      banner.textContent = state.room.turnPhase === 'draw' ? 'Tvoj red - vuci kartu' : 'Tvoj red - odigraj i baci';
-    } else {
-      banner.textContent = `Na potezu: ${cur.name}`;
-    }
-  }
-  app.appendChild(banner);
-
-  if (myTurn && myPendingJokers.length > 0) {
-    const many = myPendingJokers.length > 1;
-    const warn = el('div', 'small center', many
-      ? `⚠️ Imas ${myPendingJokers.length} dzokera (u ruci su oiviceni crvenom isprekidanom linijom) koje moras da spustis - novim kombinacijama ili dodavanjem na postojece nizove - pre nego sto bacis kartu.`
-      : '⚠️ Imas dzokera (u ruci je oivicen crvenom isprekidanom linijom) koga moras da spustis - novom kombinacijom ili dodavanjem na postojeci niz - pre nego sto bacis kartu.');
-    warn.style.color = 'var(--gold-bright)';
-    warn.style.marginBottom = '10px';
-    app.appendChild(warn);
-  }
 
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
