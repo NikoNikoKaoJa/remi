@@ -401,7 +401,7 @@ export function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
   // The 'playing' table and the round-end 'announce' sub-stage both render
-  // their own top-of-screen row (opponents-row / renderRoundEndPlayersRow)
+  // their own players row (opponents-row, pinned to the bottom / renderRoundEndPlayersRow)
   // in place of the brand - the 'scores' sub-stage (still inside phase
   // round_end) re-adds the brand itself, see renderRoundScores.
   const isGameScreen = state.dbUrl && state.session.roomCode && state.room &&
@@ -588,12 +588,18 @@ function playerTileEl(p, i, { active = false, winner = false } = {}) {
   return c;
 }
 
+// The bar's height depends on how many tiles wrap (and on rotation), so it's
+// observed rather than assumed; the CSS reads --bottom-bar-h to keep the
+// table and the version badge clear of it.
+const bottomBarObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(entries => {
+  for (const e of entries) document.documentElement.style.setProperty('--bottom-bar-h', e.target.offsetHeight + 'px');
+});
+
 function renderOpponents(app) {
-  const rowEl = el('div', 'opponents-row');
-  rowEl.style.position = 'relative';
+  const rowEl = el('div', 'opponents-row bottom-bar');
   const stanjeBtn = el('button', 'btn btn-outline-gold', 'Stanje');
   stanjeBtn.style.position = 'absolute';
-  stanjeBtn.style.left = '0';
+  stanjeBtn.style.left = '14px';
   stanjeBtn.style.top = '50%';
   stanjeBtn.style.transform = 'translateY(-50%)';
   stanjeBtn.onclick = () => showScoreHistoryModal(state.room);
@@ -602,7 +608,7 @@ function renderOpponents(app) {
   if (isHost) {
     const resetBtn = el('button', 'btn btn-danger', 'Reset');
     resetBtn.style.position = 'absolute';
-    resetBtn.style.right = '0';
+    resetBtn.style.right = '14px';
     resetBtn.style.top = '50%';
     resetBtn.style.transform = 'translateY(-50%)';
     resetBtn.onclick = hostResetGame;
@@ -613,6 +619,7 @@ function renderOpponents(app) {
     rowEl.appendChild(playerTileEl(p, i, { active: state.room.currentPlayerIndex === i }));
   });
   app.appendChild(rowEl);
+  if (bottomBarObserver) { bottomBarObserver.disconnect(); bottomBarObserver.observe(rowEl); }
 }
 
 function renderCenterTable(app) {
@@ -896,12 +903,12 @@ function pruneSelection() {
 function renderGame(app) {
   pruneSelection();
   const panel = el('div', 'card-panel table-area');
-  renderOpponents(panel);
   const toastAnchor = el('div', 'toast-anchor');
   toastAnchor.id = 'toast-anchor';
   panel.appendChild(toastAnchor);
   renderCenterTable(panel);
   renderHandAndActions(panel);
+  renderOpponents(panel); // fixed to the screen's bottom edge, see .bottom-bar
   app.appendChild(panel);
 }
 

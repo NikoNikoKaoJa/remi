@@ -166,6 +166,18 @@ KORAK 5 - Prvo otvaranje
   /* ===== Game table ===== */
   .table-area{padding:14px 10px 8px;}
   .opponents-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  /* The live table's row (Stanje, opponents, Reset) is locked to the bottom
+     of the screen. Its height is measured into --bottom-bar-h (see
+     renderOpponents) so the table leaves room for it and the version badge
+     sits just above it instead of on top of the Reset button. */
+  .opponents-row.bottom-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;margin:0;
+    padding:14px 14px calc(10px + env(safe-area-inset-bottom));
+    background:var(--felt-2);border-top:1px solid var(--panel-line);
+    box-shadow:0 -8px 24px rgba(0,0,0,0.35);
+  }
+  .table-area:has(.bottom-bar){margin-bottom:calc(var(--bottom-bar-h, 0px) + 8px);}
+  body:has(.bottom-bar) .version-badge{bottom:calc(var(--bottom-bar-h, 0px) + 6px);}
   .opp-card{
     background:rgba(0,0,0,0.25);border:1px solid var(--panel-line);border-radius:12px;
     padding:10px 14px;min-width:110px;text-align:center;position:relative;
