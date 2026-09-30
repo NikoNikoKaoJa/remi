@@ -75,6 +75,7 @@ export function applyPendingRound(r) {
   // manual `handOrders` entry, so any card drawn afterward is only appended
   // (see orderHand in js/cards.js), never auto-resorted alongside it.
   r.handOrders = {};
+  r.handRows = {};
   r.pinnedCardIds = {};
   // Not part of setupRound's output at all, so Object.assign(r, pr) never
   // touches these - clear them directly or the "just drawn" highlight/pin

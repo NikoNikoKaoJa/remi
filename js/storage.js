@@ -38,6 +38,7 @@ export const ROOM_COLLECTION_DEFAULTS = {
   quadAnnouncements: () => [],
   readyForNextRound: () => [],
   handOrders: () => ({}),
+  handRows: () => ({}),
   pinnedCardIds: () => ({}),
 };
 

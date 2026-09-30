@@ -299,11 +299,19 @@ KORAK 5 - Prvo otvaranje
   /* Lets pointerdown+move on a hand card start a reorder drag instead of the
      browser hijacking it as a page scroll (see enableHandReorder in render.js). */
   .hand-cards .card, .hand-cards .card-slot{touch-action:none;}
+  /* The live hand: two explicit centered rows (see "Hand rows" in render.js). */
+  .hand-rows{display:flex;flex-direction:column;padding:2px 4px 10px;margin-top:0px;}
+  .hand-rows .card, .hand-rows .card-slot{touch-action:none;}
+  .hand-row{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;}
+  .hand-row + .hand-row:not(:empty){margin-top:6px;}
+  /* While a card is being dragged an empty second row is still a drop zone. */
+  .hand-rows.drag-active .hand-row{min-height:86px;}
+  .hand-rows.drag-active .hand-row + .hand-row:empty{margin-top:6px;outline:1px dashed var(--panel-line);outline-offset:-1px;border-radius:8px;}
   /* Selected/hovered cards lift transform:translateY(-25%) (see .card.selected)
      without reserving layout space, so leave just enough room above the row -
      card height minus the negative margin-top above - to keep that lift from
      painting over the "Zbir ruke" text above it. */
-  .hand-cards.has-selection{padding-top:32px;}
+  .hand-cards.has-selection, .hand-rows.has-selection{padding-top:32px;}
 
   .action-bar{
     display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px;
@@ -414,7 +422,8 @@ KORAK 5 - Prvo otvaranje
     .card.joker .rank{font-size:15px;}
     .card.joker .joker-icon{width:40px;height:40px;}
     .meld-cards .card{margin-left:0;}
-    .hand-cards.has-selection{padding-top:26px;}
+    .hand-cards.has-selection, .hand-rows.has-selection{padding-top:26px;}
+    .hand-rows.drag-active .hand-row{min-height:64px;}
     /* The mockup's 70%-wide scores panel is a desktop proportion - on a
        phone it just squeezes the two tables. */
     .round-end-scores-panel{width:100%;}
