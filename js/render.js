@@ -772,7 +772,7 @@ function renderHandAndActions(app) {
   const myPendingJokers = pendingJokerIds(state.room, state.session.playerId);
 
   const myTurn = isMyTurn();
-  const canPick = myTurn && state.room.turnPhase === 'meld';
+  const canPick = state.room.phase === 'playing';
   // Reserve the same top space whenever cards are clickable, not just when one
   // is actually selected - a hovered (but unselected) card also lifts via
   // .card-slot:hover and would otherwise overlap the "Zbir ruke" text above.
@@ -832,27 +832,34 @@ function renderHandAndActions(app) {
   const bar = el('div', 'action-bar');
   const opened = state.room.openedPlayers.includes(state.session.playerId);
 
-  if (myTurn && state.room.turnPhase === 'meld') {
+  const myMeldTurn = myTurn && state.room.turnPhase === 'meld';
+  if (state.room.phase === 'playing') {
     const layBtn = el('button', 'btn btn-gold');
-    // A ready hand (mali or veliki) wins the round outright, so it replaces
-    // the usual opening lay entirely - one click lays it down, throws the odd
-    // card on the otpad and ends the round, no card selection needed.
-    const handOption = opened ? null : findHandOption(myHand());
+    // A ready hand (mali or veliki) wins the round outright - one click lays
+    // it down, throws the odd card on the otpad and ends the round, no card
+    // selection needed.
+    const handOption = opened || !myMeldTurn ? null : findHandOption(myHand());
+    // Yellow + greyed out until the selection is a valid lay (izlaganje),
+    // then green.
+    const canLay = canLaySelected();
+    if (canLay) layBtn.classList.add('btn-hand');
+    // "Handiraj" sits next to the regular lay button rather than replacing
+    // it: a ready hand can still be played as a plain opening instead.
     if (handOption) {
-      layBtn.textContent = 'Handiraj';
-      layBtn.classList.add('btn-hand');
-      layBtn.onclick = actionDeclareHand;
-    } else if (opened) {
+      const handBtn = el('button', 'btn btn-hand', 'Handiraj');
+      handBtn.onclick = actionDeclareHand;
+      bar.appendChild(handBtn);
+    }
+    if (opened) {
       layBtn.textContent = 'Izlozi se';
-      layBtn.disabled = !canLaySelected();
     } else {
       layBtn.append(
         'Izlozi se (', el('span', 'lay-btn-sum', String(computeSelectedSum(selectedCards))),
         ') [', el('span', 'lay-btn-sum', String(maliHandValue(selectedCards))), ']'
       );
-      layBtn.disabled = !canLaySelected();
     }
-    if (!handOption) layBtn.onclick = actionLayMultipleSelected;
+    layBtn.disabled = !canLay;
+    layBtn.onclick = actionLayMultipleSelected;
     bar.appendChild(layBtn);
 
     // Undoing a selection only matters once there's a selection worth undoing:
@@ -866,6 +873,7 @@ function renderHandAndActions(app) {
       bar.appendChild(clearBtn);
     }
 
+    if (myMeldTurn) {
     const hasPendingJoker = myPendingJokers.length > 0;
     const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
     const selectedIsBottomDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.bottomDrawCardId;
@@ -879,6 +887,7 @@ function renderHandAndActions(app) {
     discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker || selectedJokerNotLastCard;
     discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
     bar.appendChild(discardBtn);
+    }
   }
 
   app.appendChild(bar);
