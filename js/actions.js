@@ -314,6 +314,14 @@ export async function actionDrawDiscard() {
   commitMove();
 }
 
+// The card pulled off the otpad has to be laid down this turn, so nothing else
+// may be thrown first. Names the card so it's clear which one is meant.
+export function warnDiscardDrawOwed() {
+  const c = myHand().find(x => x.id === state.room.discardDrawCardId);
+  const label = c ? ` (${c.joker ? 'Joker' : rankLabel(c.rank) + SUIT_SYM[c.suit]})` : '';
+  showToast(`⚠️ Ne mozes da bacis drugu kartu - kartu koju si uzeo sa otpada${label} moras da izlozis/dodas na sto, ili je vrati na otpad.`, 5000);
+}
+
 export async function actionDiscard(cardId) {
   if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
   if (hasPendingJoker(state.room, state.session.playerId)) {
@@ -321,7 +329,7 @@ export async function actionDiscard(cardId) {
     return;
   }
   if (state.room.discardDrawCardId && state.room.discardDrawCardId !== cardId) {
-    showToast('⚠️ Kartu koju si uzeo sa otpada moras da izlozis/handiras ili je izaberi i klikni "Vrati kartu na otpad".');
+    warnDiscardDrawOwed();
     return;
   }
   // The card from under the talon may only be taken to make a hand, so a plain
