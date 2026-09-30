@@ -512,6 +512,10 @@ export function render() {
     renderCutReveal(app);
   }
   app.appendChild(versionBadge());
+  // Needs the cards' real size and the row's real width, so only now that the
+  // whole tree is attached (a detached box measures 0 and never spills).
+  const handBox = app.querySelector('.hand-rows');
+  if (handBox) fitHandRows(handBox);
   checkQuadAnnouncement();
 }
 
@@ -903,8 +907,8 @@ function renderHandAndActions(app) {
   }
   handWrap.appendChild(cardsRow);
   app.appendChild(handWrap);
-  // Needs the cards' real size and the row's real width, so only once attached.
-  fitHandRows(cardsRow);
+  // fitHandRows needs the real layout, and this panel is still detached here -
+  // render() runs it once everything is attached.
 
   // Turn banner
   const banner = el('div', 'turn-banner');
