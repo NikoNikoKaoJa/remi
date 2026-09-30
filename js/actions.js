@@ -349,7 +349,9 @@ export async function actionDiscard(cardId) {
   }
   const [card] = hand.splice(idx, 1);
   state.room.discard.push(card);
-  state.selectedIds.clear();
+  // Only the thrown card leaves the selection - the rest stays selected for
+  // the next turn until the player deselects it or hits "Ponisti izbor".
+  state.selectedIds.delete(card.id);
   if (isReturningDiscardDraw) {
     // Not a real discard - just undoing the discard-pull. The turn rewinds to
     // its draw phase with every option open again, including pulling the very
@@ -376,7 +378,7 @@ async function returnBottomCard(cardId) {
   state.room.specialBottomCard.taken = false;
   state.room.bottomDrawCardId = null;
   state.room.turnPhase = 'draw';
-  state.selectedIds.clear();
+  state.selectedIds.delete(cardId);
   if (state.room.lastDrawnCardId === cardId) {
     state.room.lastDrawnCardId = null;
     state.room.lastDrawnPlayerId = null;
