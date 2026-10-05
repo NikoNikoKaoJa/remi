@@ -159,6 +159,18 @@ async function dropCardOnMeld(cardId, ownerId, meldIdx) {
 // same ghost so both gestures feel alike. `node` keeps its own onclick; a
 // drag sets a short-lived flag so the click that follows pointerup doesn't
 // fire the action a second time.
+// Dragging a card must not leave the browser's native text selection (the blue
+// wash over neighbouring cards/labels) behind: drop any existing selection and
+// block new ones until the drag ends.
+function startNoSelectDrag() {
+  document.body.classList.add('card-dragging');
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.removeAllRanges) sel.removeAllRanges();
+}
+function endNoSelectDrag() {
+  document.body.classList.remove('card-dragging');
+}
+
 function enablePileDrag(node, onDrop) {
   let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
   let hoverTarget = null;
@@ -188,6 +200,7 @@ function enablePileDrag(node, onDrop) {
       if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
       dragging = true;
       state.handDragActive = true; // same reason as the hand drag: no poll re-render mid-drag
+      startNoSelectDrag();
       const rect = node.getBoundingClientRect();
       offsetX = startX - rect.left;
       offsetY = startY - rect.top;
@@ -221,6 +234,7 @@ function enablePileDrag(node, onDrop) {
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
+    endNoSelectDrag();
     setHoverTarget(null);
     node.dataset.justDragged = '1';
     setTimeout(() => { delete node.dataset.justDragged; }, 300);
@@ -385,6 +399,7 @@ function enableHandReorder(node, container) {
       if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
       dragging = true;
       state.handDragActive = true;
+      startNoSelectDrag();
       origParent = node.parentNode;
       origNext = node.nextSibling;
       container.classList.add('drag-active'); // gives an empty row a drop zone
@@ -438,6 +453,7 @@ function enableHandReorder(node, container) {
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
     state.handDragActive = false;
+    endNoSelectDrag();
     container.classList.remove('drag-active');
     setHoverTarget(null);
     spaceRows(container);

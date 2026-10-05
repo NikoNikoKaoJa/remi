@@ -205,7 +205,7 @@ KORAK 5 - Prvo otvaranje
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     color:var(--ink);font-family:var(--font-mono);font-weight:700;font-size:23px;
     box-shadow:0 2px 5px rgba(0,0,0,0.35);
-    user-select:none;position:relative;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;position:relative;
   }
   .card.red{color:var(--red);}
   .card .rank{font-size:33px;line-height:1;}
@@ -245,7 +245,9 @@ KORAK 5 - Prvo otvaranje
   .card.clickable{cursor:pointer;transition:transform .1s ease;}
   /* Wrapper from wrapHoverSlot in cards.js. Cards no longer change appearance
      on hover at all - only selection (.card.selected) highlights a card. */
-  .card-slot{display:inline-flex;align-items:flex-end;}
+  .card-slot{display:inline-flex;align-items:flex-end;user-select:none;-webkit-user-select:none;}
+  /* While a card is being dragged nothing on the page may become a native text selection (the blue wash). */
+  body.card-dragging, body.card-dragging *{user-select:none;-webkit-user-select:none;}
 
   .special-card-wrap{display:flex;flex-direction:column;align-items:center;}
   /* Piles with their label beside the card instead of under it:
