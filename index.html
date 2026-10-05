@@ -410,6 +410,8 @@ KORAK 5 - Prvo otvaranje
     position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;
     z-index:60;padding:20px;
   }
+  /* The Stanje modal leaves the bottom bar uncovered so its button can close it. */
+  #score-history-modal{bottom:var(--bottom-bar-h, 0px);}
   .modal-box{
     background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;padding:22px;
     max-width:420px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.5);

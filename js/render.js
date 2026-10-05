@@ -2,7 +2,7 @@ import { state, APP_VERSION, DEFAULT_DB_URL } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveRoom } from './storage.js';
-import { showToast, checkQuadAnnouncement, showScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
+import { showToast, checkQuadAnnouncement, showScoreHistoryModal, closeScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
@@ -714,7 +714,23 @@ function renderOpponents(app) {
   stanjeBtn.style.left = '14px';
   stanjeBtn.style.top = '50%';
   stanjeBtn.style.transform = 'translateY(-50%)';
-  stanjeBtn.onclick = () => showScoreHistoryModal(state.room);
+  // While the Stanje modal is open the button turns yellow and reads
+  // "Zatvori" (the modal's overlay stops above the bottom bar, so it stays
+  // reachable); the modal outlives re-renders, so the state is read from the DOM.
+  const setStanjeOpen = open => {
+    stanjeBtn.className = 'btn ' + (open ? 'btn-gold' : 'btn-outline-gold');
+    stanjeBtn.textContent = open ? 'Zatvori' : 'Stanje';
+  };
+  setStanjeOpen(!!document.getElementById('score-history-modal'));
+  stanjeBtn.onclick = () => {
+    if (document.getElementById('score-history-modal')) {
+      closeScoreHistoryModal();
+      setStanjeOpen(false);
+    } else {
+      showScoreHistoryModal(state.room, () => setStanjeOpen(false));
+      setStanjeOpen(true);
+    }
+  };
   rowEl.appendChild(stanjeBtn);
   const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
   if (isHost) {

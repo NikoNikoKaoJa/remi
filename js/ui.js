@@ -178,9 +178,14 @@ export function reserveScrollbarStrip(block, bodyWrap, tableWidth) {
   }
 }
 
-export function showScoreHistoryModal(room) {
+export function closeScoreHistoryModal() {
   const existing = document.getElementById('score-history-modal');
   if (existing) existing.remove();
+}
+
+// onClose runs when the modal's own Zatvori button closes it.
+export function showScoreHistoryModal(room, onClose) {
+  closeScoreHistoryModal();
   const overlay = document.createElement('div');
   overlay.id = 'score-history-modal';
   overlay.className = 'modal-overlay';
@@ -197,7 +202,7 @@ export function showScoreHistoryModal(room) {
   closeBtn.textContent = 'Zatvori';
   closeBtn.style.width = '100%';
   closeBtn.style.marginTop = '14px';
-  closeBtn.onclick = () => overlay.remove();
+  closeBtn.onclick = () => { overlay.remove(); if (onClose) onClose(); };
   box.appendChild(closeBtn);
   overlay.appendChild(box);
   document.getElementById('remi-root').appendChild(overlay);
