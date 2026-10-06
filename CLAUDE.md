@@ -55,7 +55,10 @@ There are two builds of the same game:
   awarded as a bonus (to the cutter; or to the dealer if the *second*-from-bottom
   is the joker) and the recipient still keeps 14 total. There is ALWAYS a visible
   "special bottom card" — if the revealed card was awarded as a bonus joker, the
-  next card is revealed to fill that slot.
+  next card is revealed to fill that slot. If that replacement card is itself a
+  joker, it is treated like a second-from-bottom joker: awarded to the dealer
+  as a bonus, and the next card is tried, repeating until a non-joker fills the
+  slot (so the slot never shows a joker).
 - **The card under the talon may only be taken to make a hand** (mali/veliki),
   in place of that turn's draw — so a player who has already opened can't take
   it at all, hands being closed to them. The player either goes out with the hand, or

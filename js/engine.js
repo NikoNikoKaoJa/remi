@@ -476,17 +476,24 @@ export function setupRound(players, dealerIndex) {
   const cutterIdx = (dealerIndex - 1 + n) % n;
   const firstPlayerIdx = (dealerIndex + 1) % n;
 
-  let bonusRecipientIdx = null, bonusCard = null, specialBottomCard = null;
+  // bonus jokers: [{ idx, card }] - each is dealt as an extra card to that player
+  const bonuses = [];
+  let specialBottomCard = null;
   let stockPool = bottomPortion.concat(topPortion.slice(0, topPortion.length - 1));
 
   if (revealed.joker) {
     // the revealed card itself is claimed as a bonus joker by the cutter -
     // reveal the next card from the pool instead so there's always a visible card.
-    bonusRecipientIdx = cutterIdx; bonusCard = revealed;
+    bonuses.push({ idx: cutterIdx, card: revealed });
     stockPool = shuffle(stockPool);
+    // a joker landing in that slot is treated like a joker second from bottom:
+    // it goes to the dealer, and the next card is tried until a non-joker fills the slot
+    while (stockPool.length && stockPool[0].joker) {
+      bonuses.push({ idx: dealerIndex, card: stockPool.shift() });
+    }
     specialBottomCard = stockPool.shift();
   } else if (secondFromBottom && secondFromBottom.joker) {
-    bonusRecipientIdx = dealerIndex; bonusCard = secondFromBottom;
+    bonuses.push({ idx: dealerIndex, card: secondFromBottom });
     stockPool = stockPool.filter(c => c.id !== secondFromBottom.id);
     stockPool = shuffle(stockPool);
     specialBottomCard = revealed;
@@ -505,15 +512,18 @@ export function setupRound(players, dealerIndex) {
   }
   hands[players[firstPlayerIdx].id].push(pool.shift()); // extra 15th card
 
-  if (bonusRecipientIdx !== null) {
-    const recipientId = players[bonusRecipientIdx].id;
-    const displaced = hands[recipientId].pop();
-    hands[recipientId].push(bonusCard);
+  const bonusIds = new Set(bonuses.map(b => b.card.id));
+  bonuses.forEach(({ idx, card }) => {
+    const hand = hands[players[idx].id];
+    let at = hand.length - 1;
+    while (at > 0 && bonusIds.has(hand[at].id)) at--; // never displace an earlier bonus joker
+    const displaced = hand.splice(at, 1)[0];
+    hand.push(card);
     pool.push(displaced); // displaced card returns to the stock
-  }
+  });
 
   const log = [`Deli: ${players[dealerIndex].name} | Sece: ${players[cutterIdx].name} | Prvi na potezu: ${players[firstPlayerIdx].name}`];
-  if (bonusRecipientIdx !== null) log.push(`${players[bonusRecipientIdx].name} dobija bonus dzoker pri secenju!`);
+  bonuses.forEach(b => log.push(`${players[b.idx].name} dobija bonus dzoker pri secenju!`));
 
   return {
     phase: 'playing',
