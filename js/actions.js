@@ -634,8 +634,10 @@ async function applyResolvedOption(option, cards, opened, goingOutAttempt, lefto
   if (!opened) state.room.openedPlayers.push(state.session.playerId);
   state.selectedIds.clear();
   clearSatisfiedObligations(state.room, cards, hand);
-  sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
+  // A quad that completes on the winning move stays on the table, so the
+  // other players can see how the round was won.
+  if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
   state.busy = false;
   commitMove();
 }
@@ -689,8 +691,10 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   markMeldTouched(state.room, meld);
   state.selectedIds.clear();
   clearSatisfiedObligations(state.room, cards, hand);
-  sweepCompletedQuads(state.room);
   await autoDiscardLastCard();
+  // A quad that completes on the winning move stays on the table, so the
+  // other players can see how the round was won.
+  if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
   state.busy = false;
   commitMove();
 }

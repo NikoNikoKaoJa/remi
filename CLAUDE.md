@@ -101,6 +101,9 @@ There are two builds of the same game:
 - **Completed real 4-of-a-kind** (four identical real cards, no joker) is swept
   off the table to the BOTTOM of the discard pile, and every player sees a
   dismissible dialog with the four cards highlighted in fluorescent green.
+  Exception: if completing the quad is the winning move (the last card goes
+  out), the four cards are NOT swept - they stay on the table so the other
+  players can see how the round was won.
 - **Hand display:** the freshly-dealt opening hand is sorted by value
   descending (Ace, King, Queen, ... 2, left to right), suit as tie-break,
   jokers last (`sortHand` in `js/cards.js`) - but that's a ONE-TIME seed:
