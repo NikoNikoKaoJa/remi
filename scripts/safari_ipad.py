@@ -39,6 +39,8 @@ DATA = [
     ("iPad Air", "air13-m2", "iPad Air 13\" (M2)",     2024, 13.0, 1024, 1366),
     ("iPad Air", "air11-m3", "iPad Air 11\" (M3)",     2025, 11.0, 820, 1180),
     ("iPad Air", "air13-m3", "iPad Air 13\" (M3)",     2025, 13.0, 1024, 1366),
+    ("iPad Air", "air11-m4", "iPad Air 11\" (M4)",     2026, 11.0, 820, 1180),
+    ("iPad Air", "air13-m4", "iPad Air 13\" (M4)",     2026, 13.0, 1024, 1366),
     # iPad mini
     ("iPad mini", "mini1", "iPad mini (1st gen)",     2012, 7.9, 768, 1024),
     ("iPad mini", "mini2", "iPad mini 2",             2013, 7.9, 768, 1024),
