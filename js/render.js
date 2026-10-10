@@ -64,8 +64,16 @@ const DROP_FROM_PILE = 'from-pile';
 
 // `accepts(cardId)`, if given, says whether this particular card may land here
 // - a target that would refuse it neither lights up nor catches the drop.
+// The answer is cached per card: a meld check is a full rules solve, and a
+// drag asks every frame (the table can't change mid-drag - re-renders wait -
+// and the next render builds fresh nodes, so the cache never goes stale).
 function markDropTarget(node, kind, onDrop, accepts) {
-  node._remiDrop = { kind, onDrop, accepts };
+  const seen = new Map();
+  const cached = accepts && ((cardId) => {
+    if (!seen.has(cardId)) seen.set(cardId, !!accepts(cardId));
+    return seen.get(cardId);
+  });
+  node._remiDrop = { kind, onDrop, accepts: cached };
   node.classList.add('drop-target');
 }
 
@@ -174,6 +182,7 @@ function endNoSelectDrag() {
 function enablePileDrag(node, onDrop) {
   let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
   let hoverTarget = null;
+  let frame = 0, lastX = 0, lastY = 0;
 
   function setHoverTarget(t) {
     if (hoverTarget === t) return;
@@ -206,22 +215,30 @@ function enablePileDrag(node, onDrop) {
       offsetY = startY - rect.top;
       ghost = node.cloneNode(true);
       ghost.style.position = 'fixed';
-      ghost.style.left = rect.left + 'px';
-      ghost.style.top = rect.top + 'px';
+      ghost.style.left = '0';
+      ghost.style.top = '0';
+      ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.08)`;
+      ghost.style.willChange = 'transform';
+      ghost.style.transition = 'none';
       ghost.style.width = rect.width + 'px';
       ghost.style.height = rect.height + 'px';
       ghost.style.margin = '0';
       ghost.style.pointerEvents = 'none';
       ghost.style.zIndex = '1000';
-      ghost.style.transform = 'scale(1.08)';
       ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
       document.body.appendChild(ghost);
       node.style.opacity = '0.25';
     }
     e.preventDefault();
-    ghost.style.left = (e.clientX - offsetX) + 'px';
-    ghost.style.top = (e.clientY - offsetY) + 'px';
-    setHoverTarget(findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE, ghost));
+    // Same split as the hand drag: the ghost follows every event, the hit
+    // test runs once per frame.
+    ghost.style.transform = `translate3d(${e.clientX - offsetX}px, ${e.clientY - offsetY}px, 0) scale(1.08)`;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    if (!frame) frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (ghost) setHoverTarget(findDropTarget(lastX, lastY, DROP_FROM_PILE, ghost));
+    });
   }
 
   async function onUp(e) {
@@ -230,6 +247,7 @@ function enablePileDrag(node, onDrop) {
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
     if (!dragging) return;
+    if (frame) { cancelAnimationFrame(frame); frame = 0; }
     const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE, ghost);
     node.style.opacity = '';
     if (ghost) { ghost.remove(); ghost = null; }
@@ -428,11 +446,6 @@ function enableHandReorder(node, container) {
     return { target: findDropTarget(x, y, DROP_FROM_HAND, ghost, null, id), spot: null };
   }
 
-  // Puts the card back exactly where the drag began.
-  function snapBack() {
-    if (node.parentNode !== origParent || node.nextSibling !== origNext) origParent.insertBefore(node, origNext);
-  }
-
   node.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     startX = e.clientX;
@@ -497,28 +510,28 @@ function enableHandReorder(node, container) {
     // is either taken (the action re-renders) or refused (nothing moved).
     const { target, spot } = pickDrop(x, y);
     setHoverTarget(target);
-    const parent = node.parentNode, next = node.nextSibling;
+    const [parent, next] = spot ? slotAt(spot.row, spot.x) : [origParent, origNext];
+    // Most frames the card stays in the same slot: then nothing is measured
+    // or moved. Only a move re-lays the rows (and their overlap), and only a
+    // move needs the neighbours to slide over.
+    if (node.parentNode === parent && node.nextSibling === next) return;
     const before = handCardRects(container);
-    if (spot) reflow(spot.row, spot.x); else snapBack();
-    // Only a move re-lays the rows (and their overlap), and only a move
-    // needs the neighbours to slide over.
-    if (node.parentNode !== parent || node.nextSibling !== next) {
-      spaceRows(container);
-      slideHandFrom(container, before);
-    }
+    parent.insertBefore(node, next);
+    spaceRows(container);
+    slideHandFrom(container, before);
   }
 
-  // Moves `node` into `row` (the one the dragged card is over), at the slot
-  // its centre `x` is nearest - this is what makes the row visually "open a
-  // gap" at the drop target as the browser's own flex layout reflows.
-  function reflow(row, x) {
+  // The slot in `row` (the one the dragged card is over) its centre `x` is
+  // nearest, as [row, the card to insert before] - moving `node` there is
+  // what makes the row visually "open a gap" at the drop target as the
+  // browser's own flex layout reflows.
+  function slotAt(row, x) {
     const sibs = [...row.children].filter(ch => ch !== node);
-    let before = null;
     for (const sib of sibs) {
       const r = layoutRect(sib);
-      if (x < r.left + r.width / 2) { before = sib; break; }
+      if (x < r.left + r.width / 2) return [row, sib];
     }
-    if (node.parentNode !== row || node.nextSibling !== before) row.insertBefore(node, before);
+    return [row, null];
   }
 
   // Ends the drag and hands back the ghost (for settleGhost) instead of
@@ -555,7 +568,8 @@ function enableHandReorder(node, container) {
       g.remove();
       // Played, not reordered: hand out the card and leave handOrders alone.
       // The action re-renders on its own (and on a refused move it toasts and
-      // leaves the hand exactly as it was - snapBack already restored it).
+      // leaves the hand exactly as it was - updateDrag already put the card back
+      // where the drag began).
       setTimeout(() => { state.suppressNextCardClick = false; }, 300);
       await target._remiDrop.onDrop(node.dataset.cardId);
       return;
