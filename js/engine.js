@@ -22,10 +22,20 @@ export function makeDeck() {
   return cards;
 }
 
-export function shuffle(deck, rng = Math.random) {
+// Uniform integer in [0, n), from the browser's cryptographic RNG rather
+// than Math.random. Draws that fall in the uneven tail of the 32-bit range
+// are redrawn, so no value is (even slightly) more likely than another.
+export function randomInt(n) {
+  const limit = Math.floor(0x100000000 / n) * n;
+  const buf = new Uint32Array(1);
+  do crypto.getRandomValues(buf); while (buf[0] >= limit);
+  return buf[0] % n;
+}
+
+export function shuffle(deck) {
   const arr = deck.slice();
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = randomInt(i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -467,7 +477,7 @@ export function guessJokerRankValue(nonJokers) {
 export function setupRound(players, dealerIndex) {
   const n = players.length;
   let deck = shuffle(makeDeck());
-  const cutPoint = 1 + Math.floor(Math.random() * (deck.length - 2));
+  const cutPoint = 1 + randomInt(deck.length - 2);
   const topPortion = deck.slice(0, cutPoint);
   const bottomPortion = deck.slice(cutPoint);
   const revealed = topPortion[topPortion.length - 1];
