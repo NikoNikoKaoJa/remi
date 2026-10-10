@@ -255,10 +255,6 @@ function enablePileDrag(node, onDrop) {
 // row (both are full, or mid-drag before the drop is balanced), its cards
 // overlap just enough to stay on the one line (spaceRows).
 
-// Gap between two wrapped rows of cards (px): just enough for the seam to
-// count as part of a row, so it belongs to one row or the other rather than
-// to neither. Anything more starts swallowing the dead space above the hand.
-const ROW_BAND_SLACK = 5;
 const HAND_ROW_GAP = 6;
 
 // How many cards fit side by side in one row of `box`.
@@ -329,10 +325,68 @@ function balanceRows(row1, row2, droppedId, cap) {
   return { row1, row2 };
 }
 
+// ===== Hand drag animation =====
+// Cards glide instead of jumping: when a drag opens a gap, when a drop
+// rebalances the rows, and the dragged card itself settling into its slot.
+// The FLIP technique: note where every card is, change the DOM, then start
+// each card at its old spot (a transform) and let it slide to the new one.
+const HAND_ANIM_MS = 150;
+const reduceMotion = () => !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+// Where each hand card is on screen right now (mid-slide included), by id.
+function handCardRects(box) {
+  const rects = new Map();
+  box.querySelectorAll('[data-card-id]').forEach(n => rects.set(n.dataset.cardId, n.getBoundingClientRect()));
+  return rects;
+}
+
+// Slides every card in `box` from where `before` saw it to where it is now.
+// All reads happen before all writes, so it costs one layout, not one per card.
+function slideHandFrom(box, before, skipId) {
+  if (reduceMotion()) return;
+  const nodes = [...box.querySelectorAll('[data-card-id]')]
+    .filter(n => n.dataset.cardId !== skipId && before.has(n.dataset.cardId));
+  nodes.forEach(n => { n.style.transition = 'none'; n.style.transform = ''; });
+  const moves = nodes.map(n => {
+    const was = before.get(n.dataset.cardId), now = n.getBoundingClientRect();
+    return [n, was.left - now.left, was.top - now.top];
+  }).filter(([, dx, dy]) => Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5);
+  if (!moves.length) return;
+  moves.forEach(([n, dx, dy]) => { n.style.transform = `translate(${dx}px, ${dy}px)`; });
+  box.getBoundingClientRect(); // commit the start positions before animating
+  moves.forEach(([n]) => {
+    n.style.transition = `transform ${HAND_ANIM_MS}ms ease-out`;
+    n.style.transform = '';
+  });
+}
+
+// A card's left edge and width in the layout, ignoring a slide still in
+// flight - otherwise the drop position would chase the animation.
+function layoutRect(n) {
+  const r = n.getBoundingClientRect();
+  let tx = 0;
+  try { tx = new DOMMatrixReadOnly(getComputedStyle(n).transform).m41 || 0; } catch (e) { /* 'none' on old engines */ }
+  return { left: r.left - tx, width: r.width };
+}
+
+// Glides the drag ghost onto the (freshly rendered) card it stands for, then
+// removes it. The real card stays hidden until the ghost has landed on it.
+function settleGhost(ghost, cardId) {
+  const target = document.querySelector(`.hand-rows [data-card-id="${cardId}"]`);
+  if (!target || reduceMotion()) { ghost.remove(); return; }
+  const r = target.getBoundingClientRect();
+  target.style.visibility = 'hidden';
+  ghost.style.transition = `transform ${HAND_ANIM_MS}ms ease-out, box-shadow ${HAND_ANIM_MS}ms ease-out`;
+  ghost.style.transform = `translate3d(${r.left}px, ${r.top}px, 0) scale(1)`;
+  ghost.style.boxShadow = '0 2px 5px rgba(0,0,0,0.35)';
+  setTimeout(() => { ghost.remove(); target.style.visibility = ''; }, HAND_ANIM_MS + 20);
+}
+
 function enableHandReorder(node, container) {
   let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
   let origParent = null, origNext = null; // where the card sat when the drag started
   let hoverTarget = null; // the drop target (otpad / meld) currently under the pointer
+  let frame = 0, lastX = 0, lastY = 0; // hit-testing runs at most once per frame
 
   function setHoverTarget(t) {
     if (hoverTarget === t) return;
@@ -341,33 +395,37 @@ function enableHandReorder(node, container) {
     if (hoverTarget) hoverTarget.classList.add('drop-hover');
   }
 
-  // Is the pointer actually over the hand? Anywhere else (the table, the
-  // melds, the action bar, off the panel entirely) is not a placement, and
-  // the card must go back where it started rather than to whichever end the
-  // geometry search happened to fall through to. This asks the browser what
-  // is under the pointer instead of measuring the box - the box is wider
-  // than the cards (it's a centered full-width flex container) and taller
-  // than they look, so a box test called plenty of clearly-off-row drags
-  // "over the row". The ghost is pointer-events:none, so it never answers
-  // here itself.
-  function overHand(x, y) {
-    const hit = document.elementFromPoint(x, y);
-    return !!hit && (hit === container || container.contains(hit));
+  // Where in the hand the dragged card is, judged by the card itself (the
+  // ghost), not the pointer: as soon as it overlaps any card of a row, it is
+  // over that row - however it's being held. Returns { row, x } (x = the
+  // ghost's centre, which picks the slot) or null when it touches no hand
+  // card at all. The dragged card's own faded slot counts as a card, and so
+  // does an empty row's drop zone (card-height while a drag is under way).
+  // If it overlaps both rows, the one it covers more wins.
+  function handSpot() {
+    if (!ghost) return null;
+    const g = ghost.getBoundingClientRect();
+    const overlap = (r) => Math.max(0, Math.min(g.right, r.right) - Math.max(g.left, r.left))
+      * Math.max(0, Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top));
+    let best = null, bestArea = 0;
+    container.querySelectorAll('.hand-row').forEach(row => {
+      const parts = row.children.length ? [...row.children] : [row];
+      const area = parts.reduce((sum, n) => sum + overlap(n.getBoundingClientRect()), 0);
+      if (area > bestArea) { best = row; bestArea = area; }
+    });
+    return best ? { row: best, x: (g.left + g.right) / 2 } : null;
   }
 
-  // The row (of the two) the pointer is level with, or null when it is level
-  // with neither - the strip of padding just above/below the cards is still
-  // "inside" the hand element, but dropping there is not a placement. An empty
-  // row counts (it has a card-height drop zone while a drag is under way).
-  function rowAtY(y) {
-    let best = null, bestDist = Infinity;
-    container.querySelectorAll('.hand-row').forEach(row => {
-      const r = row.getBoundingClientRect();
-      if (r.height === 0) return;
-      const dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
-      if (dist < bestDist) { best = row; bestDist = dist; }
-    });
-    return bestDist <= ROW_BAND_SLACK ? best : null;
+  // What a drop right now would do: a drop target straight under the pointer
+  // (otpad / meld) wins; else a reorder if the card overlaps the hand; else
+  // whichever target the card overlaps most; else nothing (snap back).
+  function pickDrop(x, y) {
+    const id = node.dataset.cardId;
+    const underPointer = findDropTarget(x, y, DROP_FROM_HAND, null, container, id);
+    if (underPointer) return { target: underPointer, spot: null };
+    const spot = handSpot();
+    if (spot) return { target: null, spot };
+    return { target: findDropTarget(x, y, DROP_FROM_HAND, ghost, null, id), spot: null };
   }
 
   // Puts the card back exactly where the drag began.
@@ -408,55 +466,74 @@ function enableHandReorder(node, container) {
       offsetY = startY - rect.top;
       ghost = node.cloneNode(true);
       ghost.style.position = 'fixed';
-      ghost.style.left = rect.left + 'px';
-      ghost.style.top = rect.top + 'px';
+      ghost.style.left = '0';
+      ghost.style.top = '0';
+      ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.08)`;
+      ghost.style.willChange = 'transform';
+      ghost.style.transition = 'none';
       ghost.style.width = rect.width + 'px';
       ghost.style.height = rect.height + 'px';
       ghost.style.margin = '0';
       ghost.style.pointerEvents = 'none';
       ghost.style.zIndex = '1000';
-      ghost.style.transform = 'scale(1.08)';
       ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
       document.body.appendChild(ghost);
       node.style.opacity = '0.25';
     }
     e.preventDefault();
-    ghost.style.left = (e.clientX - offsetX) + 'px';
-    ghost.style.top = (e.clientY - offsetY) + 'px';
+    // Moving the ghost is just a transform (no layout), so it tracks the
+    // finger on every event; the hit-testing and reflow below touch layout
+    // and run once per frame.
+    ghost.style.transform = `translate3d(${e.clientX - offsetX}px, ${e.clientY - offsetY}px, 0) scale(1.08)`;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; updateDrag(lastX, lastY); });
+  }
+
+  function updateDrag(x, y) {
+    if (!ghost) return;
     // Over the otpad or a meld the hand shouldn't preview a reorder at all
     // - the card is leaving the hand, so it stays where it was until the drop
     // is either taken (the action re-renders) or refused (nothing moved).
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND, ghost, container, node.dataset.cardId);
+    const { target, spot } = pickDrop(x, y);
     setHoverTarget(target);
-    if (target) snapBack(); else reflow(e.clientX, e.clientY);
-    spaceRows(container);
+    const parent = node.parentNode, next = node.nextSibling;
+    const before = handCardRects(container);
+    if (spot) reflow(spot.row, spot.x); else snapBack();
+    // Only a move re-lays the rows (and their overlap), and only a move
+    // needs the neighbours to slide over.
+    if (node.parentNode !== parent || node.nextSibling !== next) {
+      spaceRows(container);
+      slideHandFrom(container, before);
+    }
   }
 
-  // Moves `node` into the row the pointer is level with, next to whichever
-  // card there it is nearest - this is what makes the row visually "open a
+  // Moves `node` into `row` (the one the dragged card is over), at the slot
+  // its centre `x` is nearest - this is what makes the row visually "open a
   // gap" at the drop target as the browser's own flex layout reflows.
-  function reflow(x, y) {
-    // Off the cards: preview the snap-back, so the gap sits where the card
-    // came from instead of at an end it would never actually drop into.
-    const row = overHand(x, y) ? rowAtY(y) : null;
-    if (!row) { snapBack(); return; }
+  function reflow(row, x) {
     const sibs = [...row.children].filter(ch => ch !== node);
     let before = null;
     for (const sib of sibs) {
-      const r = sib.getBoundingClientRect();
+      const r = layoutRect(sib);
       if (x < r.left + r.width / 2) { before = sib; break; }
     }
     if (node.parentNode !== row || node.nextSibling !== before) row.insertBefore(node, before);
   }
 
+  // Ends the drag and hands back the ghost (for settleGhost) instead of
+  // removing it.
   function endDrag() {
+    if (frame) { cancelAnimationFrame(frame); frame = 0; }
     node.style.opacity = '';
-    if (ghost) { ghost.remove(); ghost = null; }
+    const g = ghost;
+    ghost = null;
     state.handDragActive = false;
     endNoSelectDrag();
     container.classList.remove('drag-active');
     setHoverTarget(null);
     spaceRows(container);
+    return g;
   }
 
   async function onUp(e) {
@@ -466,10 +543,16 @@ function enableHandReorder(node, container) {
     window.removeEventListener('pointercancel', onUp);
     if (!dragging) return;
     state.suppressNextCardClick = true;
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_HAND, ghost, container, node.dataset.cardId);
-    const placed = !target && overHand(e.clientX, e.clientY) && rowAtY(e.clientY);
-    endDrag();
+    // A frame still pending would have moved the card to under the finger:
+    // run it now, so the drop lands where the preview showed it.
+    if (frame) { cancelAnimationFrame(frame); frame = 0; updateDrag(e.clientX, e.clientY); }
+    const { target, spot } = pickDrop(e.clientX, e.clientY);
+    const placed = !!spot;
+    const before = handCardRects(container);
+    const g = endDrag();
+    const cardId = node.dataset.cardId;
     if (target) {
+      g.remove();
       // Played, not reordered: hand out the card and leave handOrders alone.
       // The action re-renders on its own (and on a refused move it toasts and
       // leaves the hand exactly as it was - snapBack already restored it).
@@ -483,6 +566,7 @@ function enableHandReorder(node, container) {
       // card back exactly where it was when the drag started.
       setTimeout(() => { state.suppressNextCardClick = false; }, 300);
       render();
+      settleGhost(g, cardId);
       return;
     }
     const [rowEl1, rowEl2] = container.querySelectorAll('.hand-row');
@@ -492,9 +576,14 @@ function enableHandReorder(node, container) {
     if (!state.room.handRows) state.room.handRows = {};
     state.room.handOrders[state.session.playerId] = row1.concat(row2);
     state.room.handRows[state.session.playerId] = row2;
-    await saveHandLayout(state.room, state.session.playerId);
+    // Saved in the background, like every other move: waiting for Firebase
+    // first left the dropped card hanging for the whole round trip.
+    saveHandLayout(state.room, state.session.playerId);
     setTimeout(() => { state.suppressNextCardClick = false; }, 300);
     render();
+    const box = document.querySelector('.hand-rows');
+    if (box) slideHandFrom(box, before, cardId);
+    settleGhost(g, cardId);
   }
 }
 
