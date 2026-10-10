@@ -136,5 +136,7 @@ function queueWrite(code, writeId, method, body) {
 
 export async function deleteRoom(code) {
   if (!state.dbUrl) return;
-  await fetch(`${state.dbUrl}/rooms/${code}.json`, { method: 'DELETE' });
+  try {
+    await fetch(`${state.dbUrl}/rooms/${code}.json`, { method: 'DELETE' });
+  } catch (e) { /* offline - the room just stays behind in the DB */ }
 }

@@ -14,20 +14,26 @@ export function newRoomCode() {
 }
 export function uid() { return 'pl_' + Math.random().toString(36).slice(2, 10); }
 
-export async function mySession() {
+export function mySession() {
   try {
     const raw = localStorage.getItem('my-remi-session');
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
-export async function saveSession() {
+export function saveSession() {
   localStorage.setItem('my-remi-session', JSON.stringify(state.session));
+}
+// Forgets which room this browser is in - after leaving it, or when it's gone.
+export function clearSession() {
+  localStorage.removeItem('my-remi-session');
+  state.session = { playerId: null, name: null, roomCode: null };
+  state.room = null;
 }
 
 export async function createRoom(name) {
   const code = newRoomCode();
   state.session = { playerId: uid(), name, roomCode: code };
-  await saveSession();
+  saveSession();
   const r = {
     code,
     phase: 'lobby',
@@ -50,7 +56,7 @@ export async function joinRoom(code, name) {
   if (r.phase !== 'lobby') { showToast('Igra je vec pocela u toj sobi.'); return; }
   if (r.players.length >= 4) { showToast('Soba je puna (max 4 igraca).'); return; }
   state.session = { playerId: uid(), name, roomCode: code };
-  await saveSession();
+  saveSession();
   r.players.push({ id: state.session.playerId, name });
   await saveRoom(r);
   state.room = r;
@@ -62,9 +68,7 @@ export async function leaveRoom() {
   stopSync();
   const leftRoom = state.room;
   const leftPlayerId = state.session.playerId;
-  localStorage.removeItem('my-remi-session');
-  state.session = { playerId: null, name: null, roomCode: null };
-  state.room = null;
+  clearSession();
   history.replaceState(null, '', location.pathname);
   render();
   if (leftRoom && leftPlayerId) {
@@ -74,7 +78,7 @@ export async function leaveRoom() {
 }
 
 export async function rejoin() {
-  const s = await mySession();
+  const s = mySession();
   if (!s || !s.roomCode) return false;
   const r = await loadRoom(s.roomCode);
   if (!r) return false;
@@ -185,9 +189,7 @@ function receiveRoom(r) {
   }
   if (r === null || (state.session.playerId && !r.players.find(p => p.id === state.session.playerId))) {
     stopSync();
-    localStorage.removeItem('my-remi-session');
-    state.session = { playerId: null, name: null, roomCode: null };
-    state.room = null;
+    clearSession();
     showToast('Host je resetovao igru. Pridruzi se ponovo preko linka.');
     render();
     return;

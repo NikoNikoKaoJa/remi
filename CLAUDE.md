@@ -133,17 +133,15 @@ There are two builds of the same game:
 modules, so this only works over http(s)/GitHub Pages/a local server, not
 `file://` (see Tech constraints above). Files:
 
-1. **`js/cards.js`** — card display primitives, no other module deps:
-   `SUIT_SYM`/`RANK_SYM`/`rankLabel`/`isRedSuit`, `cardEl`/`cardBackEl`,
-   `sortHand`.
+1. **`js/cards.js`** — DOM + card display primitives, no other module deps:
+   the `el()` element helper, `SUIT_SYM`/`RANK_SYM`/`rankLabel`/`isRedSuit`,
+   `cardEl`/`cardBackEl`, `sortHand`/`orderHand`.
 2. **`js/engine.js`** — pure rules engine + round engine (no DOM, no app
    state): `makeDeck`, `shuffle`, card values, `resolveMeld` (→ `trySet` /
    `tryRun`), `isValidMeld`, `sumOpeningValue`, `maliHandValue`,
    `findPartition`, `enumerateSingleJokerRunWindows`,
    `computeSelectedSum`/`guessJokerRankValue`, `setupRound`, `scoreRound`,
-   `sweepCompletedQuads`. `canUseDiscardCard` takes the table melds as an
-   explicit parameter (`tableMelds`) rather than reading app state, to keep
-   this module state-free.
+   `sweepCompletedQuads`. Nothing here reads app state.
 3. **`js/state.js`** — the one shared mutable `state` object (`room`,
    `session`, `dbUrl`, `busy`, `selectedIds`, `dismissedQuadAnnouncements`,
    etc.) plus `APP_VERSION` and the `localStorage`-backed helpers tied to that
@@ -154,20 +152,23 @@ modules, so this only works over http(s)/GitHub Pages/a local server, not
    many modules reassign these wholesale).
 4. **`js/storage.js`** — Firebase REST: `loadRoom`/`saveRoom`, `hydrateRoom`.
 5. **`js/ui.js`** — `showToast`, `showChoiceModal`, `showQuadAnnouncementModal`,
-   `checkQuadAnnouncement`.
+   `checkQuadAnnouncement`, the score-history table/modal (all modals open
+   through `openModal`).
 6. **`js/room.js`** — room lifecycle + session identity: `createRoom`,
-   `joinRoom`, `leaveRoom`, `rejoin`, `startSync`/`stopSync`, `mySession`/`saveSession`,
+   `joinRoom`, `leaveRoom`, `rejoin`, `startSync`/`stopSync`, `mySession`/`saveSession`/`clearSession`,
    `newRoomCode`/`uid`.
 7. **`js/actions.js`** — turn helpers (`myIndex`/`isMyTurn`/`myHand`/
-   `advanceTurn`/`endRoundWithWinner`/`getSelectedCards`) + round-start wrapper
-   (`beginRound`, `hostStartGame`/`hostResetGame`) + round-end flow
+   `advanceTurn`/`endRoundWithWinner`/`getSelectedCards`) + round start
+   (`beginCutReveal`, `hostStartGame`/`hostResetGame`) + round-end flow
    (`applyPendingRound`, `actionReadyForScores`/`actionReadyForNextRound`/
    `actionForceNextRound`) + all `actionDrawStock`/`actionDrawDiscard`/
    `actionDiscard`/`actionLayMultipleSelected`/`actionAddToMeld`/
-   `actionReplaceJoker`/`actionDeclare{Mali,Veliki}Hand`/
-   `actionTryBottomCard`.
-8. **`js/render.js`** — `el()` DOM helper, `render` dispatcher, and all
-   `render*` view functions. The hand-card pointer drag (`enableHandReorder`)
+   `actionReplaceJoker`/`actionDeclareHand`/`actionTryBottomCard`. Every
+   lay/add ends in `finishLay`, every joker swap in `takeJokerIntoHand`, and
+   every going-out in `throwLeftoverAndWin`.
+8. **`js/render.js`** — `render` dispatcher and all `render*` view
+   functions. Both drags share `onCardDrag` (press → threshold → drag),
+   `liftGhost`, `dropHighlighter` and `perFrame`. The hand-card pointer drag (`enableHandReorder`)
    does double duty: dropped back on the hand row it reorders, dropped on a
    registered drop target it plays the card. Targets are marked per render
    with `markDropTarget(node, kind, onDrop)` — the otpad pile (→

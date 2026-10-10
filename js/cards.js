@@ -1,4 +1,11 @@
-// ===== Card display primitives =====
+// ===== DOM + card display primitives =====
+export function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
 export const SUIT_SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
 export const RANK_SYM = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
 export function rankLabel(r) { return RANK_SYM[r] || String(r); }

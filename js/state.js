@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v1.40';
+export const APP_VERSION = 'v1.41';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -16,7 +16,7 @@ export const state = {
   deferredRoomTimer: null,
   awaitingWriteId: null, // writeId of our last save until Firebase echoes it back; older incoming rooms are ignored meanwhile
   toastTimer: null,
-  busy: false, // guards against double actions while writing to storage
+  busy: false, // set while an action waits on the network - blocks other actions, and holds incoming rooms until it's done
   selectedIds: new Set(),
   dismissedQuadAnnouncements: loadDismissedQuadAnnouncements(), // announcement ids this browser has already OK'd
   roundEndStage: 'announce', // local-only sub-stage of room.phase === 'round_end': 'announce' | 'scores'

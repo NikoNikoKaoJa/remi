@@ -1,7 +1,27 @@
 import { state, saveDismissedQuadAnnouncements } from './state.js';
-import { cardEl, rankLabel } from './cards.js';
+import { el, cardEl, rankLabel } from './cards.js';
 
 // ===== Toast / modal DOM helpers =====
+
+// Opens an empty modal - overlay plus box - over the whole app, replacing any
+// open one with the same id. The caller fills the box.
+function openModal(id, boxClass = 'modal-box') {
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+  const overlay = el('div', 'modal-overlay');
+  overlay.id = id;
+  const box = el('div', boxClass);
+  overlay.appendChild(box);
+  document.getElementById('remi-root').appendChild(overlay);
+  return { overlay, box };
+}
+
+// A full-width button.
+function wideButton(cls, text, onclick) {
+  const b = el('button', cls + ' btn-wide', text);
+  b.onclick = onclick;
+  return b;
+}
 
 export function showToast(msg, ms) {
   const el = document.getElementById('toast');
@@ -37,44 +57,27 @@ export function checkQuadAnnouncement() {
 
 export function showQuadAnnouncementModal(announcement) {
   if (document.getElementById('quad-modal')) return; // already showing one
-  const overlay = document.createElement('div');
-  overlay.id = 'quad-modal';
-  overlay.className = 'modal-overlay';
-  const box = document.createElement('div');
-  box.className = 'modal-box';
-  const h = document.createElement('h3');
-  h.textContent = 'Cetiri karte uklonjene sa stola!';
+  const { overlay, box } = openModal('quad-modal');
+  const h = el('h3', null, 'Cetiri karte uklonjene sa stola!');
   h.style.marginBottom = '10px';
   box.appendChild(h);
-  const p = document.createElement('div');
-  p.className = 'small';
+  const p = el('div', 'small', `Kompletirana grupa (${rankLabel(announcement.rank)}) je sklonjena sa stola i vise se ne moze koristiti.`);
   p.style.marginBottom = '14px';
-  p.textContent = `Kompletirana grupa (${rankLabel(announcement.rank)}) je sklonjena sa stola i vise se ne moze koristiti.`;
   box.appendChild(p);
-  const cardsRow = document.createElement('div');
-  cardsRow.style.display = 'flex';
-  cardsRow.style.justifyContent = 'center';
-  cardsRow.style.gap = '8px';
-  cardsRow.style.marginBottom = '18px';
+  const cardsRow = el('div');
+  Object.assign(cardsRow.style, { display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '18px' });
   announcement.cards.forEach(c => {
     const cd = cardEl(c, {});
     cd.classList.add('quad-highlight');
     cardsRow.appendChild(cd);
   });
   box.appendChild(cardsRow);
-  const okBtn = document.createElement('button');
-  okBtn.className = 'btn btn-gold';
-  okBtn.textContent = 'OK';
-  okBtn.style.width = '100%';
-  okBtn.onclick = () => {
+  box.appendChild(wideButton('btn btn-gold', 'OK', () => {
     state.dismissedQuadAnnouncements.add(announcement.id);
     saveDismissedQuadAnnouncements();
     overlay.remove();
     checkQuadAnnouncement();
-  };
-  box.appendChild(okBtn);
-  overlay.appendChild(box);
-  document.getElementById('remi-root').appendChild(overlay);
+  }));
 }
 
 // Builds the "paper scoresheet" style table: one row per finished round, one
@@ -92,8 +95,9 @@ export function buildScoreHistoryTable(room, winnerId = null) {
   const n = room.players.length;
   const history = room.scoreHistory || [];
   const cls = p => (p.id === winnerId ? ' class="winner-col"' : '');
+  // Names are typed by the players, so they go in as text, never as HTML.
   const headRow = document.createElement('tr');
-  headRow.innerHTML = room.players.map(p => `<th${cls(p)}>${p.name}</th>`).join('');
+  room.players.forEach(p => headRow.appendChild(el('th', p.id === winnerId ? 'winner-col' : null, p.name)));
   table.appendChild(headRow);
   history.forEach((entry, i) => {
     const last = i === history.length - 1;
@@ -185,46 +189,25 @@ export function closeScoreHistoryModal() {
 
 // onClose runs when the modal's own Zatvori button closes it.
 export function showScoreHistoryModal(room, onClose) {
-  closeScoreHistoryModal();
-  const overlay = document.createElement('div');
-  overlay.id = 'score-history-modal';
-  overlay.className = 'modal-overlay';
-  const box = document.createElement('div');
-  box.className = 'modal-box modal-box-wide';
+  const { overlay, box } = openModal('score-history-modal', 'modal-box modal-box-wide');
   // Same treatment as the round-end scores screen: names row fixed above a
   // scrolling body, opened on the newest round. No scroll-position bookkeeping
   // here - the modal hangs off #remi-root rather than #app, so a poll's
   // re-render leaves it alone.
   const history = buildScoreHistoryBlock(room);
   box.appendChild(history.block);
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'btn btn-gold';
-  closeBtn.textContent = 'Zatvori';
-  closeBtn.style.width = '100%';
+  const closeBtn = wideButton('btn btn-gold', 'Zatvori', () => { overlay.remove(); if (onClose) onClose(); });
   closeBtn.style.marginTop = '14px';
-  closeBtn.onclick = () => { overlay.remove(); if (onClose) onClose(); };
   box.appendChild(closeBtn);
-  overlay.appendChild(box);
-  document.getElementById('remi-root').appendChild(overlay);
   reserveScrollbarStrip(history.block, history.bodyWrap, history.tableWidth);
   history.bodyWrap.scrollTop = history.bodyWrap.scrollHeight;
 }
 
 export function showChoiceModal(title, options, onPick) {
-  const existing = document.getElementById('choice-modal');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'choice-modal';
-  overlay.className = 'modal-overlay';
-  const box = document.createElement('div');
-  box.className = 'modal-box';
-  const h = document.createElement('h3');
-  h.textContent = title;
-  h.className = 'modal-title-sticky';
-  box.appendChild(h);
+  const { overlay, box } = openModal('choice-modal');
+  box.appendChild(el('h3', 'modal-title-sticky', title));
   options.forEach(opt => {
-    const b = document.createElement('button');
-    b.className = 'btn btn-gold';
+    const b = el('button', 'btn btn-gold');
     // label is either plain text or a DOM node (e.g. a row of real cards
     // built by buildMeldGroupEl/buildPartitionPreviewEl) to show instead.
     if (opt.label instanceof Node) {
@@ -236,41 +219,29 @@ export function showChoiceModal(title, options, onPick) {
       b.textContent = opt.label;
       b.style.display = 'block';
     }
-    b.style.width = '100%';
+    b.classList.add('btn-wide');
     b.style.marginBottom = '8px';
     b.onclick = () => { overlay.remove(); onPick(opt); };
     box.appendChild(b);
   });
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-ghost';
-  cancelBtn.textContent = 'Otkazi';
-  cancelBtn.style.width = '100%';
-  cancelBtn.onclick = () => overlay.remove();
-  box.appendChild(cancelBtn);
-  overlay.appendChild(box);
-  document.getElementById('remi-root').appendChild(overlay);
+  box.appendChild(wideButton('btn btn-ghost', 'Otkazi', () => overlay.remove()));
 }
 
 // Renders one meld option as real mini cards, in the exact order the caller
 // wants them shown (e.g. via engine.js's sortMeldForDisplay/runWindowPreviewCards)
 // - used as a showChoiceModal option's `label` instead of a text description.
 export function buildMeldGroupEl(cardsInDisplayOrder) {
-  const cardsDiv = document.createElement('div');
-  cardsDiv.className = 'meld-cards';
+  const cardsDiv = el('div', 'meld-cards');
   cardsInDisplayOrder.forEach(c => cardsDiv.appendChild(cardEl(c, { mini: true })));
-  const wrap = document.createElement('div');
-  wrap.className = 'meld-group';
+  const wrap = el('div', 'meld-group');
   wrap.appendChild(cardsDiv);
   return wrap;
 }
 
 // Renders a full partition option (several meld groups side by side).
 export function buildPartitionPreviewEl(groupsInDisplayOrder) {
-  const wrap = document.createElement('div');
-  wrap.style.display = 'flex';
-  wrap.style.flexWrap = 'wrap';
-  wrap.style.gap = '10px';
-  wrap.style.justifyContent = 'center';
+  const wrap = el('div');
+  Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' });
   groupsInDisplayOrder.forEach(cards => wrap.appendChild(buildMeldGroupEl(cards)));
   return wrap;
 }

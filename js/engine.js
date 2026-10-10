@@ -181,10 +181,10 @@ export function enumerateSingleJokerRunWindows(cards) {
     const minN = Math.min(...numeric);
     const maxN = Math.max(...numeric);
     if (maxN - minN + 1 > totalLen) continue;
+    const covered = new Set(numeric);
     for (let start = Math.max(1, maxN - totalLen + 1); start <= minN; start++) {
       const end = start + totalLen - 1;
-      if (end > 14 || start < 1) continue;
-      const covered = new Set(numeric);
+      if (end > 14) continue;
       const missing = [];
       for (let n = start; n <= end; n++) if (!covered.has(n)) missing.push(n);
       if (missing.length !== 1) continue;
@@ -299,15 +299,11 @@ export function sumOpeningValue(melds) {
     if (!resolved) return -1; // invalid
     const isSet = resolved.type === 'set';
     for (const item of resolved.cards) {
-      if (item.isJoker) {
-        const r = item.substitutes.rank;
-        if (r === 1) total += (isSet || item.substitutes._aceHigh) ? 10 : 1;
-        else total += (r >= 11) ? 10 : r;
-      } else {
-        const r = item.contextRank;
-        if (r === 1) total += (isSet || item.card._aceHigh) ? 10 : 1;
-        else total += (r >= 11) ? 10 : r;
-      }
+      // A joker counts as the card it stands for.
+      const r = item.isJoker ? item.substitutes.rank : item.contextRank;
+      const aceHigh = item.isJoker ? item.substitutes._aceHigh : item.card._aceHigh;
+      if (r === 1) total += (isSet || aceHigh) ? 10 : 1;
+      else total += (r >= 11) ? 10 : r;
     }
   }
   return total;
@@ -318,25 +314,11 @@ export function maliHandValue(hand) {
   return hand.reduce((s, c) => s + cardValueMaliHand(c), 0);
 }
 
-// Like a full partition search but returns the actual groups (array of card-arrays) or null.
+// The first way `cards` splits into valid melds (array of card-arrays), or
+// null. The same search as findAllPartitions, stopped at the first answer and
+// never capped - so unlike that one it can't give up on a big hand.
 export function findPartition(cards, maxGroupSize = 8) {
-  if (cards.length === 0) return [];
-  if (cards.length < 3) return null;
-  const first = cards[0];
-  const rest = cards.slice(1);
-  const maxLen = Math.min(maxGroupSize, cards.length);
-  for (let len = 3; len <= maxLen; len++) {
-    const combos = combinations(rest, len - 1);
-    for (const combo of combos) {
-      const group = [first, ...combo];
-      if (isValidMeld(group)) {
-        const remaining = rest.filter(c => !combo.includes(c));
-        const sub = findPartition(remaining, maxGroupSize);
-        if (sub !== null) return [group, ...sub];
-      }
-    }
-  }
-  return null;
+  return findAllPartitions(cards, maxGroupSize, 1, Infinity)[0] || null;
 }
 
 export function combinations(arr, k) {
@@ -476,7 +458,7 @@ export function guessJokerRankValue(nonJokers) {
 
 export function setupRound(players, dealerIndex) {
   const n = players.length;
-  let deck = shuffle(makeDeck());
+  const deck = shuffle(makeDeck());
   const cutPoint = 1 + randomInt(deck.length - 2);
   const topPortion = deck.slice(0, cutPoint);
   const bottomPortion = deck.slice(cutPoint);
@@ -489,23 +471,23 @@ export function setupRound(players, dealerIndex) {
   // bonus jokers: [{ idx, card }] - each is dealt as an extra card to that player
   const bonuses = [];
   let specialBottomCard = null;
-  let stockPool = bottomPortion.concat(topPortion.slice(0, topPortion.length - 1));
+  let pool = bottomPortion.concat(topPortion.slice(0, topPortion.length - 1));
 
   if (revealed.joker) {
     // the revealed card itself is claimed as a bonus joker by the cutter -
     // reveal the next card from the pool instead so there's always a visible card.
     bonuses.push({ idx: cutterIdx, card: revealed });
-    stockPool = shuffle(stockPool);
+    pool = shuffle(pool);
     // a joker landing in that slot is treated like a joker second from bottom:
     // it goes to the dealer, and the next card is tried until a non-joker fills the slot
-    while (stockPool.length && stockPool[0].joker) {
-      bonuses.push({ idx: dealerIndex, card: stockPool.shift() });
+    while (pool.length && pool[0].joker) {
+      bonuses.push({ idx: dealerIndex, card: pool.shift() });
     }
-    specialBottomCard = stockPool.shift();
+    specialBottomCard = pool.shift();
   } else if (secondFromBottom && secondFromBottom.joker) {
     bonuses.push({ idx: dealerIndex, card: secondFromBottom });
-    stockPool = stockPool.filter(c => c.id !== secondFromBottom.id);
-    stockPool = shuffle(stockPool);
+    pool = pool.filter(c => c.id !== secondFromBottom.id);
+    pool = shuffle(pool);
     specialBottomCard = revealed;
   } else {
     specialBottomCard = revealed;
@@ -513,7 +495,6 @@ export function setupRound(players, dealerIndex) {
 
   const hands = {};
   players.forEach(p => hands[p.id] = []);
-  let pool = stockPool.slice();
   for (let round = 0; round < 14; round++) {
     for (let k = 0; k < n; k++) {
       const pIdx = (firstPlayerIdx + k) % n;

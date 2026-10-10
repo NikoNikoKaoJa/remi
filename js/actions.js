@@ -10,7 +10,7 @@ import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
 import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
-import { stopSync, resyncAfterFailedSave } from './room.js';
+import { stopSync, resyncAfterFailedSave, clearSession } from './room.js';
 
 // Shows the move straight away and saves it in the background, instead of
 // leaving the screen unchanged for the whole round trip to Firebase (~0.2s,
@@ -42,11 +42,9 @@ function startCutReveal(r) {
 
 export async function hostStartGame() {
   if (state.room.players.length < 2) { showToast('Treba bar 2 igraca.'); return; }
-  state.busy = true;
   if (!state.room.scores) state.room.scores = {};
   beginCutReveal(state.room);
   scheduleCutAdvance();
-  state.busy = false;
   commitMove();
 }
 
@@ -63,11 +61,8 @@ export function applyPendingRound(r) {
   // it impossible to ever discard).
   const pr = r.pendingRound || {};
   applyCollectionDefaults(pr, ['melds', 'discard', 'openedPlayers', 'stock']);
-  if (!pr.discardDrawCardId) pr.discardDrawCardId = null;
-  if (!pr.bottomDrawCardId) pr.bottomDrawCardId = null;
-  if (!pr.roundWinner) pr.roundWinner = null;
-  if (!pr.roundWinType) pr.roundWinType = null;
-  if (!pr.pendingJokerToPlace) pr.pendingJokerToPlace = null;
+  ['discardDrawCardId', 'bottomDrawCardId', 'roundWinner', 'roundWinType', 'pendingJokerToPlace']
+    .forEach(k => { if (!pr[k]) pr[k] = null; });
   Object.assign(r, pr);
   r.round = (r.round || 0) + 1;
   // Seed each player's order with their freshly-dealt hand pre-sorted, so the
@@ -128,26 +123,20 @@ export async function actionReadyForNextRound() {
 export async function actionForceNextRound() {
   const ok = confirm('Pokreni sledecu rundu i bez da su svi spremni?');
   if (!ok) return;
-  state.busy = true;
   startCutReveal(state.room);
   scheduleCutAdvance();
-  state.busy = false;
   commitMove();
 }
 
 export async function hostResetGame() {
   const ok = confirm('Da li sigurno zelis da prekines igru i resetujes sve? Ovo brise sobu za sve igrace.');
   if (!ok) return;
-  state.busy = true;
   stopSync();
   const code = state.room.code;
   state.dismissedQuadAnnouncements.clear();
   saveDismissedQuadAnnouncements();
-  localStorage.removeItem('my-remi-session');
-  state.session = { playerId: null, name: null, roomCode: null };
-  state.room = null;
+  clearSession();
   history.replaceState(null, '', location.pathname);
-  state.busy = false;
   render();
   await deleteRoom(code);
 }
@@ -156,6 +145,17 @@ export async function hostResetGame() {
 export function myIndex() { return state.room.players.findIndex(p => p.id === state.session.playerId); }
 export function isMyTurn() { return state.room.phase === 'playing' && state.room.currentPlayerIndex === myIndex(); }
 export function myHand() { return state.room.hands[state.session.playerId] || []; }
+// Whether a move of this turn phase ('draw' / 'meld') is open to me right now.
+function canActIn(phase) { return isMyTurn() && state.room.turnPhase === phase && !state.busy; }
+export function iHaveOpened() { return state.room.openedPlayers.includes(state.session.playerId); }
+export function amHost() {
+  const host = state.room.players[0];
+  return !!host && host.id === state.session.playerId;
+}
+
+// The card from under the talon is only ever taken to make a hand, so while
+// it's in hand nothing else may go on the table.
+const BOTTOM_CARD_ONLY_FOR_HAND = '⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.';
 
 export function advanceTurn(r) {
   const n = r.players.length;
@@ -175,7 +175,7 @@ export function advanceTurn(r) {
   r.turnMeldIds = [];
 }
 
-export async function endRoundWithWinner(r, winnerId, handType) {
+export function endRoundWithWinner(r, winnerId, handType) {
   const deltas = scoreRound(r, winnerId, handType);
   r.players.forEach(p => { r.scores[p.id] = (r.scores[p.id] || 0) + deltas[p.id]; });
   if (!r.scoreHistory) r.scoreHistory = [];
@@ -264,16 +264,14 @@ function clearSatisfiedObligations(r, laidCards, hand) {
 }
 
 export function getSelectedCards() {
-  const hand = state.room.hands[state.session.playerId] || [];
-  return hand.filter(c => state.selectedIds.has(c.id));
+  return myHand().filter(c => state.selectedIds.has(c.id));
 }
 
 // ===== Actions =====
 export async function actionDrawStock() {
-  if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
-  state.busy = true;
+  if (!canActIn('draw')) return;
   if (state.room.stock.length === 0) {
-    if (state.room.discard.length <= 1) { showToast('Nema vise karata za vucenje.'); state.busy = false; return; }
+    if (state.room.discard.length <= 1) { showToast('Nema vise karata za vucenje.'); return; }
     const top = state.room.discard.pop();
     state.room.stock = shuffle(state.room.discard);
     state.room.discard = [top];
@@ -281,7 +279,6 @@ export async function actionDrawStock() {
   const card = state.room.stock.shift();
   myHandPush(card);
   state.room.turnPhase = 'meld';
-  state.busy = false;
   commitMove();
 }
 function myHandPush(card) {
@@ -303,15 +300,13 @@ function myHandPush(card) {
 }
 
 export async function actionDrawDiscard() {
-  if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
+  if (!canActIn('draw')) return;
   if (state.room.discard.length === 0) { showToast('Otpad je prazan.'); return; }
   if (myHand().length === 1) { showToast('Sa jednom kartom u ruci ne mozes vuci sa otpada - vuci sa talona.'); return; }
-  state.busy = true;
   const card = state.room.discard.pop();
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.discardDrawCardId = card.id;
-  state.busy = false;
   commitMove();
 }
 
@@ -324,7 +319,7 @@ export function warnDiscardDrawOwed() {
 }
 
 export async function actionDiscard(cardId) {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
+  if (!canActIn('meld')) return;
   if (hasPendingJoker(state.room, state.session.playerId)) {
     showToast('Prvo moras da spustis dzokere koje si zamenio (nova kombinacija ili dodavanje na postojeci niz).');
     return;
@@ -343,17 +338,15 @@ export async function actionDiscard(cardId) {
       showToast('⚠️ Sa kartom ispod talona moras da napravis hand ili je izaberi i klikni "Vrati kartu ispod talona".');
       return;
     }
-    await returnBottomCard(cardId);
+    returnBottomCard(cardId);
     return;
   }
   const isReturningDiscardDraw = state.room.discardDrawCardId === cardId;
-  state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
+  const hand = myHand();
   const idx = hand.findIndex(c => c.id === cardId);
-  if (idx === -1) { state.busy = false; return; }
+  if (idx === -1) return;
   if (hand[idx].joker && hand.length > 1 && !isReturningDiscardDraw) {
     showToast('Dzokera mozes baciti samo ako ti je to jedina karta u ruci.');
-    state.busy = false;
     return;
   }
   const [card] = hand.splice(idx, 1);
@@ -368,21 +361,19 @@ export async function actionDiscard(cardId) {
     state.room.discardDrawCardId = null;
     state.room.turnPhase = 'draw';
   } else if (hand.length === 0) {
-    await endRoundWithWinner(state.room, state.session.playerId, null);
+    endRoundWithWinner(state.room, state.session.playerId, null);
   } else {
     advanceTurn(state.room);
   }
-  state.busy = false;
   commitMove();
 }
 
 // Undo of actionTryBottomCard: slide the card back under the talon and rewind
 // the turn to its draw phase, as if it had never been taken.
-async function returnBottomCard(cardId) {
-  state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
+function returnBottomCard(cardId) {
+  const hand = myHand();
   const idx = hand.findIndex(c => c.id === cardId);
-  if (idx === -1) { state.busy = false; return; }
+  if (idx === -1) return;
   hand.splice(idx, 1);
   state.room.specialBottomCard.taken = false;
   state.room.bottomDrawCardId = null;
@@ -395,7 +386,6 @@ async function returnBottomCard(cardId) {
   if (state.room.pinnedCardIds && state.room.pinnedCardIds[state.session.playerId] === cardId) {
     state.room.pinnedCardIds[state.session.playerId] = null;
   }
-  state.busy = false;
   commitMove();
 }
 
@@ -411,7 +401,7 @@ let handOptionCache = { key: null, value: null };
 
 export function findHandOption(hand) {
   if (!state.room || hand.length !== 15) return null;
-  if (state.room.openedPlayers.includes(state.session.playerId)) return null;
+  if (iHaveOpened()) return null;
   const key = state.session.playerId + '|' + hand.map(c => c.id).join(',');
   if (handOptionCache.key === key) return handOptionCache.value;
   const result = findGoingOutOption(hand);
@@ -448,7 +438,7 @@ function findGoingOutOption(hand) {
 // the leftover card, end the round) - including asking about ambiguous joker
 // placement first when the melds can be arranged more than one way.
 export async function actionDeclareHand() {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
+  if (!canActIn('meld')) return;
   const option = findHandOption(myHand());
   if (!option) { showToast('Sa ovim kartama ne mozes da handiras.'); return; }
   state.selectedIds.clear();
@@ -464,16 +454,37 @@ export async function actionDeclareHand() {
 // card from under the talon can never reach the otpad at all, and a freed
 // joker must be placed first (all three would just rewind or block the turn,
 // not win it).
-async function autoDiscardLastCard() {
-  const hand = state.room.hands[state.session.playerId] || [];
-  if (hand.length !== 1) return false;
-  if (state.room.discardDrawCardId || state.room.bottomDrawCardId) return false;
-  if (hasPendingJoker(state.room, state.session.playerId)) return false;
+function autoDiscardLastCard() {
+  const hand = myHand();
+  if (hand.length !== 1) return;
+  if (state.room.discardDrawCardId || state.room.bottomDrawCardId) return;
+  if (hasPendingJoker(state.room, state.session.playerId)) return;
   const [card] = hand.splice(0, 1);
   state.room.discard.push(card);
   state.selectedIds.clear();
-  await endRoundWithWinner(state.room, state.session.playerId, null);
-  return true;
+  endRoundWithWinner(state.room, state.session.playerId, null);
+}
+
+// What every lay or add ends with, once its cards are on the table: settle
+// what those cards owed, throw a lone last card, and sweep any quad that just
+// completed - except on the winning move, which stays on the table so the
+// other players can see how the round was won.
+function finishLay(cards, hand) {
+  state.selectedIds.clear();
+  clearSatisfiedObligations(state.room, cards, hand);
+  autoDiscardLastCard();
+  if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
+  commitMove();
+}
+
+// Going out: the odd card left over from the hand goes on the otpad and the
+// round ends there.
+function throwLeftoverAndWin(hand, leftoverCard, handType) {
+  hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
+  state.room.discard.push(leftoverCard);
+  state.selectedIds.clear();
+  endRoundWithWinner(state.room, state.session.playerId, handType);
+  commitMove();
 }
 
 // Whether actionLayMultipleSelected would accept the current selection - the
@@ -485,9 +496,9 @@ let canLayCache = { key: null, value: false };
 export function canLaySelected() {
   if (!isMyTurn() || state.room.turnPhase !== 'meld') return false;
   const cards = getSelectedCards();
-  const hand = state.room.hands[state.session.playerId] || [];
+  const hand = myHand();
   if (cards.length < 3 || cards.length === hand.length) return false;
-  const opened = state.room.openedPlayers.includes(state.session.playerId);
+  const opened = iHaveOpened();
   const goingOutAttempt = !opened && cards.length === hand.length - 1;
   if (state.room.bottomDrawCardId && !goingOutAttempt) return false;
 
@@ -523,15 +534,15 @@ export function canLaySelected() {
 export async function actionLayMultipleSelected() {
   // Lay out ALL currently selected cards at once, auto-partitioned into melds.
   // Used for the opening play when it takes multiple melds to reach 51 points.
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
+  if (!canActIn('meld')) return;
   const cards = getSelectedCards();
   if (cards.length < 3) { showToast('Izaberi karte za izlaganje.'); return; }
-  const hand = state.room.hands[state.session.playerId];
+  const hand = myHand();
   if (cards.length === hand.length) {
     showToast('⚠️ Moras zadrzati bar jednu kartu da je bacis na otpad - ne mozes spustiti/dodati sve karte odjednom.');
     return;
   }
-  const opened = state.room.openedPlayers.includes(state.session.playerId);
+  const opened = iHaveOpened();
   // Selecting everything but one card (never having opened before) is a
   // going-out attempt: try Veliki Hand (whole selection melds validly) then
   // Mali Hand (whole selection sums under 51) before falling back to a
@@ -546,7 +557,7 @@ export async function actionLayMultipleSelected() {
   // is actually available to this player, so the button they see is "Handiraj"
   // (which comes back here with all 14 selected) rather than "Izlozi se".
   if (state.room.bottomDrawCardId && !goingOutAttempt) {
-    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
+    showToast(BOTTOM_CARD_ONLY_FOR_HAND);
     return;
   }
   // On a going-out attempt the card from under the talon MAY be the one thrown
@@ -566,13 +577,7 @@ export async function actionLayMultipleSelected() {
   }
   if (partitions.length === 0) {
     if (goingOutAttempt && maliHandValue(cards) < 51) {
-      state.busy = true;
-      hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
-      state.room.discard.push(leftoverCard);
-      state.selectedIds.clear();
-      await endRoundWithWinner(state.room, state.session.playerId, 'mali');
-      state.busy = false;
-      commitMove();
+      throwLeftoverAndWin(hand, leftoverCard, 'mali');
       return;
     }
     showToast('Izabrane karte se ne mogu podeliti u validne kombinacije.');
@@ -608,60 +613,38 @@ export async function actionLayMultipleSelected() {
     });
     return;
   }
-  await applyResolvedOption(resolvedOptions[0], cards, opened, goingOutAttempt, leftoverCard);
+  applyResolvedOption(resolvedOptions[0], cards, opened, goingOutAttempt, leftoverCard);
 }
 
-async function applyResolvedOption(option, cards, opened, goingOutAttempt, leftoverCard) {
+function applyResolvedOption(option, cards, opened, goingOutAttempt, leftoverCard) {
   applyResolvedOptionLocks(option);
   const partition = option.partition;
-  const hand = state.room.hands[state.session.playerId];
-
-  if (goingOutAttempt) {
-    state.busy = true;
-    removeCardsFromHand(hand, cards);
-    partition.forEach(group => pushMeld(state.room, group));
-    hand.splice(hand.findIndex(c => c.id === leftoverCard.id), 1);
-    state.room.discard.push(leftoverCard);
-    state.room.openedPlayers.push(state.session.playerId);
-    state.selectedIds.clear();
-    // No quad sweep here: the round ends on this very move, so there's no
-    // later turn that could reuse those cards - sweeping would only pop a
-    // pointless "4 cards removed" dialog and hide part of the winning hand
-    // from the round-end reveal.
-    await endRoundWithWinner(state.room, state.session.playerId, 'veliki');
-    state.busy = false;
-    commitMove();
-    return;
-  }
-
-  if (!opened) {
+  // Going out never needs 51: a whole veliki hand is going down.
+  if (!opened && !goingOutAttempt) {
     const val = sumOpeningValue(partition);
     if (val < 51) { showToast(`Ukupno ${val} poena - treba bar 51 za prvo izlaganje.`); return; }
   }
-  state.busy = true;
+  const hand = myHand();
   removeCardsFromHand(hand, cards);
   partition.forEach(group => pushMeld(state.room, group));
   if (!opened) state.room.openedPlayers.push(state.session.playerId);
-  state.selectedIds.clear();
-  clearSatisfiedObligations(state.room, cards, hand);
-  await autoDiscardLastCard();
-  // A quad that completes on the winning move stays on the table, so the
-  // other players can see how the round was won.
-  if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
-  state.busy = false;
-  commitMove();
+  // No quad sweep when going out: the round ends on this very move, so
+  // sweeping would only pop a pointless "4 cards removed" dialog and hide part
+  // of the winning hand from the round-end reveal.
+  if (goingOutAttempt) throwLeftoverAndWin(hand, leftoverCard, 'veliki');
+  else finishLay(cards, hand);
 }
 
 export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
-  if (!state.room.openedPlayers.includes(state.session.playerId)) { showToast('Prvo se moras izloziti da bi dodavao karte.'); return; }
+  if (!canActIn('meld')) return;
+  if (!iHaveOpened()) { showToast('Prvo se moras izloziti da bi dodavao karte.'); return; }
   if (state.room.bottomDrawCardId) {
-    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
+    showToast(BOTTOM_CARD_ONLY_FOR_HAND);
     return;
   }
   const cards = getSelectedCards();
   if (cards.length === 0) { showToast('Izaberi karte iz ruke koje zelis da dodas.'); return; }
-  if (cards.length === state.room.hands[state.session.playerId].length) {
+  if (cards.length === myHand().length) {
     showToast('Moras zadrzati bar jednu kartu za bacanje - ne mozes dodati sve karte odjednom.');
     return;
   }
@@ -675,7 +658,7 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     // joker itself still works; this just makes the whole group a drop target.
     const jokerCardId = planJokerSwapAdd(meld, cards);
     if (jokerCardId) {
-      await applyJokerSwapAdd(meld, cards, jokerCardId);
+      applyJokerSwapAdd(meld, cards, jokerCardId);
       return;
     }
     showToast('Te karte ne mogu da se dodaju na tu kombinaciju.');
@@ -694,19 +677,11 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
     });
     return;
   }
-  state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
+  const hand = myHand();
   removeCardsFromHand(hand, cards);
   meld.cards = combined;
   markMeldTouched(state.room, meld);
-  state.selectedIds.clear();
-  clearSatisfiedObligations(state.room, cards, hand);
-  await autoDiscardLastCard();
-  // A quad that completes on the winning move stays on the table, so the
-  // other players can see how the round was won.
-  if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
-  state.busy = false;
-  commitMove();
+  finishLay(cards, hand);
 }
 
 // Whether actionAddToMeld would take `cards` onto `meld` (as a plain add or a
@@ -714,9 +689,9 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
 // side effects, so a drag only lights up a meld the card can actually join.
 export function canAddToMeld(meld, cards) {
   if (!meld || cards.length === 0) return false;
-  if (!state.room.openedPlayers.includes(state.session.playerId)) return false;
+  if (!iHaveOpened()) return false;
   if (state.room.bottomDrawCardId) return false;
-  if (cards.length === state.room.hands[state.session.playerId].length) return false;
+  if (cards.length === myHand().length) return false;
   return isValidMeld(meld.cards.concat(cards)) || !!planJokerSwapAdd(meld, cards);
 }
 
@@ -745,7 +720,7 @@ function planJokerSwapAdd(meld, cards) {
   const real = meld.cards.filter(c => !c.joker);
   if (resolved.type === 'set') {
     const suitsInMeld = real.map(c => c.suit);
-    const missing = ['S', 'H', 'D', 'C'].filter(s => !suitsInMeld.includes(s));
+    const missing = Object.keys(SUIT_SYM).filter(s => !suitsInMeld.includes(s));
     const picked = cards.map(c => c.suit);
     if (cards.length !== missing.length) return null;
     if (!cards.every(c => c.rank === item.substitutes.rank)) return null;
@@ -757,35 +732,39 @@ function planJokerSwapAdd(meld, cards) {
   return jokers[0].id;
 }
 
-async function applyJokerSwapAdd(meld, cards, jokerCardId) {
-  state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
+function applyJokerSwapAdd(meld, cards, jokerCardId) {
+  const hand = myHand();
   removeCardsFromHand(hand, cards);
   const jokerObj = meld.cards.find(c => c.id === jokerCardId);
+  meld.cards = meld.cards.filter(c => c.id !== jokerCardId).concat(cards);
+  takeJokerIntoHand(meld, jokerObj, hand);
+}
+
+// The end of every joker swap: the real card(s) are already in `meld`, and the
+// freed joker comes back to the hand, owing a place on the table before the
+// discard. Not clearSatisfiedObligations: this move CREATES the pending-joker
+// obligation it would discharge, so only the otpad half applies here.
+function takeJokerIntoHand(meld, jokerObj, hand) {
   delete jokerObj._lockedRank;
   delete jokerObj._lockedAceHigh;
-  meld.cards = meld.cards.filter(c => c.id !== jokerCardId).concat(cards);
   markMeldTouched(state.room, meld);
   hand.push(jokerObj);
   addPendingJoker(state.room, jokerObj.id);
-  // Not clearSatisfiedObligations: this move CREATES the pending-joker
-  // obligation it would discharge, so only the otpad half applies here.
   if (state.room.discardDrawCardId && !hand.some(c => c.id === state.room.discardDrawCardId)) {
     state.room.discardDrawCardId = null;
   }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
-  state.busy = false;
   commitMove();
 }
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
-  if (!isMyTurn() || state.room.turnPhase !== 'meld' || state.busy) return;
+  if (!canActIn('meld')) return;
   // Holding a joker you already swapped out is no reason to refuse a second
   // one - taking both is a legal play. They all just have to be laid down
   // before you can discard (see actionDiscard).
   if (state.room.bottomDrawCardId) {
-    showToast('⚠️ Karta ispod talona sluzi samo za hand - ili izlozi ceo hand, ili je vrati ispod talona.');
+    showToast(BOTTOM_CARD_ONLY_FOR_HAND);
     return;
   }
   const meld = state.room.melds[meldIdx];
@@ -813,8 +792,7 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
       showToast(`Ta karta ne odgovara mestu dzokera (treba ${rankLabel(targetRank)}).`);
       return;
     }
-    const suitsInMeld = meld.cards.filter(c => !c.joker).map(c => c.suit);
-    if (suitsInMeld.includes(candidate.suit)) {
+    if (meld.cards.some(c => !c.joker && c.suit === candidate.suit)) {
       showToast('Ta boja vec postoji u toj grupi.');
       return;
     }
@@ -826,34 +804,21 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
       return;
     }
   }
-  state.busy = true;
-  const hand = state.room.hands[state.session.playerId];
-  const handIdx = hand.findIndex(c => c.id === candidate.id);
-  hand.splice(handIdx, 1);
-  const meldIdx2 = meld.cards.findIndex(c => c.id === jokerCardId);
-  const jokerObj = meld.cards[meldIdx2];
-  delete jokerObj._lockedRank;
-  delete jokerObj._lockedAceHigh;
-  meld.cards[meldIdx2] = candidate;
-  markMeldTouched(state.room, meld);
-  hand.push(jokerObj);
-  addPendingJoker(state.room, jokerObj.id);
-  if (state.room.discardDrawCardId === candidate.id) {
-    state.room.discardDrawCardId = null;
-  }
-  state.selectedIds.clear();
-  sweepCompletedQuads(state.room);
-  state.busy = false;
-  commitMove();
+  const hand = myHand();
+  removeCardsFromHand(hand, [candidate]);
+  const slot = meld.cards.findIndex(c => c.id === jokerCardId);
+  const jokerObj = meld.cards[slot];
+  meld.cards[slot] = candidate;
+  takeJokerIntoHand(meld, jokerObj, hand);
 }
 
 export async function actionTryBottomCard() {
-  if (!isMyTurn() || state.room.turnPhase !== 'draw' || state.busy) return;
+  if (!canActIn('draw')) return;
   if (!state.room.specialBottomCard || state.room.specialBottomCard.taken) { showToast('Nema dostupne karte ispod talona.'); return; }
   // The card exists to complete a hand, and a player who has already opened
   // can never declare one (see findHandOption) - handing it to them anyway
   // left them holding a card whose only legal move was putting it back.
-  if (state.room.openedPlayers.includes(state.session.playerId)) {
+  if (iHaveOpened()) {
     showToast('Vec si se izlozio - kartu ispod talona mozes uzeti samo za hand.');
     return;
   }
@@ -864,12 +829,10 @@ export async function actionTryBottomCard() {
   // offered here can actually be declared afterwards.
   const handType = (findGoingOutOption(hypothetical) || {}).type || null;
   if (!handType) { showToast('Sa tom kartom ne mozes odmah da napravis hand.'); return; }
-  state.busy = true;
   state.room.specialBottomCard.taken = true;
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.bottomDrawCardId = card.id;
-  state.busy = false;
   showToast('Uzeo si otkrivenu kartu! Sad moras da proglasis hand ili da je vratis ispod talona.', 3400);
   commitMove();
 }

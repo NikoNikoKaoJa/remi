@@ -1,10 +1,10 @@
 import { state, APP_VERSION, DEFAULT_DB_URL } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
-import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
+import { el, cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveHandLayout } from './storage.js';
 import { showToast, checkQuadAnnouncement, showScoreHistoryModal, closeScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
 import {
-  isMyTurn, myHand, getSelectedCards,
+  isMyTurn, myHand, getSelectedCards, iHaveOpened, amHost,
   actionDrawStock, actionTryBottomCard, actionDrawDiscard, actionReplaceJoker,
   actionAddToMeld, canAddToMeld, actionLayMultipleSelected, actionDiscard,
   findHandOption, actionDeclareHand, canLaySelected,
@@ -15,13 +15,6 @@ import {
 import { createRoom, joinRoom, leaveRoom } from './room.js';
 
 // ===== Rendering =====
-export function el(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
 function versionBadge() { return el('div', 'version-badge', APP_VERSION); }
 
@@ -103,6 +96,14 @@ function findDropTarget(x, y, kind, ghost, ownRow, cardId) {
   return best;
 }
 
+// A set's joker only has an unambiguous identity (and so can be exchanged)
+// once 3 real cards of that rank are already down, leaving exactly one missing
+// suit - with only 2 real cards it could stand for either remaining suit. A
+// run's joker always stands for one exact card.
+function jokerIsSettled(meld, resolved = resolveMeld(meld.cards)) {
+  return !resolved || resolved.type !== 'set' || meld.cards.filter(c => !c.joker).length >= 3;
+}
+
 // The id of the joker in `meld` that `card` is the real card for, or null if
 // it isn't one. Mirrors actionReplaceJoker's own checks exactly, so a "yes"
 // here can't turn into a toast there: a run's joker slot is one rank+suit, a
@@ -111,9 +112,8 @@ function findDropTarget(x, y, kind, ghost, ownRow, cardId) {
 function jokerSlotFilledBy(meld, card) {
   if (!card || card.joker) return null;
   const resolved = resolveMeld(meld.cards);
-  if (!resolved) return null;
+  if (!resolved || !jokerIsSettled(meld, resolved)) return null;
   const real = meld.cards.filter(c => !c.joker);
-  if (resolved.type === 'set' && real.length < 3) return null;
   for (const item of resolved.cards) {
     if (!item.isJoker) continue;
     if (item.substitutes.rank !== card.rank) continue;
@@ -161,12 +161,6 @@ async function dropCardOnMeld(cardId, ownerId, meldIdx) {
   await actionAddToMeld(ownerId, meldIdx);
 }
 
-// The other direction: drag a card off a pile and drop it on the hand row to
-// take it. Simpler than the hand drag - nothing reorders, the card either
-// lands on the hand (run `onDrop`) or the drag is a no-op - but it uses the
-// same ghost so both gestures feel alike. `node` keeps its own onclick; a
-// drag sets a short-lived flag so the click that follows pointerup doesn't
-// fire the action a second time.
 // Dragging a card must not leave the browser's native text selection (the blue
 // wash over neighbouring cards/labels) behind: drop any existing selection and
 // block new ones until the drag ends.
@@ -179,85 +173,134 @@ function endNoSelectDrag() {
   document.body.classList.remove('card-dragging');
 }
 
-function enablePileDrag(node, onDrop) {
-  let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
-  let hoverTarget = null;
-  let frame = 0, lastX = 0, lastY = 0;
-
-  function setHoverTarget(t) {
-    if (hoverTarget === t) return;
-    if (hoverTarget) hoverTarget.classList.remove('drop-hover');
-    hoverTarget = t;
-    if (hoverTarget) hoverTarget.classList.add('drop-hover');
-  }
-
+// ===== Drag plumbing shared by both drags =====
+// A press on `node` becomes a drag once it has moved HAND_DRAG_THRESHOLD px:
+// start(x, y) gets where the press began, move(x, y) every pointer move after
+// that, end(x, y) the release. Listens on window rather than node: once a
+// drag reorders `node` among its siblings, or the finger/cursor strays
+// outside its bounds, an element-scoped listener can miss the eventual
+// pointerup entirely and leave the ghost stranded. setPointerCapture
+// normally routes events back to node, but capture support is inconsistent
+// enough (older WebViews, some automation input paths) that window is the
+// safe default.
+function onCardDrag(node, { start, move, end }) {
+  let startX = 0, startY = 0, pointerId = null, dragging = false;
   node.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     startX = e.clientX;
     startY = e.clientY;
-    dragging = false;
     pointerId = e.pointerId;
+    dragging = false;
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
   });
-
   function onMove(e) {
     if (e.pointerId !== pointerId) return;
-    const dx = e.clientX - startX, dy = e.clientY - startY;
     if (!dragging) {
-      if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
+      if (Math.abs(e.clientX - startX) < HAND_DRAG_THRESHOLD && Math.abs(e.clientY - startY) < HAND_DRAG_THRESHOLD) return;
       dragging = true;
-      state.handDragActive = true; // same reason as the hand drag: no poll re-render mid-drag
-      startNoSelectDrag();
-      const rect = node.getBoundingClientRect();
-      offsetX = startX - rect.left;
-      offsetY = startY - rect.top;
-      ghost = node.cloneNode(true);
-      ghost.style.position = 'fixed';
-      ghost.style.left = '0';
-      ghost.style.top = '0';
-      ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.08)`;
-      ghost.style.willChange = 'transform';
-      ghost.style.transition = 'none';
-      ghost.style.width = rect.width + 'px';
-      ghost.style.height = rect.height + 'px';
-      ghost.style.margin = '0';
-      ghost.style.pointerEvents = 'none';
-      ghost.style.zIndex = '1000';
-      ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
-      document.body.appendChild(ghost);
-      node.style.opacity = '0.25';
+      start(startX, startY);
     }
     e.preventDefault();
-    // Same split as the hand drag: the ghost follows every event, the hit
-    // test runs once per frame.
-    ghost.style.transform = `translate3d(${e.clientX - offsetX}px, ${e.clientY - offsetY}px, 0) scale(1.08)`;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    if (!frame) frame = requestAnimationFrame(() => {
-      frame = 0;
-      if (ghost) setHoverTarget(findDropTarget(lastX, lastY, DROP_FROM_PILE, ghost));
-    });
+    move(e.clientX, e.clientY);
   }
-
-  async function onUp(e) {
+  function onUp(e) {
     if (e.pointerId !== pointerId) return;
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    if (!dragging) return;
-    if (frame) { cancelAnimationFrame(frame); frame = 0; }
-    const target = findDropTarget(e.clientX, e.clientY, DROP_FROM_PILE, ghost);
-    node.style.opacity = '';
-    if (ghost) { ghost.remove(); ghost = null; }
-    state.handDragActive = false;
-    endNoSelectDrag();
-    setHoverTarget(null);
-    node.dataset.justDragged = '1';
-    setTimeout(() => { delete node.dataset.justDragged; }, 300);
-    if (target) await target._remiDrop.onDrop();
+    if (dragging) end(e.clientX, e.clientY);
   }
+}
+
+// Lifts a floating copy of `node` (the "ghost") off the page, held where the
+// press at (grabX, grabY) took hold of it, and dims the original. moveTo is
+// only a transform (no layout), so it can follow every pointer event.
+function liftGhost(node, grabX, grabY) {
+  const rect = node.getBoundingClientRect();
+  const ghost = node.cloneNode(true);
+  Object.assign(ghost.style, {
+    position: 'fixed', left: '0', top: '0', margin: '0',
+    width: rect.width + 'px', height: rect.height + 'px',
+    willChange: 'transform', transition: 'none', pointerEvents: 'none', zIndex: '1000',
+    boxShadow: '0 10px 22px rgba(0,0,0,0.5)',
+  });
+  const offsetX = grabX - rect.left, offsetY = grabY - rect.top;
+  const moveTo = (x, y) => {
+    ghost.style.transform = `translate3d(${x - offsetX}px, ${y - offsetY}px, 0) scale(1.08)`;
+  };
+  moveTo(grabX, grabY);
+  document.body.appendChild(ghost);
+  node.style.opacity = '0.25';
+  return { ghost, moveTo };
+}
+
+// Keeps the .drop-hover highlight on exactly one drop target, or none.
+function dropHighlighter() {
+  let current = null;
+  return (t) => {
+    if (current === t) return;
+    if (current) current.classList.remove('drop-hover');
+    current = t;
+    if (current) current.classList.add('drop-hover');
+  };
+}
+
+// Runs fn(x, y) at most once per frame, with the latest position. Hit-testing
+// touches layout, so it shouldn't run on every pointer event the way the
+// ghost's move does. cancel() drops a pending run and says whether there was one.
+function perFrame(fn) {
+  let frame = 0, lastX = 0, lastY = 0;
+  const schedule = (x, y) => {
+    lastX = x;
+    lastY = y;
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; fn(lastX, lastY); });
+  };
+  schedule.cancel = () => {
+    if (!frame) return false;
+    cancelAnimationFrame(frame);
+    frame = 0;
+    return true;
+  };
+  return schedule;
+}
+
+// The other direction: drag a card off a pile and drop it on the hand row to
+// take it. Simpler than the hand drag - nothing reorders, the card either
+// lands on a DROP_FROM_PILE target (which runs its handler) or the drag is a
+// no-op. `node` keeps its own onclick; a drag sets a short-lived flag so the
+// click that follows pointerup doesn't fire the action a second time.
+function enablePileDrag(node) {
+  let lifted = null;
+  const setHoverTarget = dropHighlighter();
+  const hitTest = perFrame((x, y) => {
+    if (lifted) setHoverTarget(findDropTarget(x, y, DROP_FROM_PILE, lifted.ghost));
+  });
+  onCardDrag(node, {
+    start(x, y) {
+      state.handDragActive = true; // same reason as the hand drag: no poll re-render mid-drag
+      startNoSelectDrag();
+      lifted = liftGhost(node, x, y);
+    },
+    move(x, y) {
+      lifted.moveTo(x, y);
+      hitTest(x, y);
+    },
+    async end(x, y) {
+      hitTest.cancel();
+      const target = findDropTarget(x, y, DROP_FROM_PILE, lifted.ghost);
+      node.style.opacity = '';
+      lifted.ghost.remove();
+      lifted = null;
+      state.handDragActive = false;
+      endNoSelectDrag();
+      setHoverTarget(null);
+      node.dataset.justDragged = '1';
+      setTimeout(() => { delete node.dataset.justDragged; }, 300);
+      if (target) await target._remiDrop.onDrop();
+    },
+  });
 }
 // ===== Hand rows =====
 // The hand is two explicit rows (`.hand-rows` > two `.hand-row`s), both
@@ -275,13 +318,20 @@ function enablePileDrag(node, onDrop) {
 
 const HAND_ROW_GAP = 6;
 
+// The width a row of `box` has for cards, and one card's width (0 if there's
+// no card to measure).
+function rowMetrics(box) {
+  const slot = box.querySelector('[data-card-id]');
+  const cs = getComputedStyle(box);
+  return {
+    innerW: box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+    cardW: slot ? slot.getBoundingClientRect().width : 0,
+  };
+}
+
 // How many cards fit side by side in one row of `box`.
 function handRowCapacity(box) {
-  const slot = box.querySelector('[data-card-id]');
-  if (!slot) return Infinity;
-  const cardW = slot.getBoundingClientRect().width;
-  const cs = getComputedStyle(box);
-  const innerW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const { innerW, cardW } = rowMetrics(box);
   if (!(cardW > 0) || !(innerW > 0)) return Infinity;
   return Math.max(1, Math.floor((innerW + HAND_ROW_GAP) / (cardW + HAND_ROW_GAP)));
 }
@@ -305,10 +355,7 @@ function fitHandRows(box) {
 // pulled together (negative left margin on all but the first) by exactly the
 // amount that makes them fit. Rows that fit are left at their normal spacing.
 function spaceRows(box) {
-  const slot = box.querySelector('[data-card-id]');
-  const cs = getComputedStyle(box);
-  const innerW = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const cardW = slot ? slot.getBoundingClientRect().width : 0;
+  const { innerW, cardW } = rowMetrics(box);
   box.querySelectorAll('.hand-row').forEach(row => {
     const nodes = [...row.children];
     nodes.forEach(n => { n.style.marginLeft = ''; });
@@ -401,17 +448,10 @@ function settleGhost(ghost, cardId) {
 }
 
 function enableHandReorder(node, container) {
-  let startX = 0, startY = 0, dragging = false, ghost = null, offsetX = 0, offsetY = 0, pointerId = null;
+  let lifted = null; // the ghost, while a drag is under way
   let origParent = null, origNext = null; // where the card sat when the drag started
-  let hoverTarget = null; // the drop target (otpad / meld) currently under the pointer
-  let frame = 0, lastX = 0, lastY = 0; // hit-testing runs at most once per frame
-
-  function setHoverTarget(t) {
-    if (hoverTarget === t) return;
-    if (hoverTarget) hoverTarget.classList.remove('drop-hover');
-    hoverTarget = t;
-    if (hoverTarget) hoverTarget.classList.add('drop-hover');
-  }
+  const setHoverTarget = dropHighlighter(); // the drop target (otpad / meld) the card is over
+  const scheduleUpdate = perFrame(updateDrag);
 
   // Where in the hand the dragged card is, judged by the card itself (the
   // ghost), not the pointer: as soon as it overlaps any card of a row, it is
@@ -421,8 +461,8 @@ function enableHandReorder(node, container) {
   // does an empty row's drop zone (card-height while a drag is under way).
   // If it overlaps both rows, the one it covers more wins.
   function handSpot() {
-    if (!ghost) return null;
-    const g = ghost.getBoundingClientRect();
+    if (!lifted) return null;
+    const g = lifted.ghost.getBoundingClientRect();
     const overlap = (r) => Math.max(0, Math.min(g.right, r.right) - Math.max(g.left, r.left))
       * Math.max(0, Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top));
     let best = null, bestArea = 0;
@@ -443,68 +483,29 @@ function enableHandReorder(node, container) {
     if (underPointer) return { target: underPointer, spot: null };
     const spot = handSpot();
     if (spot) return { target: null, spot };
-    return { target: findDropTarget(x, y, DROP_FROM_HAND, ghost, null, id), spot: null };
+    return { target: findDropTarget(x, y, DROP_FROM_HAND, lifted.ghost, null, id), spot: null };
   }
 
-  node.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    startX = e.clientX;
-    startY = e.clientY;
-    dragging = false;
-    pointerId = e.pointerId;
-    // Listen on window rather than node: once the drag reorders `node`
-    // among its siblings, or the finger/cursor strays outside its bounds,
-    // an element-scoped listener can miss the eventual pointerup entirely
-    // and leave the ghost stranded. setPointerCapture normally routes events
-    // back to node, but capture support is inconsistent enough (older
-    // WebViews, some automation input paths) that window is the safe default.
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-  });
-
-  function onMove(e) {
-    if (e.pointerId !== pointerId) return;
-    const dx = e.clientX - startX, dy = e.clientY - startY;
-    if (!dragging) {
-      if (Math.abs(dx) < HAND_DRAG_THRESHOLD && Math.abs(dy) < HAND_DRAG_THRESHOLD) return;
-      dragging = true;
+  onCardDrag(node, {
+    start(x, y) {
       state.handDragActive = true;
       startNoSelectDrag();
       origParent = node.parentNode;
       origNext = node.nextSibling;
       container.classList.add('drag-active'); // gives an empty row a drop zone
-      const rect = node.getBoundingClientRect();
-      offsetX = startX - rect.left;
-      offsetY = startY - rect.top;
-      ghost = node.cloneNode(true);
-      ghost.style.position = 'fixed';
-      ghost.style.left = '0';
-      ghost.style.top = '0';
-      ghost.style.transform = `translate3d(${rect.left}px, ${rect.top}px, 0) scale(1.08)`;
-      ghost.style.willChange = 'transform';
-      ghost.style.transition = 'none';
-      ghost.style.width = rect.width + 'px';
-      ghost.style.height = rect.height + 'px';
-      ghost.style.margin = '0';
-      ghost.style.pointerEvents = 'none';
-      ghost.style.zIndex = '1000';
-      ghost.style.boxShadow = '0 10px 22px rgba(0,0,0,0.5)';
-      document.body.appendChild(ghost);
-      node.style.opacity = '0.25';
-    }
-    e.preventDefault();
-    // Moving the ghost is just a transform (no layout), so it tracks the
-    // finger on every event; the hit-testing and reflow below touch layout
-    // and run once per frame.
-    ghost.style.transform = `translate3d(${e.clientX - offsetX}px, ${e.clientY - offsetY}px, 0) scale(1.08)`;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    if (!frame) frame = requestAnimationFrame(() => { frame = 0; updateDrag(lastX, lastY); });
-  }
+      lifted = liftGhost(node, x, y);
+    },
+    // The ghost tracks the finger on every event; the hit-testing and reflow
+    // in updateDrag touch layout and run once per frame.
+    move(x, y) {
+      lifted.moveTo(x, y);
+      scheduleUpdate(x, y);
+    },
+    end: drop,
+  });
 
   function updateDrag(x, y) {
-    if (!ghost) return;
+    if (!lifted) return;
     // Over the otpad or a meld the hand shouldn't preview a reorder at all
     // - the card is leaving the hand, so it stays where it was until the drop
     // is either taken (the action re-renders) or refused (nothing moved).
@@ -537,10 +538,10 @@ function enableHandReorder(node, container) {
   // Ends the drag and hands back the ghost (for settleGhost) instead of
   // removing it.
   function endDrag() {
-    if (frame) { cancelAnimationFrame(frame); frame = 0; }
+    scheduleUpdate.cancel();
     node.style.opacity = '';
-    const g = ghost;
-    ghost = null;
+    const g = lifted.ghost;
+    lifted = null;
     state.handDragActive = false;
     endNoSelectDrag();
     container.classList.remove('drag-active');
@@ -549,17 +550,12 @@ function enableHandReorder(node, container) {
     return g;
   }
 
-  async function onUp(e) {
-    if (e.pointerId !== pointerId) return;
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onUp);
-    if (!dragging) return;
+  async function drop(x, y) {
     state.suppressNextCardClick = true;
     // A frame still pending would have moved the card to under the finger:
     // run it now, so the drop lands where the preview showed it.
-    if (frame) { cancelAnimationFrame(frame); frame = 0; updateDrag(e.clientX, e.clientY); }
-    const { target, spot } = pickDrop(e.clientX, e.clientY);
+    if (scheduleUpdate.cancel()) updateDrag(x, y);
+    const { target, spot } = pickDrop(x, y);
     const placed = !!spot;
     const before = handCardRects(container);
     const g = endDrag();
@@ -658,9 +654,8 @@ function renderLanding(app) {
   if (!roomFromLink) {
     nameInput.placeholder = 'Npr. Niko';
 
-    const createBtn = el('button', 'btn btn-gold', 'Napravi sobu');
-    createBtn.style.width = '100%';
-    createBtn.onclick = async () => {
+    const createBtn = el('button', 'btn btn-gold btn-wide', 'Napravi sobu');
+      createBtn.onclick = async () => {
       const name = nameInput.value.trim();
       if (!name) { showToast('Unesi ime.'); return; }
       createBtn.disabled = true;
@@ -679,31 +674,10 @@ function renderLanding(app) {
     joinField.appendChild(codeInput);
     panel.appendChild(joinField);
 
-    const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
-    joinBtn.style.width = '100%';
-    joinBtn.onclick = async () => {
-      const name = nameInput.value.trim();
-      const code = codeInput.value.trim();
-      if (!name) { showToast('Unesi ime.'); return; }
-      if (!code) { showToast('Unesi kod sobe.'); return; }
-      joinBtn.disabled = true;
-      await joinRoom(code, name);
-      joinBtn.disabled = false;
-    };
-    panel.appendChild(joinBtn);
+    panel.appendChild(joinButton(nameInput, () => codeInput.value.trim()));
   } else {
     nameInput.value = 'Mira';
-
-    const joinBtn = el('button', 'btn btn-gold', 'Pridruzi se sobi');
-    joinBtn.style.width = '100%';
-    joinBtn.onclick = async () => {
-      const name = nameInput.value.trim();
-      if (!name) { showToast('Unesi ime.'); return; }
-      joinBtn.disabled = true;
-      await joinRoom(roomFromLink, name);
-      joinBtn.disabled = false;
-    };
-    panel.appendChild(joinBtn);
+    panel.appendChild(joinButton(nameInput, () => roomFromLink));
   }
 
   app.appendChild(panel);
@@ -713,6 +687,21 @@ function renderLanding(app) {
     : 'Do 4 igraca, svako sa svog uredjaja preko istog koda sobe.');
   note.style.marginTop = '14px';
   app.appendChild(note);
+}
+
+// "Pridruzi se sobi": joins the room `getCode()` names under the typed name.
+function joinButton(nameInput, getCode) {
+  const joinBtn = el('button', 'btn btn-gold btn-wide', 'Pridruzi se sobi');
+  joinBtn.onclick = async () => {
+    const name = nameInput.value.trim();
+    const code = getCode();
+    if (!name) { showToast('Unesi ime.'); return; }
+    if (!code) { showToast('Unesi kod sobe.'); return; }
+    joinBtn.disabled = true;
+    await joinRoom(code, name);
+    joinBtn.disabled = false;
+  };
+  return joinBtn;
 }
 
 function renderLobby(app) {
@@ -730,8 +719,7 @@ function renderLobby(app) {
   linkInput.style.fontSize = '12px';
   linkBox.appendChild(linkInput);
   panel.appendChild(linkBox);
-  const copyBtn = el('button', 'btn btn-outline-gold', 'Kopiraj link');
-  copyBtn.style.width = '100%';
+  const copyBtn = el('button', 'btn btn-outline-gold btn-wide', 'Kopiraj link');
   copyBtn.onclick = async () => {
     try { await navigator.clipboard.writeText(shareUrl); showToast('Link kopiran!'); }
     catch (e) { linkInput.select(); showToast('Selektovano - kopiraj sa Ctrl/Cmd+C'); }
@@ -756,8 +744,7 @@ function renderLobby(app) {
 
   panel.appendChild(el('div', 'divider'));
 
-  const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
-  if (isHost) {
+  if (amHost()) {
     if (state.room.players.length < 2) {
       const waitMsg = el('div', 'small center', 'Ceka se jos bar 1 igrac ...');
       waitMsg.style.fontWeight = '700';
@@ -766,17 +753,15 @@ function renderLobby(app) {
       waitMsg.style.fontSize = '30px';
       panel.appendChild(waitMsg);
     }
-    const startBtn = el('button', 'btn btn-gold', `Zapocni igru (${state.room.players.length} igraca)`);
-    startBtn.style.width = '100%';
-    startBtn.disabled = state.room.players.length < 2;
+    const startBtn = el('button', 'btn btn-gold btn-wide', `Zapocni igru (${state.room.players.length} igraca)`);
+      startBtn.disabled = state.room.players.length < 2;
     startBtn.onclick = hostStartGame;
     panel.appendChild(startBtn);
   } else {
     panel.appendChild(el('div', 'small', 'Cekamo da host (' + state.room.players[0].name + ') zapocne igru...'));
   }
 
-  const leaveBtn = el('button', 'btn btn-danger', 'Napusti sobu');
-  leaveBtn.style.width = '100%';
+  const leaveBtn = el('button', 'btn btn-danger btn-wide', 'Napusti sobu');
   leaveBtn.style.marginTop = '10px';
   leaveBtn.onclick = leaveRoom;
   panel.appendChild(leaveBtn);
@@ -835,8 +820,7 @@ function renderOpponents(app) {
     }
   };
   rowEl.appendChild(stanjeBtn);
-  const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
-  if (isHost) {
+  if (amHost()) {
     const resetBtn = el('button', 'btn btn-danger', 'Reset');
     resetBtn.style.position = 'absolute';
     resetBtn.style.right = '14px';
@@ -874,7 +858,7 @@ function renderCenterTable(app) {
     // Dragging the card under the talon into your hand takes it, exactly as
     // clicking it does - actionTryBottomCard still enforces that it's only
     // handed over when a hand is actually available.
-    if (stockClickable) enablePileDrag(peekWrap, actionTryBottomCard);
+    if (stockClickable) enablePileDrag(peekWrap);
     if (!stockClickable) peekWrap.style.cursor = 'not-allowed';
     stockStack.appendChild(peekWrap);
   }
@@ -930,23 +914,22 @@ function renderCenterTable(app) {
 // snapshot (used on the round-announce screen) with no interactive handlers.
 function renderMeldsForPlayers(container, { clickable }) {
   const meldsArea = el('div', 'melds-area');
+  const myMeldTurn = clickable && isMyTurn() && state.room.turnPhase === 'meld';
+  // Krpljenje by drag: unlike the click path this needs no prior selection
+  // (the dragged card IS the selection), so it's offered whenever the player
+  // could add cards at all.
+  const canDropOn = myMeldTurn && iHaveOpened();
+  const canTarget = canDropOn && state.selectedIds.size > 0;
+  const canReplaceJoker = myMeldTurn && state.selectedIds.size === 1;
   state.room.players.forEach((p) => {
     const ownMelds = state.room.melds.map((m, idx) => ({ m, idx })).filter(x => x.m.ownerId === p.id);
     if (ownMelds.length === 0) return;
     meldsArea.appendChild(el('div', 'meld-owner-label', p.name));
     const line = el('div', null);
     ownMelds.forEach(({ m, idx }) => {
-      const canTarget = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.room.openedPlayers.includes(state.session.playerId) && state.selectedIds.size > 0;
       const groupDiv = el('div', 'meld-group' + (canTarget ? ' targetable' : ''));
       const cardsDiv = el('div', 'meld-cards');
-      // A set's joker only has an unambiguous identity (and so can be
-      // exchanged) once 3 real cards of that rank are already down, leaving
-      // exactly one missing suit - with only 2 real cards it could stand for
-      // either remaining suit, so it isn't offered as a replace target yet.
-      const meldResolved = resolveMeld(m.cards);
-      const canReplaceJoker = clickable && isMyTurn() && state.room.turnPhase === 'meld' && state.selectedIds.size === 1;
-      const jokerReplaceEligible = canReplaceJoker &&
-        (!meldResolved || meldResolved.type !== 'set' || m.cards.filter(cc => !cc.joker).length >= 3);
+      const jokerReplaceEligible = canReplaceJoker && jokerIsSettled(m);
       // On the read-only round-end snapshot, highlight only the meld(s) the
       // winner actually touched on their winning turn (see roundWinMeldIds in
       // endRoundWithWinner), not their whole table history.
@@ -965,11 +948,6 @@ function renderMeldsForPlayers(container, { clickable }) {
       });
       groupDiv.appendChild(cardsDiv);
       if (canTarget) groupDiv.onclick = () => actionAddToMeld(p.id, idx);
-      // Krpljenje by drag: unlike the click path this needs no prior
-      // selection (the dragged card IS the selection), so it's offered
-      // whenever the player could add cards at all.
-      const canDropOn = clickable && isMyTurn() && state.room.turnPhase === 'meld'
-        && state.room.openedPlayers.includes(state.session.playerId);
       if (canDropOn) markDropTarget(groupDiv, DROP_FROM_HAND, (cardId) => dropCardOnMeld(cardId, p.id, idx),
         (cardId) => meldAccepts(m, cardId));
       line.appendChild(groupDiv);
@@ -982,9 +960,9 @@ function renderMeldsForPlayers(container, { clickable }) {
 function renderHandAndActions(app) {
   const handWrap = el('div', 'hand-area');
   const titleRow = el('div', 'hand-title-row');
-  const opened_ = state.room.openedPlayers.includes(state.session.playerId);
+  const opened = iHaveOpened();
   let sumText;
-  if (!opened_) {
+  if (!opened) {
     // Mali hand only ever ends with 14 cards (the 15th gets discarded) - preview
     // the sum for the best 14 (i.e. drop the single highest-value card) rather
     // than the full hand, which may still hold that soon-to-be-discarded card.
@@ -1068,7 +1046,6 @@ function renderHandAndActions(app) {
   }
 
   const bar = el('div', 'action-bar');
-  const opened = state.room.openedPlayers.includes(state.session.playerId);
 
   const myMeldTurn = myTurn && state.room.turnPhase === 'meld';
   if (state.room.phase === 'playing') {
@@ -1112,19 +1089,20 @@ function renderHandAndActions(app) {
     }
 
     if (myMeldTurn) {
-    const hasPendingJoker = myPendingJokers.length > 0;
-    const selectedIsDiscardDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.discardDrawCardId;
-    const selectedIsBottomDraw = state.selectedIds.size === 1 && [...state.selectedIds][0] === state.room.bottomDrawCardId;
-    const selectedJokerNotLastCard = state.selectedIds.size === 1 && !selectedIsDiscardDraw && !selectedIsBottomDraw
-      && myHand().length > 1
-      && myHand().find(c => c.id === [...state.selectedIds][0])?.joker;
-    const discardBtn = el('button', 'btn btn-danger',
-      selectedIsDiscardDraw ? 'Vrati kartu na otpad'
-      : selectedIsBottomDraw ? 'Vrati kartu ispod talona'
-      : 'Baci');
-    discardBtn.disabled = state.selectedIds.size !== 1 || hasPendingJoker || selectedJokerNotLastCard;
-    discardBtn.onclick = () => { const id = [...state.selectedIds][0]; actionDiscard(id); };
-    bar.appendChild(discardBtn);
+      // The one selected card, if exactly one is - "Baci" throws only that.
+      const onlyId = state.selectedIds.size === 1 ? [...state.selectedIds][0] : null;
+      const selectedIsDiscardDraw = !!onlyId && onlyId === state.room.discardDrawCardId;
+      const selectedIsBottomDraw = !!onlyId && onlyId === state.room.bottomDrawCardId;
+      const selectedJokerNotLastCard = !!onlyId && !selectedIsDiscardDraw && !selectedIsBottomDraw
+        && myHand().length > 1
+        && myHand().find(c => c.id === onlyId)?.joker;
+      const discardBtn = el('button', 'btn btn-danger',
+        selectedIsDiscardDraw ? 'Vrati kartu na otpad'
+        : selectedIsBottomDraw ? 'Vrati kartu ispod talona'
+        : 'Baci');
+      discardBtn.disabled = !onlyId || myPendingJokers.length > 0 || selectedJokerNotLastCard;
+      discardBtn.onclick = () => actionDiscard(onlyId);
+      bar.appendChild(discardBtn);
     }
   }
 
@@ -1160,8 +1138,7 @@ function renderGame(app) {
 }
 
 function renderResetControl(app) {
-  const isHost = state.room.players[0] && state.room.players[0].id === state.session.playerId;
-  if (!isHost) return;
+  if (!amHost()) return;
   const wrap = el('div', 'center');
   wrap.style.marginTop = '14px';
   const btn = el('button', 'btn btn-danger', 'Reset');
@@ -1198,8 +1175,13 @@ function winnerBannerEl(winner) {
   return banner;
 }
 
+// Whether the round was won with a hand (mali/veliki), which doubles every score.
+function wonWithHand() {
+  return state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
+}
+
 function winnerBannerText(winner) {
-  const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
+  const wentOutWithHand = wonWithHand();
   const verb = wentOutWithHand ? 'handira' : 'zatvara';
   if (state.room.roundWinner === state.session.playerId) {
     return `🏆 Bravo, ${wentOutWithHand ? 'handiras' : 'zatvaras'}!`;
@@ -1248,10 +1230,8 @@ function renderRoundAnnounce(app) {
     // A player who never opened takes a flat 100-point penalty regardless of
     // what's in their hand (see scoreRound in js/engine.js) - only an opened
     // player's score is the actual sum of their leftover cards.
-    const neverOpened = !state.room.openedPlayers.includes(state.session.playerId);
-    const sum = neverOpened ? 100 : myLeftover.reduce((s, c) => s + cardValueStandard(c), 0);
-    const wentOutWithHand = state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
-    const label = wentOutWithHand
+    const sum = iHaveOpened() ? myLeftover.reduce((s, c) => s + cardValueStandard(c), 0) : 100;
+    const label = wonWithHand()
       ? `Vrednost karata u tvojo ruci je ${sum}, bio  je hand, to je duplo ${sum * 2}`
       : `Vrednost karata u tvojo ruci je ${sum}`;
     const labelEl = el('div', 'small center', label);
@@ -1264,8 +1244,7 @@ function renderRoundAnnounce(app) {
     panel.appendChild(row);
   }
 
-  const nextBtn = el('button', 'btn btn-gold', 'Sledeca partija');
-  nextBtn.style.width = '100%';
+  const nextBtn = el('button', 'btn btn-gold btn-wide', 'Sledeca partija');
   nextBtn.style.marginTop = '14px';
   nextBtn.onclick = actionReadyForScores;
   panel.appendChild(nextBtn);
@@ -1291,7 +1270,7 @@ function renderRoundScores(app) {
     const tr = document.createElement('tr');
     if (p.id === state.room.roundWinner) tr.classList.add('winner-row');
     const delta = (state.room.lastDeltas && state.room.lastDeltas[p.id]) || 0;
-    tr.innerHTML = `<td class="name">${p.name}</td><td>${delta > 0 ? '+' : ''}${delta}</td>`;
+    tr.append(el('td', 'name', p.name), el('td', null, `${delta > 0 ? '+' : ''}${delta}`));
     deltaTable.appendChild(tr);
   });
   panel.appendChild(deltaTable);
@@ -1307,20 +1286,16 @@ function renderRoundScores(app) {
   panel.appendChild(el('div', 'divider'));
 
   const readyList = state.room.readyForNextRound || [];
-  const myId = state.session.playerId;
-  const iAmReady = readyList.includes(myId);
-  const nextBtn = el('button', 'btn btn-gold',
+  const iAmReady = readyList.includes(state.session.playerId);
+  const nextBtn = el('button', 'btn btn-gold btn-wide',
     iAmReady ? `Cekamo ostale (${readyList.length}/${state.room.players.length}) spremno...` : 'Sledeca partija');
-  nextBtn.style.width = '100%';
   nextBtn.disabled = iAmReady;
   nextBtn.onclick = actionReadyForNextRound;
   panel.appendChild(nextBtn);
 
-  const isHost = state.room.players[0] && state.room.players[0].id === myId;
-  if (isHost) {
-    const forceBtn = el('button', 'btn btn-outline-gold', 'Podeli Sada - bez cekanja');
-    forceBtn.style.width = '100%';
-    forceBtn.style.marginTop = '8px';
+  if (amHost()) {
+    const forceBtn = el('button', 'btn btn-outline-gold btn-wide', 'Podeli Sada - bez cekanja');
+      forceBtn.style.marginTop = '8px';
     forceBtn.onclick = actionForceNextRound;
     panel.appendChild(forceBtn);
   }
@@ -1347,7 +1322,15 @@ function renderCutReveal(app) {
   panel.appendChild(el('h2', null, 'Sece se...'));
   const pr = state.room.pendingRound;
   (pr && pr.log ? pr.log : []).forEach(line => panel.appendChild(el('div', 'small center', line)));
-  const noUppercase = (elm) => { elm.style.textTransform = 'none'; return elm; };
+  // One revealed card with its label under it.
+  const labelledCard = (card, label, keepCase) => {
+    const wrap = el('div', 'special-card-wrap');
+    wrap.appendChild(cardEl(card, {}));
+    const labelEl = el('div', 'pile-label', label);
+    if (keepCase) labelEl.style.textTransform = 'none';
+    wrap.appendChild(labelEl);
+    return wrap;
+  };
 
   if (pr && pr.revealedCard) {
     // Cutting exposes two cards: the cut card itself, and the card directly
@@ -1359,26 +1342,14 @@ function renderCutReveal(app) {
     cardsRow.style.flexWrap = 'wrap';
     cardsRow.style.margin = '14px auto';
 
-    const cutWrap = el('div', 'special-card-wrap');
-    cutWrap.appendChild(cardEl(pr.revealedCard, {}));
-    cutWrap.appendChild(noUppercase(el('div', 'pile-label', 'Presecena karta')));
-    cardsRow.appendChild(cutWrap);
-
-    if (pr.belowCutCard) {
-      const belowWrap = el('div', 'special-card-wrap');
-      belowWrap.appendChild(cardEl(pr.belowCutCard, {}));
-      belowWrap.appendChild(noUppercase(el('div', 'pile-label', 'Donja karta')));
-      cardsRow.appendChild(belowWrap);
-    }
+    cardsRow.appendChild(labelledCard(pr.revealedCard, 'Presecena karta', true));
+    if (pr.belowCutCard) cardsRow.appendChild(labelledCard(pr.belowCutCard, 'Donja karta', true));
 
     // If the cut card itself was a joker (claimed by the cutter), a fresh
     // card gets drawn to fill the "ispod talona" slot for the round - that's
     // neither of the two cards above, so show it too.
     if (pr.revealedCard.joker && pr.specialBottomCard) {
-      const freshWrap = el('div', 'special-card-wrap');
-      freshWrap.appendChild(cardEl(pr.specialBottomCard.card, {}));
-      freshWrap.appendChild(el('div', 'pile-label', 'Nova karta ispod talona'));
-      cardsRow.appendChild(freshWrap);
+      cardsRow.appendChild(labelledCard(pr.specialBottomCard.card, 'Nova karta ispod talona', false));
     }
 
     panel.appendChild(cardsRow);
