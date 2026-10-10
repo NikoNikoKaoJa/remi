@@ -590,8 +590,18 @@ export async function actionLayMultipleSelected() {
   // goes down and the round ends right there, so the arrangement is purely
   // cosmetic and asking just puts a modal between the player and their win.
   if (resolvedOptions.length > 1 && !goingOutAttempt) {
-    showChoiceModal('Kako da izložiš izabrane karte?', resolvedOptions.map(o => ({
-      label: buildPartitionPreviewEl(resolvedOptionDisplayGroups(o)),
+    // With a joker among the cards, the choice is always about where it goes,
+    // so that's the question asked. A group laid out the same way in every
+    // option says nothing about the choice - when leaving those out leaves
+    // just the joker's group in each option, only that group is shown.
+    const displays = resolvedOptions.map(resolvedOptionDisplayGroups);
+    const key = (g) => g.map(c => c.id).join(',');
+    const inEvery = (g) => displays.every(d => d.some(h => key(h) === key(g)));
+    const shown = displays.map(d => d.filter(g => !inEvery(g)));
+    const jokerOnly = shown.every(d => d.length === 1 && d[0].some(c => c.joker));
+    const hasJoker = cards.some(c => c.joker);
+    showChoiceModal(hasJoker ? 'Gde želiš da staviš džokera?' : 'Kako da izložiš izabrane karte?', resolvedOptions.map((o, i) => ({
+      label: buildPartitionPreviewEl(jokerOnly ? shown[i] : displays[i]),
       opt: o,
     })), (picked) => {
       applyResolvedOption(picked.opt, cards, opened, goingOutAttempt, leftoverCard);
@@ -674,7 +684,7 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   const opts = enumerateSingleJokerRunWindows(combined);
   if (opts) {
     const jokerCard = combined.find(c => c.joker && c._lockedRank === undefined);
-    showChoiceModal('Gde treba dzoker da bude u nizu?', opts.map(o => ({
+    showChoiceModal('Gde želiš da staviš džokera?', opts.map(o => ({
       label: buildMeldGroupEl(runWindowPreviewCards(combined, o)),
       opt: o,
     })), (picked) => {

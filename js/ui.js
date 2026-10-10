@@ -220,7 +220,7 @@ export function showChoiceModal(title, options, onPick) {
   box.className = 'modal-box';
   const h = document.createElement('h3');
   h.textContent = title;
-  h.style.marginBottom = '14px';
+  h.className = 'modal-title-sticky';
   box.appendChild(h);
   options.forEach(opt => {
     const b = document.createElement('button');
