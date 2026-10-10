@@ -61,6 +61,7 @@ export function hydrateRoom(r) {
 // whole room.
 const saveQueues = {};
 const latestWriteIds = {};
+const latestPutIds = {};
 
 // Resolves true once the room is saved (or a newer write took this one's
 // place), false if this was the newest write and it didn't make it.
@@ -71,24 +72,55 @@ export function saveRoom(r) {
   // it was BEFORE it (see receiveRoom in js/room.js): until our own write
   // comes back from Firebase, anything else that arrives is older than what
   // we already show, and applying it would briefly undo our move.
-  const writeId = Math.random().toString(36).slice(2, 10);
-  r.writeId = writeId;
-  state.awaitingWriteId = writeId;
+  const writeId = newWriteId(r);
   const body = JSON.stringify(r);
   // Doubles as the baseline the sync loop diffs against (see receiveRoom),
   // so our own write coming back doesn't trigger a pointless re-render.
   state.roomSnapshot = body;
+  return queueWrite(r.code, writeId, 'PUT', body);
+}
+
+// Saves only one player's hand layout (order + row split), as a PATCH of
+// just those paths. Reordering is done while waiting for your turn, i.e.
+// while someone else is moving: a whole-room PUT from this (possibly not yet
+// updated - incoming rooms are held during a drag) copy would overwrite
+// their move on the server, e.g. undo a draw so the same card has to be
+// drawn again. Same resolve value as saveRoom.
+export function saveHandLayout(r, playerId) {
+  if (!state.dbUrl) return Promise.resolve(true);
+  const writeId = newWriteId(r);
+  state.roomSnapshot = JSON.stringify(r);
+  // An empty second row is just left out - Firebase drops [] anyway, and
+  // hydrateRoom treats a missing row as empty.
+  const body = JSON.stringify({
+    [`handOrders/${playerId}`]: r.handOrders[playerId],
+    [`handRows/${playerId}`]: r.handRows[playerId] && r.handRows[playerId].length ? r.handRows[playerId] : null,
+    writeId,
+  });
+  return queueWrite(r.code, writeId, 'PATCH', body);
+}
+
+function newWriteId(r) {
+  const writeId = Math.random().toString(36).slice(2, 10);
+  r.writeId = writeId;
+  state.awaitingWriteId = writeId;
+  return writeId;
+}
+
+function queueWrite(code, writeId, method, body) {
   // Stop waiting for the echo if the write failed (the server still has the
   // older room, so it's the truth now) or it never shows up - e.g. another
   // player overwrote it before our copy of the stream saw it.
   const giveUp = () => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; };
-  const code = r.code;
   latestWriteIds[code] = writeId;
+  if (method === 'PUT') latestPutIds[code] = writeId;
   const send = async () => {
-    if (latestWriteIds[code] !== writeId) return true;
+    // A queued PUT carries the whole room, so a newer PUT makes it
+    // redundant. A PATCH never does: it only carries its own paths.
+    if (method === 'PUT' && latestPutIds[code] !== writeId) return true;
     try {
       const res = await fetch(`${state.dbUrl}/rooms/${code}.json`, {
-        method: 'PUT',
+        method,
         headers: { 'Content-Type': 'application/json' },
         body,
       });

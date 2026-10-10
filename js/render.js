@@ -1,7 +1,7 @@
 import { state, APP_VERSION, DEFAULT_DB_URL } from './state.js';
 import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
 import { cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
-import { saveRoom } from './storage.js';
+import { saveHandLayout } from './storage.js';
 import { showToast, checkQuadAnnouncement, showScoreHistoryModal, closeScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
 import {
   isMyTurn, myHand, getSelectedCards,
@@ -492,7 +492,7 @@ function enableHandReorder(node, container) {
     if (!state.room.handRows) state.room.handRows = {};
     state.room.handOrders[state.session.playerId] = row1.concat(row2);
     state.room.handRows[state.session.playerId] = row2;
-    await saveRoom(state.room);
+    await saveHandLayout(state.room, state.session.playerId);
     setTimeout(() => { state.suppressNextCardClick = false; }, 300);
     render();
   }
