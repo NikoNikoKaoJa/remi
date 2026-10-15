@@ -54,14 +54,16 @@ task's hunks with `git add -p` rather than the whole file, and verify with
 touch or stage hunks outside this task's scope, even if it'd be more
 convenient to bundle them.
 
-Commit with a message matching this repo's terse, why-focused style, and
-the trailer:
+Commit with a message matching this repo's terse, why-focused style, ending
+with the co-author trailer for the model actually doing the work - take it
+from the commit-attribution line in your current session context, don't
+hardcode a model name here (it goes stale every model release):
 
 ```
 git commit -m "$(cat <<'EOF'
 <summary line, ending with (vX.YY) if it's a version-bump commit>
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: <your model's attribution line, e.g. Claude <Model> <noreply@anthropic.com>>
 EOF
 )"
 ```
