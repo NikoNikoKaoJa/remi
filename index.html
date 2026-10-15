@@ -348,6 +348,15 @@ KORAK 5 - Prvo otvaranje
     font-size:14px;color:var(--cream-dim);opacity:0.55;letter-spacing:0.5px;
   }
 
+  /* Turn-chime mute toggle, fixed to the page's top-right corner. */
+  .sound-toggle{
+    position:fixed;top:10px;right:10px;z-index:15;
+    width:38px;height:38px;padding:0;border-radius:50%;cursor:pointer;
+    font-size:18px;line-height:1;background:var(--panel);border:1px solid var(--panel-line);
+    opacity:0.8;
+  }
+  .sound-toggle:hover{opacity:1;}
+
   .score-table{width:100%;border-collapse:collapse;margin-top:10px;}
   .score-table th,.score-table td{
     padding:8px 10px;text-align:center;border-bottom:1px solid var(--panel-line);font-size:18px;color:var(--cream);

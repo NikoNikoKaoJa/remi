@@ -13,6 +13,7 @@ import {
   pendingJokerIds,
 } from './actions.js';
 import { createRoom, joinRoom, leaveRoom } from './room.js';
+import { checkTurnSound, soundToggleEl } from './sound.js';
 
 // ===== Rendering =====
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
@@ -627,11 +628,13 @@ export function render() {
     renderCutReveal(app);
   }
   app.appendChild(versionBadge());
+  app.appendChild(soundToggleEl());
   // Needs the cards' real size and the row's real width, so only now that the
   // whole tree is attached (a detached box measures 0 and never spills).
   const handBox = app.querySelector('.hand-rows');
   if (handBox) fitHandRows(handBox);
   checkQuadAnnouncement();
+  checkTurnSound();
 }
 
 function renderLanding(app) {
