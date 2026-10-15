@@ -25,7 +25,7 @@ function unlockAudio() {
 
 const SWELL_IN = 0.6;   // seconds to fade in
 const SWELL_OUT = 1.2;  // seconds to fade out
-const SWELL_PEAK = 0.25;
+const SWELL_PEAK = 0.35;
 const SWELL_LOWPASS_HZ = 600;
 
 function playTurnChime() {
