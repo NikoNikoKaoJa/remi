@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { loadRoom, saveRoom, hydrateRoom } from './storage.js';
+import { loadRoom, saveRoom, hydrateRoom, updateRoomAtomically } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
 import { applyPendingRound, CUT_REVEAL_MS } from './actions.js';
@@ -51,15 +51,18 @@ export async function createRoom(name) {
 
 export async function joinRoom(code, name) {
   code = code.toUpperCase().trim();
-  const r = await loadRoom(code);
-  if (!r) { showToast('Nema sobe sa tim kodom.'); return; }
-  if (r.phase !== 'lobby') { showToast('Igra je vec pocela u toj sobi.'); return; }
-  if (r.players.length >= 4) { showToast('Soba je puna (max 4 igraca).'); return; }
-  state.session = { playerId: uid(), name, roomCode: code };
+  const playerId = uid();
+  const { room, error } = await updateRoomAtomically(code, r => {
+    if (!r) return 'Nema sobe sa tim kodom.';
+    if (r.phase !== 'lobby') return 'Igra je vec pocela u toj sobi.';
+    if (r.players.length >= 4) return 'Soba je puna (max 4 igraca).';
+    r.players.push({ id: playerId, name });
+  });
+  if (room === undefined) { showToast('Nije uspelo - proveri internet vezu.'); return; }
+  if (error) { showToast(error); return; }
+  state.session = { playerId, name, roomCode: code };
   saveSession();
-  r.players.push({ id: state.session.playerId, name });
-  await saveRoom(r);
-  state.room = r;
+  state.room = room;
   startSync();
   render();
 }
@@ -71,9 +74,13 @@ export async function leaveRoom() {
   clearSession();
   history.replaceState(null, '', location.pathname);
   render();
+  // From a fresh copy: ours may have missed a join (or the start), which a
+  // write of it would undo.
   if (leftRoom && leftPlayerId) {
-    leftRoom.players = leftRoom.players.filter(p => p.id !== leftPlayerId);
-    await saveRoom(leftRoom);
+    await updateRoomAtomically(leftRoom.code, r => {
+      if (!r) return 'gone';
+      r.players = r.players.filter(p => p.id !== leftPlayerId);
+    });
   }
 }
 
@@ -97,6 +104,11 @@ export async function rejoin() {
 // cut-reveal fallback, which is triggered by time passing, not by a change.
 
 const FALLBACK_TICK_MS = 2200;
+// Firebase sends a keep-alive every 30s. A stream that's been silent much
+// longer than that is dead even if it still reads OPEN (phone slept, network
+// switched) - and an OPEN one never triggers the fallback fetch - so it's
+// reopened instead of leaving this screen frozen on an old room.
+const STREAM_SILENT_MS = 75000;
 
 export function stopSync() {
   clearInterval(state.pollTimer);
@@ -110,8 +122,10 @@ export function startSync() {
   // as a 'put' (replace) or 'patch' (merge) at a path inside it; `raw` is the
   // room as Firebase has it, kept up to date from those.
   let raw;
+  let lastEventAt = Date.now();
   const stream = new EventSource(`${state.dbUrl}/rooms/${code}.json`);
   const onEvent = (merge) => (e) => {
+    lastEventAt = Date.now();
     let msg;
     try { msg = JSON.parse(e.data); } catch (err) { return; }
     raw = applyAtPath(raw, msg.path, msg.data, merge);
@@ -121,10 +135,12 @@ export function startSync() {
   };
   stream.addEventListener('put', onEvent(false));
   stream.addEventListener('patch', onEvent(true));
+  stream.addEventListener('keep-alive', () => { lastEventAt = Date.now(); });
   state.roomStream = stream;
 
   state.pollTimer = setInterval(async () => {
     if (!state.session.roomCode) return;
+    if (Date.now() - lastEventAt > STREAM_SILENT_MS) { startSync(); return; }
     const r = state.room;
     if (!state.busy && r && r.phase === 'cutting' && r.pendingRound && r.cutRevealedAt
         && Date.now() - r.cutRevealedAt > CUT_REVEAL_MS) {

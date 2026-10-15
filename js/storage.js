@@ -134,6 +134,47 @@ function queueWrite(code, writeId, method, body) {
   return result;
 }
 
+// Read-modify-write that can't lose someone else's change: the room is read
+// with its ETag and written back only if it's still unchanged (if-match),
+// otherwise re-read and retried. For lobby writes (join / leave / start) -
+// a plain whole-room PUT from a copy that missed a join would erase that
+// player, who then gets kicked out. `mutate(room)` gets the fresh room (null
+// if it doesn't exist) and edits it in place; returning anything aborts with
+// that as `error`. Resolves { room, error }, room undefined if the request
+// failed.
+export async function updateRoomAtomically(code, mutate) {
+  if (!state.dbUrl) return { room: undefined };
+  const url = `${state.dbUrl}/rooms/${code}.json`;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' } });
+      if (!res.ok) return { room: undefined };
+      const etag = res.headers.get('ETag');
+      const data = await res.json();
+      const r = data ? hydrateRoom(data) : null;
+      const error = mutate(r);
+      if (error !== undefined) return { room: r, error };
+      r.updatedAt = Date.now();
+      const writeId = newWriteId(r);
+      const body = JSON.stringify(r);
+      state.roomSnapshot = body;
+      const put = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'if-match': etag },
+        body,
+      });
+      if (put.ok) {
+        setTimeout(() => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; }, 5000);
+        return { room: r };
+      }
+      if (state.awaitingWriteId === writeId) state.awaitingWriteId = null;
+      if (put.status !== 412) return { room: undefined };
+      // 412: changed since we read it - go round again on the new version.
+    } catch (e) { return { room: undefined }; }
+  }
+  return { room: undefined };
+}
+
 export async function deleteRoom(code) {
   if (!state.dbUrl) return;
   try {

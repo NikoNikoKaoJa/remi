@@ -7,7 +7,7 @@ import {
   maliHandValue, cardValueMaliHand, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
-import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults } from './storage.js';
+import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults, updateRoomAtomically } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
 import { stopSync, resyncAfterFailedSave, clearSession } from './room.js';
@@ -41,11 +41,23 @@ function startCutReveal(r) {
 }
 
 export async function hostStartGame() {
-  if (state.room.players.length < 2) { showToast('Treba bar 2 igraca.'); return; }
-  if (!state.room.scores) state.room.scores = {};
-  beginCutReveal(state.room);
-  scheduleCutAdvance();
-  commitMove();
+  if (state.busy) return;
+  state.busy = true;
+  // Started from a fresh copy, not state.room: a join this screen hasn't
+  // shown yet would otherwise be overwritten - that player would vanish
+  // from the room and get kicked out.
+  const { room, error } = await updateRoomAtomically(state.room.code, r => {
+    if (!r || r.phase !== 'lobby') return 'Igra je vec pocela.';
+    if (r.players.length < 2) return 'Treba bar 2 igraca.';
+    if (!r.scores) r.scores = {};
+    beginCutReveal(r);
+  });
+  state.busy = false;
+  if (room) state.room = room;
+  if (room === undefined) showToast('Nije uspelo - proveri internet vezu.');
+  else if (error) showToast(error);
+  else scheduleCutAdvance();
+  render();
 }
 
 export function applyPendingRound(r) {
