@@ -628,7 +628,6 @@ export function render() {
     renderCutReveal(app);
   }
   app.appendChild(versionBadge());
-  app.appendChild(soundToggleEl());
   // Needs the cards' real size and the row's real width, so only now that the
   // whole tree is attached (a detached box measures 0 and never spills).
   const handBox = app.querySelector('.hand-rows');
@@ -800,11 +799,11 @@ const bottomBarObserver = typeof ResizeObserver === 'undefined' ? null : new Res
 
 function renderOpponents(app) {
   const rowEl = el('div', 'opponents-row bottom-bar');
+  // Sound toggle then Stanje, in one flex box so the toggle stretches to
+  // exactly Stanje's height.
+  const leftBtns = el('div', 'bottom-bar-left');
+  leftBtns.appendChild(soundToggleEl());
   const stanjeBtn = el('button', 'btn btn-outline-gold', 'Stanje');
-  stanjeBtn.style.position = 'absolute';
-  stanjeBtn.style.left = '14px';
-  stanjeBtn.style.top = '50%';
-  stanjeBtn.style.transform = 'translateY(-50%)';
   // While the Stanje modal is open the button turns yellow and reads
   // "Zatvori" (the modal's overlay stops above the bottom bar, so it stays
   // reachable); the modal outlives re-renders, so the state is read from the DOM.
@@ -822,7 +821,8 @@ function renderOpponents(app) {
       setStanjeOpen(true);
     }
   };
-  rowEl.appendChild(stanjeBtn);
+  leftBtns.appendChild(stanjeBtn);
+  rowEl.appendChild(leftBtns);
   if (amHost()) {
     const resetBtn = el('button', 'btn btn-danger', 'Reset');
     resetBtn.style.position = 'absolute';

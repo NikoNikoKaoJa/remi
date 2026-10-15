@@ -348,14 +348,13 @@ KORAK 5 - Prvo otvaranje
     font-size:14px;color:var(--cream-dim);opacity:0.55;letter-spacing:0.5px;
   }
 
-  /* Turn-chime mute toggle, fixed to the page's top-right corner. */
-  .sound-toggle{
-    position:fixed;top:10px;right:10px;z-index:15;
-    width:38px;height:38px;padding:0;border-radius:50%;cursor:pointer;
-    font-size:18px;line-height:1;background:var(--panel);border:1px solid var(--panel-line);
-    opacity:0.8;
+  /* Bottom bar's left end: turn-sound toggle, then Stanje. Stretch makes the
+     toggle exactly Stanje's height whatever the emoji's line metrics. */
+  .bottom-bar-left{
+    position:absolute;left:14px;top:50%;transform:translateY(-50%);
+    display:flex;align-items:stretch;gap:10px;
   }
-  .sound-toggle:hover{opacity:1;}
+  .sound-toggle{display:flex;align-items:center;justify-content:center;padding:0 12px;line-height:1;}
 
   .score-table{width:100%;border-collapse:collapse;margin-top:10px;}
   .score-table th,.score-table td{

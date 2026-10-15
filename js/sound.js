@@ -4,7 +4,7 @@
 // there's no sound file to host. Browsers only let audio start after
 // a user gesture, so the context is created/resumed on the first tap or click
 // (joining a room always involves one) - before that, the chime is skipped.
-// Muted by default; the top-right toggle turns it on, remembered per browser.
+// Muted by default; the toggle before Stanje in the bottom bar turns it on, remembered per browser.
 import { state } from './state.js';
 import { isMyTurn } from './actions.js';
 import { el } from './cards.js';
@@ -60,7 +60,7 @@ export function checkTurnSound() {
 }
 
 export function soundToggleEl() {
-  const btn = el('button', 'sound-toggle', soundOn ? '🔔' : '🔕');
+  const btn = el('button', 'btn btn-outline-gold sound-toggle', soundOn ? '🔔' : '🔕');
   btn.title = soundOn ? 'Zvuk ukljucen' : 'Zvuk iskljucen';
   btn.setAttribute('aria-label', btn.title);
   btn.onclick = () => {
