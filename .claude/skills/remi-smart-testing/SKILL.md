@@ -1,7 +1,7 @@
 ---
 name: remi-smart-testing
-description: This skill should be used when verifying a code change in Niko's Remi (Serbian Rummy) project at ~/dev/claude/remi - deciding how to test a change, running node-based static/logic checks, or setting up a Safari-based live multiplayer test session. Use for phrases like "test this", "verify this works", "check this change", or when about to reach for a browser in this repo.
-version: 2.0.0
+description: This skill should be used when verifying a code change in Niko's Remi (Serbian Rummy) project at ~/dev/claude/remi - deciding how to test a change, running node-based static/logic checks, or setting up a Chrome-based (claude-in-chrome) live multiplayer test session. Use for phrases like "test this", "verify this works", "check this change", or when about to reach for a browser in this repo.
+version: 3.0.0
 ---
 
 # Remi: smart testing
@@ -9,9 +9,9 @@ version: 2.0.0
 Goal: verify changes with the *cheapest* method that actually answers the
 question, and never spin up a browser without asking first and saying why.
 
-**Chrome / the `claude-in-chrome` MCP tools are NOT used for this project.**
-Live testing is Safari-only, driven by `open -a Safari`. Do not recommend or
-load any `mcp__claude-in-chrome__*` tool here.
+**Live testing uses Chrome via the `claude-in-chrome` MCP tools** (Niko,
+2026-10-16: "use chrome from now on"). Don't script Safari - Niko plays real
+games there - unless he explicitly asks for a Safari test.
 
 ## Decision order (cheapest first)
 
@@ -32,20 +32,20 @@ load any `mcp__claude-in-chrome__*` tool here.
 4. **grep for consistency** - e.g. confirm a renamed CSS class is updated
    everywhere it's referenced, a field defaulted in `hydrateRoom()` for any
    new always-present collection, etc.
-5. **Live Safari test, only if the above genuinely can't answer the
+5. **Live Chrome test, only if the above genuinely can't answer the
    question** - see below. This is the expensive path; treat it as a last
    resort, not a default.
 
 Reserve the browser for cases where *behavior over time* or
 *visual/interactive* correctness is in question and can't be inferred from
-source: animation/CSS hover-timing bugs, a new game-flow screen, a button
-wired to the wrong handler, cross-tab multiplayer sync, anything where
-"would a human need to look at this running to know if it's right?" is
-genuinely yes.
+source: animation/CSS hover-timing bugs, drag behaviour, a new game-flow
+screen, a button wired to the wrong handler, cross-tab multiplayer sync,
+anything where "would a human need to look at this running to know if it's
+right?" is genuinely yes.
 
 ## Before touching a browser: ask first
 
-Never open Safari/start the local server silently. Send one short message
+Never open Chrome/start the local server silently. Send one short message
 to Niko stating:
 - what you're about to test (which screen/interaction),
 - *why* it can't be checked statically (what specifically needs eyes or
@@ -59,11 +59,11 @@ explicitly asked you to test in the browser in this same turn.
 
 ### 1. Start a no-cache local server
 
-Module scripts need http(s), not `file://`. But a plain
-`python3 -m http.server` is **not acceptable on its own**: Safari has served
-stale cached ES modules from a previous session and made an already-fixed
-bug look unfixed. Write a small server script to the scratchpad dir that
-subclasses `SimpleHTTPRequestHandler` and adds to every response:
+Module scripts need http(s), not `file://`. A plain `python3 -m http.server`
+is **not acceptable on its own**: browsers have served stale cached ES
+modules from a previous session and made an already-fixed bug look unfixed.
+Write a small server script to the scratchpad dir that subclasses
+`SimpleHTTPRequestHandler` and adds to every response:
 
 ```
 Cache-Control: no-store, no-cache, must-revalidate, max-age=0
@@ -72,11 +72,10 @@ Expires: 0
 ```
 
 chdir it to `/Users/nukropina/dev/claude/remi`, run it in the background.
-**Prefer a fresh port on every re-test** - Safari keys its cache by URL.
+**Prefer a fresh port on every re-test** - the cache is keyed by URL.
 
-Always tell Niko to confirm the version badge (bottom-right, `APP_VERSION`
-from `js/state.js`) shows the expected new version before trusting any
-result.
+Before trusting any result, check the version badge (bottom-right,
+`APP_VERSION` from `js/state.js`) - in Chrome you can read it yourself.
 
 ### 2. Seed the game state, don't play up to it
 
@@ -88,49 +87,47 @@ in the `reference-firebase-db-url` memory
 test room code**, never one a real game might use (rules are public
 read/write, no isolation).
 
-The room object should mirror what `setupRound` in `js/engine.js` returns,
-plus the fields `createRoom` in `js/room.js` adds: `code`,
-`phase: 'playing'`, `players`, `dealerIndex`, `round`, `scores`, `hands`,
-`stock`, `discard`, `melds`, `openedPlayers`, `currentPlayerIndex`,
-`turnPhase`, `specialBottomCard`, `log`, ...
-
-Craft the hands/piles so the change under test can be exercised in one or
-two clicks. Before opening any browser, verify the scenario is actually
+Easiest base: import `setupRound` from `js/engine.js` in the seed script
+and spread its result into `{ code, round, scores, createdAt, ... }` (the
+fields `createRoom` in `js/room.js` adds). Then adjust hands/piles/
+`handOrders`/`handRows` so the change under test can be exercised in one
+or two moves. Before opening any browser, verify the scenario is actually
 reachable with a quick node check, e.g.:
 ```
 node --input-type=module -e "import { ... } from './js/engine.js'; ..."
 ```
 (e.g. confirm a crafted hand really does form a veliki hand).
 
-### 3. Open a NEW Safari window, one tab per player
+A room can be re-seeded mid-test (a fresh `writeId` makes the open tab
+pick it up over the sync stream) - handy for setting up a second scenario.
 
-Two players by default; more only if the change genuinely needs it.
+### 3. Open Chrome tabs, one per player
 
-**Always open a dedicated new Safari window for the test - never add tabs to
-Niko's existing window.** `open -a Safari <url>` drops tabs into whatever
-window happens to be frontmost, mixing test tabs in with his real browsing
-(and making it far too easy to close/reload the wrong one). Use AppleScript
-so the test lives in its own window that can be closed as a unit.
+Two players by default; more only if the change genuinely needs it. Start
+with `tabs_context_mcp` (`createIfEmpty: true`) and work only in the MCP tab
+group's own tabs - never touch Niko's other tabs. If the extension isn't
+connected, stop and ask Niko to enable it.
 
-Safari shares localStorage across normal tabs and the app stores a single
-session under `my-remi-session`, so tabs can't join as different players on
-their own. The trick that works: create a **throwaway bootstrap page in the
-repo root** (e.g. `test-session.html`) that reads a `?p=N` query param,
-writes a fixed `{playerId, name, roomCode}` into
-`localStorage['my-remi-session']` plus the db url into
-`localStorage['remi-db-url']`, then `location.replace`s to
-`index.html?db=...&room=CODE`.
+Tabs share localStorage and the app stores a single session under
+`my-remi-session`, so tabs can't join as different players on their own.
+The trick that works: create a **throwaway bootstrap page in the repo root**
+(`test-session.html`) that reads a `?p=N` query param, writes a fixed
+`{playerId, name, roomCode}` into `localStorage['my-remi-session']`, then
+`location.replace`s to `index.html?room=CODE`. Open `?p=1` in one tab, wait
+for it to boot, then `?p=2` in another. Each tab keeps its identity in
+memory (the app only re-reads localStorage at boot / on rejoin), so
+reloading a tab makes it whoever booted last - re-open its `?p=N` URL.
 
-Then, in one new window (wait a couple of seconds between tabs so each boots
-with its own session):
-```
-osascript -e 'tell application "Safari" to make new document with properties {URL:"http://localhost:<port>/test-session.html?p=1"}'
-sleep 3
-osascript -e 'tell application "Safari" to tell front window to set current tab to (make new tab with properties {URL:"http://localhost:<port>/test-session.html?p=2"})'
-```
-Each tab keeps its identity in memory (the app only re-reads localStorage at
-boot / on rejoin), so this works. **Warn Niko** that reloading tab 1 will
-turn it into player 2, and that reopening the `?p=1` URL fixes it.
+Useful in Chrome:
+- `javascript_tool` to read layout / state (card ids per hand row, rects)
+  instead of eyeballing screenshots - assert on the actual DOM.
+- `computer` `left_click_drag` for real pointer drags; batch drag + DOM
+  check with `browser_batch`.
+- `read_console_messages` (`onlyErrors: true`) at the end.
+- To prove a fix, `git stash push <file>`, reload, repeat the exact same
+  action to reproduce the bug, then `git stash pop` and repeat again.
+- Mouse drags can't exercise touch-only paths (pointercancel, iOS long-press
+  callout) - say so in the report rather than claiming them tested.
 
 ### 4. Diagnosing without a browser at all
 
@@ -145,32 +142,14 @@ This is often enough to pinpoint the bug and skip the live test entirely.
 
 ## Always clean up before ending the turn
 
-1. Kill the server: `pkill -f "<scratchpad server script>"` (or
-   `kill $(lsof -ti:<port>)`).
-2. Close every Safari tab/window opened for testing - on EVERY test port used
-   this session, not just the last one (only localhost test tabs, so Niko's
-   own windows are never touched). The one-liner
-   `close (every tab of every window whose URL contains ...)` silently does
-   nothing - use the explicit backwards loop, then verify:
-   ```
-   osascript <<'EOF'
-   tell application "Safari"
-     repeat with wi from (count of windows) to 1 by -1
-       set w to window wi
-       repeat with ti from (count of tabs of w) to 1 by -1
-         if (URL of tab ti of w as text) contains "localhost:" then close tab ti of w
-       end repeat
-     end repeat
-   end tell
-   EOF
-   osascript -e 'tell application "Safari" to get URL of every tab of every window' | tr ',' '\n' | grep -c localhost   # must print 0
-   ```
-3. Delete the throwaway bootstrap page from the repo root
-   (`test-session.html`) - it must never be committed.
-4. Delete the seeded test room from Firebase:
-   `curl -X DELETE <dbUrl>/rooms/<CODE>.json`
-5. Delete the scratchpad scripts/frames.
+Small, separate commands with literal full paths - Niko rejected one big
+combined cleanup command (pkill + curl DELETE + `rm -rf $VAR/*`) as looking
+dangerous:
 
-Exception: after a `git push origin main`, the post-push Safari verification
-window is meant to stay open for Niko to look at - that's a different flow,
-not this one (see the `feedback-post-push-workflow` memory).
+1. Close every test tab with `tabs_close_mcp` (only the MCP group's tabs).
+2. Kill the server by its full scratchpad path:
+   `pkill -f "<full scratchpad path>/server.py"`.
+3. Delete the seeded test room: `node scripts/rooms.mjs delete <CODE>`.
+4. Delete the throwaway bootstrap page: `rm /Users/nukropina/dev/claude/remi/test-session.html`
+   - it must never be committed.
+5. `rm` the scratchpad scripts by name (never `rm -rf $VAR/*`).
