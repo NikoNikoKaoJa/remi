@@ -4,6 +4,7 @@
 local -a cmds
 cmds=(
   'list:list all rooms'
+  'show:show a room and its recent-write log'
   'delete:delete one or more rooms'
   'delete-all:delete every room'
 )
@@ -11,7 +12,7 @@ cmds=(
 if (( CURRENT == 2 )); then
   _describe -t commands 'rooms command' cmds
   _arguments '--db[Firebase DB URL]:url'
-elif [[ $words[2] == delete ]]; then
+elif [[ $words[2] == (delete|show) ]]; then
   local -a codes
   codes=(${(f)"$(${words[1]} codes 2>/dev/null)"})
   compadd -a codes

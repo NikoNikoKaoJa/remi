@@ -16,8 +16,8 @@ import { stopSync, resyncAfterFailedSave, clearSession } from './room.js';
 // leaving the screen unchanged for the whole round trip to Firebase (~0.2s,
 // up to ~1s on mobile data). saveRoom keeps the writes in order; if one
 // fails, the screen is put back to what the server has.
-function commitMove() {
-  saveRoom(state.room).then(ok => { if (!ok) resyncAfterFailedSave(); });
+function commitMove(action) {
+  saveRoom(state.room, action).then(ok => { if (!ok) resyncAfterFailedSave(); });
   render();
 }
 
@@ -43,10 +43,10 @@ function startCutReveal(r) {
 // A write that several players may make at the same moment (start, ready,
 // force): done on a fresh copy via updateRoomAtomically, so one player's
 // write can't silently undo another's. Resolves true if it went through.
-async function commitAtomically(mutate) {
+async function commitAtomically(mutate, action) {
   if (state.busy) return false;
   state.busy = true;
-  const { room, error } = await updateRoomAtomically(state.session.roomCode, mutate);
+  const { room, error } = await updateRoomAtomically(state.session.roomCode, mutate, action);
   state.busy = false;
   if (room) state.room = room;
   if (room === undefined) showToast('Nije uspelo - proveri internet vezu.');
@@ -64,7 +64,7 @@ export async function hostStartGame() {
     if (r.players.length < 2) return 'Treba bar 2 igraca.';
     if (!r.scores) r.scores = {};
     beginCutReveal(r);
-  });
+  }, 'startGame');
   if (ok) scheduleCutAdvance();
 }
 
@@ -113,7 +113,7 @@ function scheduleCutAdvance() {
   setTimeout(() => {
     if (state.room && state.room.phase === 'cutting' && state.room.pendingRound) {
       applyPendingRound(state.room);
-      commitMove();
+      commitMove('dealRound');
     }
   }, CUT_REVEAL_MS);
 }
@@ -141,7 +141,7 @@ export async function actionReadyForNextRound() {
     if (!r.readyForNextRound.includes(myId)) r.readyForNextRound.push(myId);
     dealt = r.players.every(p => r.readyForNextRound.includes(p.id));
     if (dealt) startCutReveal(r);
-  });
+  }, 'readyNextRound');
   if (ok && dealt) scheduleCutAdvance();
   if (!ok) {
     // Not saved - take the shown click back so the button can be pressed again.
@@ -159,7 +159,7 @@ export async function actionForceNextRound() {
   const started = await commitAtomically(r => {
     if (!r || r.phase !== 'round_end') return 'Sledeca runda je vec pocela.';
     startCutReveal(r);
-  });
+  }, 'forceNextRound');
   if (started) scheduleCutAdvance();
 }
 
@@ -314,7 +314,7 @@ export async function actionDrawStock() {
   const card = state.room.stock.shift();
   myHandPush(card);
   state.room.turnPhase = 'meld';
-  commitMove();
+  commitMove('drawStock');
 }
 function myHandPush(card) {
   const me = state.session.playerId;
@@ -342,7 +342,7 @@ export async function actionDrawDiscard() {
   myHandPush(card);
   state.room.turnPhase = 'meld';
   state.room.discardDrawCardId = card.id;
-  commitMove();
+  commitMove('drawDiscard');
 }
 
 // The card pulled off the otpad has to be laid down this turn, so nothing else
@@ -400,7 +400,7 @@ export async function actionDiscard(cardId) {
   } else {
     advanceTurn(state.room);
   }
-  commitMove();
+  commitMove('discard');
 }
 
 // Undo of actionTryBottomCard: slide the card back under the talon and rewind
@@ -421,7 +421,7 @@ function returnBottomCard(cardId) {
   if (state.room.pinnedCardIds && state.room.pinnedCardIds[state.session.playerId] === cardId) {
     state.room.pinnedCardIds[state.session.playerId] = null;
   }
-  commitMove();
+  commitMove('returnBottomCard');
 }
 
 // ===== "Handiraj" - going out in a single move =====
@@ -509,7 +509,7 @@ function finishLay(cards, hand) {
   clearSatisfiedObligations(state.room, cards, hand);
   autoDiscardLastCard();
   if (state.room.phase !== 'round_end') sweepCompletedQuads(state.room);
-  commitMove();
+  commitMove('lay');
 }
 
 // Going out: the odd card left over from the hand goes on the otpad and the
@@ -519,7 +519,7 @@ function throwLeftoverAndWin(hand, leftoverCard, handType) {
   state.room.discard.push(leftoverCard);
   state.selectedIds.clear();
   endRoundWithWinner(state.room, state.session.playerId, handType);
-  commitMove();
+  commitMove('goOut');
 }
 
 // Whether actionLayMultipleSelected would accept the current selection - the
@@ -796,7 +796,7 @@ function takeJokerIntoHand(meld, jokerObj, hand) {
   }
   state.selectedIds.clear();
   sweepCompletedQuads(state.room);
-  commitMove();
+  commitMove('takeJoker');
 }
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
@@ -875,5 +875,5 @@ export async function actionTryBottomCard() {
   state.room.turnPhase = 'meld';
   state.room.bottomDrawCardId = card.id;
   showToast('Uzeo si otkrivenu kartu! Sad moras da proglasis hand ili da je vratis ispod talona.', 3400);
-  commitMove();
+  commitMove('tryBottomCard');
 }

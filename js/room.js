@@ -43,7 +43,7 @@ export async function createRoom(name) {
     scores: {},
     createdAt: Date.now(),
   };
-  await saveRoom(r);
+  await saveRoom(r, 'createRoom');
   state.room = r;
   startSync();
   render();
@@ -57,7 +57,7 @@ export async function joinRoom(code, name) {
     if (r.phase !== 'lobby') return 'Igra je vec pocela u toj sobi.';
     if (r.players.length >= 4) return 'Soba je puna (max 4 igraca).';
     r.players.push({ id: playerId, name });
-  });
+  }, 'join', playerId);
   if (room === undefined) { showToast('Nije uspelo - proveri internet vezu.'); return; }
   if (error) { showToast(error); return; }
   state.session = { playerId, name, roomCode: code };
@@ -80,7 +80,7 @@ export async function leaveRoom() {
     await updateRoomAtomically(leftRoom.code, r => {
       if (!r) return 'gone';
       r.players = r.players.filter(p => p.id !== leftPlayerId);
-    });
+    }, 'leave', leftPlayerId);
   }
 }
 
@@ -146,7 +146,7 @@ export function startSync() {
         && Date.now() - r.cutRevealedAt > CUT_REVEAL_MS) {
       state.busy = true;
       applyPendingRound(r);
-      await saveRoom(r);
+      await saveRoom(r, 'dealRoundFallback');
       state.busy = false;
       render();
     }

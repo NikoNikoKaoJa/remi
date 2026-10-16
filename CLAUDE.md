@@ -227,6 +227,13 @@ write superseded by a newer one is skipped, since each carries the whole
 room). It resolves `false` only when the newest write fails, and then
 `resyncAfterFailedSave` (`js/room.js`) toasts and reloads the server's room.
 
+For debugging, every whole-room write (`saveRoom`/`updateRoomAtomically`)
+appends a stamp to `room.writeLog` (`stampWrite` in `js/storage.js`, last
+30 kept): who wrote it, `APP_VERSION`, the action name (passed through
+`commitMove(action)`/`commitAtomically(mutate, action)`), its `writeId`, and
+the phase/turn it left. `node scripts/rooms.mjs show <code>` prints it. Hand
+layout PATCHes aren't logged.
+
 **Round-end flow** (`room.phase`: `'round_end'` → `'cutting'` → `'playing'`):
 after a win, everyone sees a winner announcement (final board still visible),
 then clicks through to a score table. The score-table "Sledeca partija" is

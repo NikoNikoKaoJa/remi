@@ -2,6 +2,7 @@
 // Manage Remi rooms in the Firebase Realtime Database (REST, no dependencies).
 //
 //   node scripts/rooms.mjs [list]
+//   node scripts/rooms.mjs show <code>       (state + the room's recent-write log)
 //   node scripts/rooms.mjs delete <code> [<code> ...]
 //   node scripts/rooms.mjs delete-all [--yes]
 //
@@ -75,6 +76,28 @@ async function list() {
   console.log(`\n${codes.length} room(s) in ${dbUrl}`);
 }
 
+// A room's writeLog (stamped by saveRoom / updateRoomAtomically in
+// js/storage.js): who wrote, on which app version, what move, and whose turn
+// it left - oldest first.
+async function show([code]) {
+  if (!code) throw new Error('usage: show <code>');
+  const room = await api(`rooms/${encodeURIComponent(code)}.json`);
+  if (!room) return console.log(`No room ${code}.`);
+  const players = Array.isArray(room.players) ? room.players : Object.values(room.players || {});
+  const nameOf = (id) => players.find((p) => p?.id === id)?.name || id || '?';
+  console.log(`${code}  ${describe(room)}`);
+  console.log(`round ${room.round ?? '?'}  turn: ${players[room.currentPlayerIndex]?.name ?? '-'} (${room.turnPhase ?? '-'})  writeId ${room.writeId ?? '-'}`);
+  const log = Array.isArray(room.writeLog) ? room.writeLog : Object.values(room.writeLog || {});
+  if (!log.length) return console.log('\nNo write log (room last written by a pre-v1.50 client).');
+  console.log('');
+  for (const w of log) {
+    const d = new Date(w.at); // local time, to the millisecond
+    const time = typeof w.at === 'number' ? `${d.toTimeString().slice(0, 8)}.${String(d.getMilliseconds()).padStart(3, '0')}` : '?';
+    const turn = w.phase === 'playing' ? `-> ${players[w.cur]?.name ?? w.cur} ${w.tp ?? ''}` : `-> ${w.phase ?? '?'}`;
+    console.log(`${time}  ${String(w.v ?? '?').padEnd(6)} ${nameOf(w.by).padEnd(10)} ${String(w.action ?? '?').padEnd(18)} ${turn.padEnd(20)} ${w.writeId ?? ''}`);
+  }
+}
+
 async function del(codes) {
   if (!codes.length) throw new Error('usage: delete <code> [<code> ...]');
   for (const code of codes) {
@@ -92,13 +115,14 @@ async function delAll() {
 
 const commands = {
   list,
+  show: () => show(rest),
   codes: async () => console.log((await roomCodes()).join('\n')), // for shell completion
   delete: () => del(rest),
   'delete-all': delAll,
 };
 
 if (!commands[cmd]) {
-  console.error('usage: rooms.mjs list | delete <code> [...] | delete-all [--yes]   [--db <url>]');
+  console.error('usage: rooms.mjs list | show <code> | delete <code> [...] | delete-all [--yes]   [--db <url>]');
   process.exit(1);
 }
 commands[cmd]().catch((e) => {

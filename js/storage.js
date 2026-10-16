@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, APP_VERSION } from './state.js';
 
 // ===== External storage (Firebase Realtime Database REST API) =====
 // No Claude account needed - uses a free Firebase project's public REST endpoint instead.
@@ -35,6 +35,7 @@ export const ROOM_COLLECTION_DEFAULTS = {
   turnMeldIds: () => [],
   roundWinMeldIds: () => [],
   log: () => [],
+  writeLog: () => [],
   quadAnnouncements: () => [],
   readyForNextRound: () => [],
   handOrders: () => ({}),
@@ -86,7 +87,7 @@ const latestPutIds = {};
 
 // Resolves true once the room is saved (or a newer write took this one's
 // place), false if this was the newest write and it didn't make it.
-export function saveRoom(r) {
+export function saveRoom(r, action) {
   if (!state.dbUrl) return Promise.resolve(true);
   r.updatedAt = Date.now();
   // Tags this write so incoming updates can be told apart from the room as
@@ -94,6 +95,7 @@ export function saveRoom(r) {
   // comes back from Firebase, anything else that arrives is older than what
   // we already show, and applying it would briefly undo our move.
   const writeId = newWriteId(r);
+  stampWrite(r, action);
   const body = JSON.stringify(r);
   // Doubles as the baseline the sync loop diffs against (see receiveRoom),
   // so our own write coming back doesn't trigger a pointless re-render.
@@ -119,6 +121,24 @@ export function saveHandLayout(r, playerId) {
     writeId,
   });
   return queueWrite(r.code, writeId, 'PATCH', body);
+}
+
+// For debugging from the database side: every whole-room write appends who
+// made it, with which app version, what move it was and whose turn it left,
+// keeping the last WRITE_LOG_MAX (`node scripts/rooms.mjs show <code>`).
+// Hand-layout PATCHes aren't logged - they're cosmetic and would crowd out moves.
+const WRITE_LOG_MAX = 30;
+function stampWrite(r, action, by = state.session.playerId) {
+  r.writeLog = (r.writeLog || []).concat({
+    at: r.updatedAt,
+    by: by || null,
+    action: action || '?',
+    v: APP_VERSION,
+    writeId: r.writeId,
+    phase: r.phase,
+    cur: r.currentPlayerIndex == null ? null : r.currentPlayerIndex,
+    tp: r.turnPhase || null,
+  }).slice(-WRITE_LOG_MAX);
 }
 
 function newWriteId(r) {
@@ -168,8 +188,9 @@ function queueWrite(code, writeId, method, body) {
 // player, who then gets kicked out. `mutate(room)` gets the fresh room (null
 // if it doesn't exist) and edits it in place; returning anything aborts with
 // that as `error`. Resolves { room, error }, room undefined if the request
-// failed.
-export async function updateRoomAtomically(code, mutate) {
+// failed. `action`/`by` go in the write log (see stampWrite); `by` defaults
+// to this session's player.
+export async function updateRoomAtomically(code, mutate, action, by) {
   if (!state.dbUrl) return { room: undefined };
   const url = `${state.dbUrl}/rooms/${code}.json`;
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -183,6 +204,7 @@ export async function updateRoomAtomically(code, mutate) {
       if (error !== undefined) return { room: r, error };
       r.updatedAt = Date.now();
       const writeId = newWriteId(r);
+      stampWrite(r, action, by);
       const body = JSON.stringify(r);
       state.roomSnapshot = roomFingerprint(r);
       const put = await fetch(url, {
