@@ -7,7 +7,7 @@ import {
   maliHandValue, cardValueMaliHand, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
-import { loadRoom, saveRoom, deleteRoom, applyCollectionDefaults, updateRoomAtomically } from './storage.js';
+import { saveRoom, deleteRoom, applyCollectionDefaults, updateRoomAtomically } from './storage.js';
 import { showToast, showChoiceModal, buildMeldGroupEl, buildPartitionPreviewEl } from './ui.js';
 import { render } from './render.js';
 import { stopSync, resyncAfterFailedSave, clearSession } from './room.js';
@@ -40,24 +40,32 @@ function startCutReveal(r) {
   beginCutReveal(r);
 }
 
-export async function hostStartGame() {
-  if (state.busy) return;
+// A write that several players may make at the same moment (start, ready,
+// force): done on a fresh copy via updateRoomAtomically, so one player's
+// write can't silently undo another's. Resolves true if it went through.
+async function commitAtomically(mutate) {
+  if (state.busy) return false;
   state.busy = true;
+  const { room, error } = await updateRoomAtomically(state.session.roomCode, mutate);
+  state.busy = false;
+  if (room) state.room = room;
+  if (room === undefined) showToast('Nije uspelo - proveri internet vezu.');
+  else if (error) showToast(error);
+  render();
+  return room !== undefined && !error;
+}
+
+export async function hostStartGame() {
   // Started from a fresh copy, not state.room: a join this screen hasn't
   // shown yet would otherwise be overwritten - that player would vanish
   // from the room and get kicked out.
-  const { room, error } = await updateRoomAtomically(state.room.code, r => {
+  const ok = await commitAtomically(r => {
     if (!r || r.phase !== 'lobby') return 'Igra je vec pocela.';
     if (r.players.length < 2) return 'Treba bar 2 igraca.';
     if (!r.scores) r.scores = {};
     beginCutReveal(r);
   });
-  state.busy = false;
-  if (room) state.room = room;
-  if (room === undefined) showToast('Nije uspelo - proveri internet vezu.');
-  else if (error) showToast(error);
-  else scheduleCutAdvance();
-  render();
+  if (ok) scheduleCutAdvance();
 }
 
 export function applyPendingRound(r) {
@@ -115,29 +123,44 @@ export function actionReadyForScores() {
   render();
 }
 
+// Atomic, because players tend to click this at the same moment: two plain
+// read-then-PUTs would each write back only their own click, so one "ready"
+// got lost and everyone sat waiting on a player who had already clicked. And
+// if both saw themselves as the last one, each dealt its own new round.
 export async function actionReadyForNextRound() {
-  if (state.busy) return;
   const myId = state.session.playerId;
-  if ((state.room.readyForNextRound || []).includes(myId)) return;
-  state.busy = true;
-  const fresh = await loadRoom(state.session.roomCode) || state.room;
-  state.room = fresh;
+  if (state.busy || (state.room.readyForNextRound || []).includes(myId)) return;
+  // Show the click straight away ("Cekamo ostale...") rather than after the
+  // round trip - the atomic write below still decides what really happened.
   if (!state.room.readyForNextRound) state.room.readyForNextRound = [];
-  if (!state.room.readyForNextRound.includes(myId)) state.room.readyForNextRound.push(myId);
-  if (state.room.readyForNextRound.length >= state.room.players.length) {
-    startCutReveal(state.room);
-    scheduleCutAdvance();
+  state.room.readyForNextRound.push(myId);
+  render();
+  let dealt = false;
+  const ok = await commitAtomically(r => {
+    if (!r || r.phase !== 'round_end') return 'Sledeca runda je vec pocela.';
+    if (!r.readyForNextRound.includes(myId)) r.readyForNextRound.push(myId);
+    dealt = r.players.every(p => r.readyForNextRound.includes(p.id));
+    if (dealt) startCutReveal(r);
+  });
+  if (ok && dealt) scheduleCutAdvance();
+  if (!ok) {
+    // Not saved - take the shown click back so the button can be pressed again.
+    state.room.readyForNextRound = (state.room.readyForNextRound || []).filter(id => id !== myId);
+    render();
   }
-  state.busy = false;
-  commitMove();
 }
 
+// Atomic for the same reason: forcing while the last player clicks "ready"
+// would otherwise start the round twice, rotating the dealer past a player.
 export async function actionForceNextRound() {
+  if (state.busy) return;
   const ok = confirm('Pokreni sledecu rundu i bez da su svi spremni?');
   if (!ok) return;
-  startCutReveal(state.room);
-  scheduleCutAdvance();
-  commitMove();
+  const started = await commitAtomically(r => {
+    if (!r || r.phase !== 'round_end') return 'Sledeca runda je vec pocela.';
+    startCutReveal(r);
+  });
+  if (started) scheduleCutAdvance();
 }
 
 export async function hostResetGame() {
@@ -621,6 +644,8 @@ export async function actionLayMultipleSelected() {
       label: buildPartitionPreviewEl(jokerOnly ? shown[i] : displays[i]),
       opt: o,
     })), (picked) => {
+      // The modal may have sat open a while - make sure the move is still ours.
+      if (!canActIn('meld')) return;
       applyResolvedOption(picked.opt, cards, opened, goingOutAttempt, leftoverCard);
     });
     return;
@@ -647,7 +672,11 @@ function applyResolvedOption(option, cards, opened, goingOutAttempt, leftoverCar
   else finishLay(cards, hand);
 }
 
-export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
+// `jokerLock` is the joker-position answer from the choice modal below. It's
+// passed back in rather than set on the card object the modal saw: a sync
+// update landing while the modal is open swaps state.room's card objects for
+// fresh copies, so a lock set on the old one was lost and the modal reopened.
+export async function actionAddToMeld(ownerIdOfMeld, meldIdx, jokerLock = null) {
   if (!canActIn('meld')) return;
   if (!iHaveOpened()) { showToast('Prvo se moras izloziti da bi dodavao karte.'); return; }
   if (state.room.bottomDrawCardId) {
@@ -663,6 +692,11 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   const meld = state.room.melds[meldIdx];
   if (!meld) return;
   const combined = meld.cards.concat(cards);
+  const freeJoker = combined.find(c => c.joker && c._lockedRank === undefined);
+  if (jokerLock && freeJoker) {
+    freeJoker._lockedRank = jokerLock.jokerRank;
+    freeJoker._lockedAceHigh = jokerLock.jokerAceHigh;
+  }
   if (!isValidMeld(combined)) {
     // Dropping card(s) that leave the meld's joker with nothing left to stand
     // for reads as "swap them in and take the joker", not "extend the meld" -
@@ -678,15 +712,10 @@ export async function actionAddToMeld(ownerIdOfMeld, meldIdx) {
   }
   const opts = enumerateSingleJokerRunWindows(combined);
   if (opts) {
-    const jokerCard = combined.find(c => c.joker && c._lockedRank === undefined);
     showChoiceModal('Gde želiš da staviš džokera?', opts.map(o => ({
       label: buildMeldGroupEl(runWindowPreviewCards(combined, o)),
       opt: o,
-    })), (picked) => {
-      jokerCard._lockedRank = picked.opt.jokerRank;
-      jokerCard._lockedAceHigh = picked.opt.jokerAceHigh;
-      actionAddToMeld(ownerIdOfMeld, meldIdx);
-    });
+    })), (picked) => actionAddToMeld(ownerIdOfMeld, meldIdx, picked.opt));
     return;
   }
   const hand = myHand();
