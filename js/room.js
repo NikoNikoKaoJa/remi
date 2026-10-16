@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, APP_VERSION } from './state.js';
 import { loadRoom, saveRoom, hydrateRoom, roomFingerprint, updateRoomAtomically } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
@@ -93,6 +93,7 @@ export async function rejoin() {
   state.session = s;
   state.room = r;
   state.roomSnapshot = roomFingerprint(r);
+  restoreReloadCarry();
   startSync();
   return true;
 }
@@ -188,6 +189,73 @@ export async function resyncAfterFailedSave() {
   if (loaded !== undefined) receiveRoom(loaded);
 }
 
+// Players who don't know to refresh stay on an old build for the whole
+// evening. Every whole-room write stamps its APP_VERSION into room.writeLog,
+// so if anyone in the room has written from a newer build, this one reloads
+// to pick it up. The hand (cards, order, rows, pin) is all in Firebase, and
+// the localStorage session makes rejoin() put the player back in the room;
+// what only lives in this tab - the selected cards, which round-end screen
+// is up - is carried across in RELOAD_CARRY_KEY. The reload waits while a
+// move is in progress or saving, a card is being dragged, or any dialog is
+// open (e.g. the joker-position choice), so nothing half-done is lost.
+// One try per target version: a cached old build that comes back from the
+// reload doesn't reload again in a loop.
+const RELOAD_CARRY_KEY = 'remi-reload-carry';
+let reloadPending = false;
+
+function versionNum(v) {
+  const m = /^v?(\d+)\.(\d+)/.exec(v || '');
+  return m ? Number(m[1]) * 10000 + Number(m[2]) : 0;
+}
+
+function reloadIfOutdated(r) {
+  if (reloadPending) return;
+  const newest = (r.writeLog || []).reduce((best, w) => (versionNum(w.v) > versionNum(best) ? w.v : best), APP_VERSION);
+  if (versionNum(newest) <= versionNum(APP_VERSION)) return;
+  try {
+    if (localStorage.getItem('remi-reloaded-for') === newest) return;
+  } catch (e) { return; }
+  reloadPending = true;
+  reloadWhenIdle(newest);
+}
+
+function reloadWhenIdle(newest) {
+  if (state.busy || state.handDragActive || state.awaitingWriteId || document.querySelector('.modal-overlay')) {
+    setTimeout(() => reloadWhenIdle(newest), 500);
+    return;
+  }
+  try {
+    localStorage.setItem('remi-reloaded-for', newest);
+    localStorage.setItem(RELOAD_CARRY_KEY, JSON.stringify({
+      roomCode: state.session.roomCode,
+      playerId: state.session.playerId,
+      at: Date.now(),
+      selectedIds: [...state.selectedIds],
+      roundEndStage: state.roundEndStage,
+      lastRoundEndRound: state.lastRoundEndRound,
+      scoreHistoryScrollTop: state.scoreHistoryScrollTop,
+    }));
+  } catch (e) { return; }
+  stopSync();
+  location.reload();
+}
+
+// Called once from rejoin(): puts back what reloadWhenIdle saved, if it's
+// for this player in this room and from just now.
+function restoreReloadCarry() {
+  let carry;
+  try {
+    carry = JSON.parse(localStorage.getItem(RELOAD_CARRY_KEY) || 'null');
+    localStorage.removeItem(RELOAD_CARRY_KEY);
+  } catch (e) { return; }
+  if (!carry || carry.roomCode !== state.session.roomCode || carry.playerId !== state.session.playerId
+      || Date.now() - carry.at > 60000) return;
+  state.selectedIds = new Set(carry.selectedIds || []);
+  state.roundEndStage = carry.roundEndStage || 'announce';
+  state.lastRoundEndRound = carry.lastRoundEndRound == null ? null : carry.lastRoundEndRound;
+  state.scoreHistoryScrollTop = carry.scoreHistoryScrollTop == null ? null : carry.scoreHistoryScrollTop;
+}
+
 // Applies a room that just arrived from Firebase (stream or fallback poll).
 function receiveRoom(r) {
   if (state.session.roomCode == null) return;
@@ -224,6 +292,7 @@ function receiveRoom(r) {
     if (r.writeId !== state.awaitingWriteId) return;
     state.awaitingWriteId = null;
   }
+  reloadIfOutdated(r);
   // Skip the (expensive, full-DOM-rebuild) render() when nothing actually
   // changed - otherwise every no-op update tears down and recreates every
   // card element, which drops the browser's :hover state on whatever card
