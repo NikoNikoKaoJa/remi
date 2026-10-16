@@ -48,6 +48,27 @@ export function applyCollectionDefaults(obj, keys = Object.keys(ROOM_COLLECTION_
   return obj;
 }
 
+// The room as a string that comes out the same however Firebase hands it
+// back: keys sorted (Firebase reorders them) and null / [] / {} left out
+// (Firebase drops them on save). What state.roomSnapshot holds, so our own
+// write's echo compares equal to what we sent, while an echo that also
+// carries someone else's change doesn't.
+export function roomFingerprint(r) {
+  return JSON.stringify(normalizeForFingerprint(r));
+}
+
+function normalizeForFingerprint(v) {
+  if (Array.isArray(v)) return v.map(normalizeForFingerprint);
+  if (!v || typeof v !== 'object') return v;
+  const out = {};
+  Object.keys(v).sort().forEach(k => {
+    const x = normalizeForFingerprint(v[k]);
+    if (x == null || (typeof x === 'object' && Object.keys(x).length === 0)) return;
+    out[k] = x;
+  });
+  return out;
+}
+
 export function hydrateRoom(r) {
   applyCollectionDefaults(r);
   r.players.forEach(p => { if (!r.hands[p.id]) r.hands[p.id] = []; });
@@ -76,7 +97,7 @@ export function saveRoom(r) {
   const body = JSON.stringify(r);
   // Doubles as the baseline the sync loop diffs against (see receiveRoom),
   // so our own write coming back doesn't trigger a pointless re-render.
-  state.roomSnapshot = body;
+  state.roomSnapshot = roomFingerprint(r);
   return queueWrite(r.code, writeId, 'PUT', body);
 }
 
@@ -89,7 +110,7 @@ export function saveRoom(r) {
 export function saveHandLayout(r, playerId) {
   if (!state.dbUrl) return Promise.resolve(true);
   const writeId = newWriteId(r);
-  state.roomSnapshot = JSON.stringify(r);
+  state.roomSnapshot = roomFingerprint(r);
   // An empty second row is just left out - Firebase drops [] anyway, and
   // hydrateRoom treats a missing row as empty.
   const body = JSON.stringify({
@@ -110,8 +131,14 @@ function newWriteId(r) {
 function queueWrite(code, writeId, method, body) {
   // Stop waiting for the echo if the write failed (the server still has the
   // older room, so it's the truth now) or it never shows up - e.g. another
-  // player overwrote it before our copy of the stream saw it.
-  const giveUp = () => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; };
+  // player overwrote it before our copy of the stream saw it. Whatever
+  // arrived meanwhile was ignored, so flag a one-off re-fetch (the sync
+  // loop's next tick) rather than sit on a room that may be out of date.
+  const giveUp = () => {
+    if (state.awaitingWriteId !== writeId) return;
+    state.awaitingWriteId = null;
+    state.echoLost = true;
+  };
   latestWriteIds[code] = writeId;
   if (method === 'PUT') latestPutIds[code] = writeId;
   const send = async () => {
@@ -157,14 +184,14 @@ export async function updateRoomAtomically(code, mutate) {
       r.updatedAt = Date.now();
       const writeId = newWriteId(r);
       const body = JSON.stringify(r);
-      state.roomSnapshot = body;
+      state.roomSnapshot = roomFingerprint(r);
       const put = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'if-match': etag },
         body,
       });
       if (put.ok) {
-        setTimeout(() => { if (state.awaitingWriteId === writeId) state.awaitingWriteId = null; }, 5000);
+        setTimeout(() => { if (state.awaitingWriteId === writeId) { state.awaitingWriteId = null; state.echoLost = true; } }, 5000);
         return { room: r };
       }
       if (state.awaitingWriteId === writeId) state.awaitingWriteId = null;

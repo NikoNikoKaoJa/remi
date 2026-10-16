@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { loadRoom, saveRoom, hydrateRoom, updateRoomAtomically } from './storage.js';
+import { loadRoom, saveRoom, hydrateRoom, roomFingerprint, updateRoomAtomically } from './storage.js';
 import { showToast } from './ui.js';
 import { render } from './render.js';
 import { applyPendingRound, CUT_REVEAL_MS } from './actions.js';
@@ -92,7 +92,7 @@ export async function rejoin() {
   if (!r.players.find(p => p.id === s.playerId)) return false;
   state.session = s;
   state.room = r;
-  state.roomSnapshot = JSON.stringify(r);
+  state.roomSnapshot = roomFingerprint(r);
   startSync();
   return true;
 }
@@ -150,7 +150,8 @@ export function startSync() {
       state.busy = false;
       render();
     }
-    if (stream.readyState !== EventSource.OPEN) {
+    if (stream.readyState !== EventSource.OPEN || state.echoLost) {
+      state.echoLost = false;
       const loaded = await loadRoom(code);
       if (loaded !== undefined) receiveRoom(loaded); // undefined = request failed - try again next tick
     }
@@ -213,19 +214,21 @@ function receiveRoom(r) {
   // We saved and Firebase hasn't sent that write back yet, so this is the
   // room from before it - showing it would make our move vanish until the
   // next update. Our own echo (or saveRoom giving up on it) ends the wait.
-  // The echo itself is what's already on screen, so it only resets the
-  // baseline (Firebase reorders keys, so its JSON differs from what we sent).
+  // The echo is NOT necessarily what's on screen: a hand-layout PATCH comes
+  // back merged onto whatever else the server has - e.g. the other player's
+  // discard that arrived (and was skipped here) while we waited - so it goes
+  // through the normal compare-and-render below like any other room.
+  // Otherwise that discard is never shown and both players see it as the
+  // other's turn.
   if (state.awaitingWriteId) {
     if (r.writeId !== state.awaitingWriteId) return;
     state.awaitingWriteId = null;
-    state.roomSnapshot = JSON.stringify(r);
-    return;
   }
   // Skip the (expensive, full-DOM-rebuild) render() when nothing actually
   // changed - otherwise every no-op update tears down and recreates every
   // card element, which drops the browser's :hover state on whatever card
   // the mouse happens to be resting on and makes it visibly flicker.
-  const snapshot = JSON.stringify(r);
+  const snapshot = roomFingerprint(r);
   const changed = snapshot !== state.roomSnapshot;
   state.roomSnapshot = snapshot;
   state.room = r;

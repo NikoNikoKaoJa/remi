@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v1.47';
+export const APP_VERSION = 'v1.48';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -11,10 +11,11 @@ export const state = {
   dbUrl: null, // resolved at boot from ?db= query param or localStorage
   pollTimer: null, // sync loop's fallback timer (fallback poll + cut-reveal check) - see startSync in js/room.js
   roomStream: null, // EventSource on the room in Firebase - the primary way other players' moves arrive
-  roomSnapshot: null, // JSON of the room as last saved/loaded - the sync loop diffs against it to skip no-op re-renders
+  roomSnapshot: null, // roomFingerprint of the room as last saved/loaded - the sync loop diffs against it to skip no-op re-renders
   deferredRoom: undefined, // newest incoming room held back while busy/mid-drag - receiveRoom retries it shortly
   deferredRoomTimer: null,
   awaitingWriteId: null, // writeId of our last save until Firebase echoes it back; older incoming rooms are ignored meanwhile
+  echoLost: false, // set when we stopped waiting for an echo that never came - the sync loop re-fetches the room once
   toastTimer: null,
   busy: false, // set while an action waits on the network - blocks other actions, and holds incoming rooms until it's done
   selectedIds: new Set(),
