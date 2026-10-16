@@ -184,12 +184,19 @@ function endNoSelectDrag() {
 // normally routes events back to node, but capture support is inconsistent
 // enough (older WebViews, some automation input paths) that window is the
 // safe default.
+//
+// A pointercancel (the browser taking the gesture over) carries no useful
+// position - often 0,0 - so the drag ends at the last position it had
+// instead, rather than "dropping" the card off-screen and snapping it back.
+// The browser's own HTML drag-and-drop (which a mouse press on the joker's
+// image would start) is suppressed, since starting it cancels our pointer.
 function onCardDrag(node, { start, move, end }) {
-  let startX = 0, startY = 0, pointerId = null, dragging = false;
+  let startX = 0, startY = 0, lastX = 0, lastY = 0, pointerId = null, dragging = false;
+  node.addEventListener('dragstart', (e) => e.preventDefault());
   node.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    startX = e.clientX;
-    startY = e.clientY;
+    startX = lastX = e.clientX;
+    startY = lastY = e.clientY;
     pointerId = e.pointerId;
     dragging = false;
     window.addEventListener('pointermove', onMove);
@@ -204,14 +211,18 @@ function onCardDrag(node, { start, move, end }) {
       start(startX, startY);
     }
     e.preventDefault();
-    move(e.clientX, e.clientY);
+    lastX = e.clientX;
+    lastY = e.clientY;
+    move(lastX, lastY);
   }
   function onUp(e) {
     if (e.pointerId !== pointerId) return;
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onUp);
-    if (dragging) end(e.clientX, e.clientY);
+    if (!dragging) return;
+    if (e.type === 'pointercancel') end(lastX, lastY);
+    else end(e.clientX, e.clientY);
   }
 }
 
@@ -455,23 +466,34 @@ function enableHandReorder(node, container) {
   const scheduleUpdate = perFrame(updateDrag);
 
   // Where in the hand the dragged card is, judged by the card itself (the
-  // ghost), not the pointer: as soon as it overlaps any card of a row, it is
-  // over that row - however it's being held. Returns { row, x } (x = the
-  // ghost's centre, which picks the slot) or null when it touches no hand
-  // card at all. The dragged card's own faded slot counts as a card, and so
-  // does an empty row's drop zone (card-height while a drag is under way).
-  // If it overlaps both rows, the one it covers more wins.
-  function handSpot() {
+  // ghost), not the pointer: as soon as it overlaps a row, it is over that
+  // row - however it's being held. Returns { row, x } (x = the ghost's
+  // centre, which picks the slot) or null when it's clear of the hand.
+  // A row counts across its FULL width, not just where its cards are: the
+  // rows are centred, so the empty space past either end of a short row is
+  // exactly where "put it last / first" drops land, and they used to miss
+  // and snap back. If it overlaps both rows, the one it covers more wins,
+  // with a bias to the row the card is already in so it doesn't flicker
+  // between them when held across the seam. Failing all that, a pointer
+  // still inside the hand box (its padding) goes to the nearest row.
+  function handSpot(x, y) {
     if (!lifted) return null;
     const g = lifted.ghost.getBoundingClientRect();
     const overlap = (r) => Math.max(0, Math.min(g.right, r.right) - Math.max(g.left, r.left))
       * Math.max(0, Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top));
+    const rows = [...container.querySelectorAll('.hand-row')];
     let best = null, bestArea = 0;
-    container.querySelectorAll('.hand-row').forEach(row => {
-      const parts = row.children.length ? [...row.children] : [row];
-      const area = parts.reduce((sum, n) => sum + overlap(n.getBoundingClientRect()), 0);
+    rows.forEach(row => {
+      const area = overlap(row.getBoundingClientRect()) * (row === node.parentNode ? 1.5 : 1);
       if (area > bestArea) { best = row; bestArea = area; }
     });
+    if (!best) {
+      const box = container.getBoundingClientRect();
+      if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
+        const dist = (row) => { const r = row.getBoundingClientRect(); return Math.abs(y - (r.top + r.bottom) / 2); };
+        best = rows.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+      }
+    }
     return best ? { row: best, x: (g.left + g.right) / 2 } : null;
   }
 
@@ -482,7 +504,7 @@ function enableHandReorder(node, container) {
     const id = node.dataset.cardId;
     const underPointer = findDropTarget(x, y, DROP_FROM_HAND, null, container, id);
     if (underPointer) return { target: underPointer, spot: null };
-    const spot = handSpot();
+    const spot = handSpot(x, y);
     if (spot) return { target: null, spot };
     return { target: findDropTarget(x, y, DROP_FROM_HAND, lifted.ghost, null, id), spot: null };
   }

@@ -304,7 +304,8 @@ KORAK 5 - Prvo otvaranje
   .hand-cards .card, .hand-cards .card-slot{touch-action:none;}
   /* The live hand: two explicit centered rows (see "Hand rows" in render.js). */
   .hand-rows{display:flex;flex-direction:column;padding:2px 4px 10px;margin-top:0px;}
-  .hand-rows .card, .hand-rows .card-slot{touch-action:none;}
+  .hand-rows .card, .hand-rows .card-slot{touch-action:none;-webkit-touch-callout:none;}
+  .hand-rows img{-webkit-user-drag:none;}
   .hand-row{display:flex;flex-wrap:nowrap;gap:6px;justify-content:center;}
   .hand-row + .hand-row:not(:empty){margin-top:6px;}
   /* While a card is being dragged an empty second row is still a drop zone. */
