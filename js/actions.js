@@ -340,6 +340,9 @@ export async function actionDrawDiscard() {
   if (myHand().length === 1) { showToast('Sa jednom kartom u ruci ne mozes vuci sa otpada - vuci sa talona.'); return; }
   const card = state.room.discard.pop();
   myHandPush(card);
+  // It has to be laid down this turn, so start it off selected (on top of
+  // the blue "just drawn" mark myHandPush gives it) - one less click.
+  state.selectedIds.add(card.id);
   state.room.turnPhase = 'meld';
   state.room.discardDrawCardId = card.id;
   commitMove('drawDiscard');
