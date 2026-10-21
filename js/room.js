@@ -198,9 +198,13 @@ export async function resyncAfterFailedSave() {
 // is up - is carried across in RELOAD_CARRY_KEY. The reload waits while a
 // move is in progress or saving, a card is being dragged, or any dialog is
 // open (e.g. the joker-position choice), so nothing half-done is lost.
-// One try per target version: a cached old build that comes back from the
-// reload doesn't reload again in a loop.
+// A few tries per target version, a minute apart: a stale old build that
+// comes back from the reload (the CDN not caught up yet) doesn't reload
+// again in a loop, but isn't stuck on the old build for the evening either.
 const RELOAD_CARRY_KEY = 'remi-reload-carry';
+const RELOAD_TRIES_KEY = 'remi-reload-tries';
+const RELOAD_MAX_TRIES = 3;
+const RELOAD_RETRY_MS = 60000;
 let reloadPending = false;
 
 function versionNum(v) {
@@ -209,23 +213,57 @@ function versionNum(v) {
 }
 
 function reloadIfOutdated(r) {
-  if (reloadPending) return;
-  const newest = (r.writeLog || []).reduce((best, w) => (versionNum(w.v) > versionNum(best) ? w.v : best), APP_VERSION);
-  if (versionNum(newest) <= versionNum(APP_VERSION)) return;
-  try {
-    if (localStorage.getItem('remi-reloaded-for') === newest) return;
-  } catch (e) { return; }
-  reloadPending = true;
-  reloadWhenIdle(newest);
+  reloadIfNewer((r.writeLog || []).reduce((best, w) => (versionNum(w.v) > versionNum(best) ? w.v : best), APP_VERSION));
 }
 
-function reloadWhenIdle(newest) {
-  if (state.busy || state.handDragActive || state.awaitingWriteId || document.querySelector('.modal-overlay')) {
-    setTimeout(() => reloadWhenIdle(newest), 500);
+function reloadIfNewer(newest) {
+  if (reloadPending || versionNum(newest) <= versionNum(APP_VERSION)) return;
+  let tries;
+  try {
+    tries = JSON.parse(localStorage.getItem(RELOAD_TRIES_KEY) || 'null');
+  } catch (e) { return; }
+  if (tries && tries.v === newest && (tries.n >= RELOAD_MAX_TRIES || Date.now() - tries.at < RELOAD_RETRY_MS)) return;
+  reloadPending = true;
+  refetchBuild().then(() => reloadWhenIdle(newest, tries && tries.v === newest ? tries.n + 1 : 1));
+}
+
+// The writeLog check only fires once someone in the room has made a move
+// from the new build, and not at all on the home screen, so also ask the
+// server directly: every minute, and whenever the tab comes back into view
+// (a phone woken up mid-evening). The query string gets past the browser's
+// and the CDN's caches.
+export function startVersionWatch() {
+  const check = async () => {
+    if (reloadPending) return;
+    try {
+      const res = await fetch(`${new URL('./state.js', import.meta.url).href}?v=${Date.now()}`, { cache: 'no-store' });
+      const m = /APP_VERSION\s*=\s*'([^']+)'/.exec(await res.text());
+      if (m) reloadIfNewer(m[1]);
+    } catch (e) {}
+  };
+  setInterval(check, RELOAD_RETRY_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+}
+
+// GitHub Pages lets browsers keep files for 10 minutes, and a plain reload
+// doesn't recheck the modules, so it would just bring the old build back.
+// Fetching the page and every module with cache:'reload' first replaces the
+// cached copies, so the reload picks up the new ones.
+async function refetchBuild() {
+  const urls = [location.href, ...performance.getEntriesByType('resource').map(e => e.name)
+    .filter(u => { const url = new URL(u); return url.origin === location.origin && !url.search && url.pathname.endsWith('.js'); })];
+  await Promise.all(urls.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+}
+
+function reloadWhenIdle(newest, tryNum) {
+  // Also waits out typing (a name or room code on the home screen).
+  const typing = document.activeElement && document.activeElement.tagName === 'INPUT';
+  if (state.busy || state.handDragActive || state.awaitingWriteId || typing || document.querySelector('.modal-overlay')) {
+    setTimeout(() => reloadWhenIdle(newest, tryNum), 500);
     return;
   }
   try {
-    localStorage.setItem('remi-reloaded-for', newest);
+    localStorage.setItem(RELOAD_TRIES_KEY, JSON.stringify({ v: newest, n: tryNum, at: Date.now() }));
     localStorage.setItem(RELOAD_CARRY_KEY, JSON.stringify({
       roomCode: state.session.roomCode,
       playerId: state.session.playerId,

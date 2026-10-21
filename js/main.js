@@ -1,5 +1,5 @@
 import { state, resolveDbUrl } from './state.js';
-import { mySession, rejoin } from './room.js';
+import { mySession, rejoin, startVersionWatch } from './room.js';
 import { render } from './render.js';
 
 // ===== Boot =====
@@ -13,4 +13,5 @@ import { render } from './render.js';
     if (!linkPointsElsewhere) await rejoin();
   }
   render();
+  startVersionWatch();
 })();
