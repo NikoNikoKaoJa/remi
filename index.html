@@ -82,6 +82,11 @@ KORAK 5 - Prvo otvaranje
      default page background below it, while Chrome/Safari happened to
      fill the viewport anyway). */
   html, body{height:100%;margin:0;}
+  /* No text selection anywhere (a stray double-click or long-press painted
+     cards/labels selection-blue), nor the mobile tap flash - except in
+     text fields, which still need it to type/copy the room link. */
+  html{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+  input, textarea{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;}
   #remi-root{
     font-family:var(--font-body);
     color:var(--cream);
