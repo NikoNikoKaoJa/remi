@@ -97,15 +97,21 @@ export function buildScoreHistoryTable(room, winnerId = null) {
   const cls = p => (p.id === winnerId ? ' class="winner-col"' : '');
   // Names are typed by the players, so they go in as text, never as HTML.
   const headRow = document.createElement('tr');
+  headRow.appendChild(el('th', 'krug-col', 'Krug'));
   room.players.forEach(p => headRow.appendChild(el('th', p.id === winnerId ? 'winner-col' : null, p.name)));
   table.appendChild(headRow);
   history.forEach((entry, i) => {
     const last = i === history.length - 1;
     const tr = document.createElement('tr');
-    if (n > 0 && entry.round > 1 && (entry.round - 1) % n === 0) tr.classList.add('circle-start');
+    // The krug number goes only on its first row; the circle-start line
+    // already separates one krug's rows from the next.
+    const krugStart = n > 0 && (entry.round - 1) % n === 0;
+    if (krugStart && entry.round > 1) tr.classList.add('circle-start');
+    const krug = krugStart ? Math.floor((entry.round - 1) / n) + 1 : '';
     // The number goes in its own <span class="num"> so CSS can right-align the
     // digits inside a fixed-width box that stays centered under the name.
-    tr.innerHTML = room.players.map(p => `<td${last ? cls(p) : ''}><span class="num">${entry.totals[p.id] ?? 0}</span></td>`).join('');
+    tr.innerHTML = `<td class="krug-col">${krug}</td>`
+      + room.players.map(p => `<td${last ? cls(p) : ''}><span class="num">${entry.totals[p.id] ?? 0}</span></td>`).join('');
     table.appendChild(tr);
   });
   return table;

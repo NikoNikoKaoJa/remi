@@ -376,6 +376,9 @@ KORAK 5 - Prvo otvaranje
   .score-history-table th:not(:last-child),
   .score-history-table td:not(:last-child){border-right:1px solid rgba(250,246,234,0.4);}
   .score-history-table tr.circle-start td{border-top:1px solid rgba(250,246,234,0.4);}
+  /* Krug number column: dimmer and smaller than the scores beside it. */
+  .score-history-table .krug-col{color:rgba(250,246,234,0.55);font-size:14px;font-weight:500;padding-left:6px;padding-right:12px;}
+  .score-history-table th.krug-col{color:rgba(230,195,79,0.7);font-size:12px;}
   /* Split history table (buildScoreHistoryBlock): the names row is its own
      table sitting on the panel, so it needs no background of its own, and only
      the rounds below it scroll. Both tables are locked to the same measured
