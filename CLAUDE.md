@@ -29,6 +29,12 @@ There are two builds of the same game:
   `<script type="module">`. NOTE: module scripts do NOT work over `file://`
   (CORS) — only over http(s) / GitHub Pages / a local server (e.g.
   `python3 -m http.server`) — keep this in mind when testing locally.
+- **`sw.js` (service worker, registered from `js/main.js`)** works around
+  GitHub Pages' fixed `Cache-Control: max-age=600`: it makes every same-origin
+  load revalidate with the server and rewrites responses to `no-cache`, so a
+  deploy shows up on the next load instead of after 10 minutes. It caches
+  nothing. Combined with the version check in `js/room.js`
+  (`startVersionWatch`), open tabs reload onto a new build within a minute.
 - **No browser storage APIs beyond what's already used.** State lives in Firebase
   (shared) + `localStorage` (per-browser session + dismissed-dialog tracking).
 - Pure vanilla JS. No frameworks.

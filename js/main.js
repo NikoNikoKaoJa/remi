@@ -14,4 +14,9 @@ import { render } from './render.js';
   }
   render();
   startVersionWatch();
+  // Makes every load check the server for newer files instead of waiting out
+  // GitHub Pages' 10-minute cache (see sw.js).
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(() => {});
+  }
 })();
