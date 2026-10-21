@@ -82,6 +82,9 @@ KORAK 5 - Prvo otvaranje
      default page background below it, while Chrome/Safari happened to
      fill the viewport anyway). */
   html, body{height:100%;margin:0;}
+  /* Felt behind #remi-root too, so nothing white shows at the window's
+     edges or when Safari rubber-bands an overscroll. */
+  html{background:var(--felt-edge);}
   /* No text selection anywhere (a stray double-click or long-press painted
      cards/labels selection-blue), nor the mobile tap flash - except in
      text fields, which still need it to type/copy the room link. */
@@ -95,7 +98,6 @@ KORAK 5 - Prvo otvaranje
       repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 8px),
       linear-gradient(160deg, var(--felt-1), var(--felt-2) 70%, var(--felt-edge));
     min-height:100%;
-    border-radius:12px;
     padding:0;
     position:relative;
     overflow-x:hidden;
