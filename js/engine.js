@@ -533,7 +533,7 @@ export function setupRound(players, dealerIndex) {
     currentPlayerIndex: firstPlayerIdx,
     turnPhase: 'meld', // first player already has 15 cards, skips draw
     roundWinner: null,
-    roundWinType: null, // null|'mali'|'veliki'
+    roundWinType: null, // null|'mali'|'veliki'|'jokers'
     turnMeldIds: [], // meld ids created/added-to during the current player's turn - reset in advanceTurn
     roundWinMeldIds: [], // snapshot of turnMeldIds taken the instant someone wins, for the round-end "put down this turn" highlight
     pendingJokerToPlace: null,
@@ -543,8 +543,15 @@ export function setupRound(players, dealerIndex) {
   };
 }
 
+// What a hand multiplies every score of the round by. No hand (null) = 1.
+const HAND_MULTIPLIER = { mali: 2, veliki: 2, jokers: 3 };
+export function handMultiplier(handType) { return HAND_MULTIPLIER[handType] || 1; }
+
+// All four jokers in the deck: a hand of its own, whatever the other cards are.
+export function hasFourJokers(cards) { return cards.filter(c => c.joker).length === 4; }
+
 export function scoreRound(r, winnerId, handType) {
-  const mult = handType ? 2 : 1;
+  const mult = handMultiplier(handType);
   const deltas = {};
   r.players.forEach(p => {
     if (p.id === winnerId) {

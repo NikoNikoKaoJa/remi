@@ -4,7 +4,7 @@ import {
   findPartition, findAllPartitions, expandPartitionOptions,
   resolvedOptionDisplayGroups, applyResolvedOptionLocks,
   enumerateSingleJokerRunWindows, runWindowPreviewCards, resolveMeld,
-  maliHandValue, cardValueMaliHand, shuffle,
+  maliHandValue, cardValueMaliHand, hasFourJokers, shuffle,
 } from './engine.js';
 import { SUIT_SYM, rankLabel, sortHand, orderHand } from './cards.js';
 import { saveRoom, deleteRoom, applyCollectionDefaults, updateRoomAtomically } from './storage.js';
@@ -227,7 +227,7 @@ export function endRoundWithWinner(r, winnerId, handType) {
   r.bottomDrawCardId = null;
   r.discardDrawCardId = null;
   r.phase = 'round_end';
-  const label = handType === 'mali' ? 'malim handom' : handType === 'veliki' ? 'velikim handom' : 'regularno';
+  const label = { mali: 'malim handom', veliki: 'velikim handom', jokers: 'handom sa 4 dzokera' }[handType] || 'regularno';
   r.log.push(`${r.players.find(p => p.id === winnerId).name} je zavrsio rundu (${label})!`);
 }
 
@@ -457,6 +457,12 @@ export function findHandOption(hand) {
 // on the hypothetical hand before handing the card over, so the offer and the
 // declaration can never disagree.
 function findGoingOutOption(hand) {
+  // Four jokers come first: they pay more than the other two hands, and they
+  // win whatever else is in the hand, so any other card can be the one thrown.
+  if (hasFourJokers(hand)) {
+    const disc = hand.find(c => !c.joker);
+    return { type: 'jokers', keepIds: hand.filter(c => c !== disc).map(c => c.id), discardCard: disc };
+  }
   for (const disc of hand) {
     const rest = hand.filter(c => c.id !== disc.id);
     if (findPartition(rest)) return { type: 'veliki', keepIds: rest.map(c => c.id), discardCard: disc };
@@ -539,6 +545,7 @@ export function canLaySelected() {
   const opened = iHaveOpened();
   const goingOutAttempt = !opened && cards.length === hand.length - 1;
   if (state.room.bottomDrawCardId && !goingOutAttempt) return false;
+  if (goingOutAttempt && hasFourJokers(cards)) return true;
 
   const key = [state.session.playerId, opened, hand.length, state.room.bottomDrawCardId || '',
     cards.map(c => c.id).sort().join(',')].join('|');
@@ -604,6 +611,13 @@ export async function actionLayMultipleSelected() {
   // it completes is "the other 14 cards", leaving it as the odd card out.
   // Blocking that made the game offer a hand it then refused to let you
   // declare, with putting the card back as the only way forward.
+
+  // Four jokers win as they are: nothing goes on the table, the cards stay in
+  // hand for the round-end reveal, same as a mali hand.
+  if (goingOutAttempt && hasFourJokers(cards)) {
+    throwLeftoverAndWin(hand, leftoverCard, 'jokers');
+    return;
+  }
 
   const partitions = findAllPartitions(cards);
   // findAllPartitions bails out after a capped number of attempts, while the
@@ -804,6 +818,7 @@ function takeJokerIntoHand(meld, jokerObj, hand) {
 
 export async function actionReplaceJoker(meldIdx, jokerCardId) {
   if (!canActIn('meld')) return;
+  if (!iHaveOpened()) { showToast('Prvo se moras izloziti da bi menjao dzokera.'); return; }
   // Holding a joker you already swapped out is no reason to refuse a second
   // one - taking both is a legal play. They all just have to be laid down
   // before you can discard (see actionDiscard).

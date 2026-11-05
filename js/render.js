@@ -1,5 +1,5 @@
 import { state, APP_VERSION, DEFAULT_DB_URL } from './state.js';
-import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay } from './engine.js';
+import { resolveMeld, maliHandValue, cardValueStandard, cardValueMaliHand, computeSelectedSum, sortMeldForDisplay, handMultiplier } from './engine.js';
 import { el, cardEl, cardBackEl, sortHand, orderHand, wrapHoverSlot } from './cards.js';
 import { saveHandLayout } from './storage.js';
 import { showToast, checkQuadAnnouncement, showScoreHistoryModal, closeScoreHistoryModal, buildScoreHistoryBlock, reserveScrollbarStrip } from './ui.js';
@@ -111,7 +111,7 @@ function jokerIsSettled(meld, resolved = resolveMeld(meld.cards)) {
 // set's is a rank plus a suit not already down, and a set's joker has no
 // settled identity until 3 real cards are on the table.
 function jokerSlotFilledBy(meld, card) {
-  if (!card || card.joker) return null;
+  if (!card || card.joker || !iHaveOpened()) return null;
   const resolved = resolveMeld(meld.cards);
   if (!resolved || !jokerIsSettled(meld, resolved)) return null;
   const real = meld.cards.filter(c => !c.joker);
@@ -945,7 +945,7 @@ function renderMeldsForPlayers(container, { clickable }) {
   // could add cards at all.
   const canDropOn = myMeldTurn && iHaveOpened();
   const canTarget = canDropOn && state.selectedIds.size > 0;
-  const canReplaceJoker = myMeldTurn && state.selectedIds.size === 1;
+  const canReplaceJoker = myMeldTurn && iHaveOpened() && state.selectedIds.size === 1;
   state.room.players.forEach((p) => {
     const ownMelds = state.room.melds.map((m, idx) => ({ m, idx })).filter(x => x.m.ownerId === p.id);
     if (ownMelds.length === 0) return;
@@ -1200,9 +1200,16 @@ function winnerBannerEl(winner) {
   return banner;
 }
 
-// Whether the round was won with a hand (mali/veliki), which doubles every score.
+const HAND_LABELS = { mali: 'Mali Hand', veliki: 'Veliki Hand', jokers: 'Hand sa 4 Dzokera' };
+
+// Whether the round was won with a hand, which multiplies every score.
 function wonWithHand() {
-  return state.room.roundWinType === 'mali' || state.room.roundWinType === 'veliki';
+  return handMultiplier(state.room.roundWinType) > 1;
+}
+
+// The hands that put nothing on the table, so the winner's cards are shown instead.
+function winnerHandIsRevealed() {
+  return state.room.roundWinType === 'mali' || state.room.roundWinType === 'jokers';
 }
 
 function winnerBannerText(winner) {
@@ -1236,8 +1243,8 @@ function renderRoundAnnounce(app) {
 
   renderMeldsForPlayers(panel, { clickable: false });
 
-  if (state.room.roundWinType === 'mali') {
-    panel.appendChild(el('div', 'meld-owner-label', (winner ? winner.name : '?') + ' - ruka (Mali Hand)'));
+  if (winnerHandIsRevealed()) {
+    panel.appendChild(el('div', 'meld-owner-label', `${winner ? winner.name : '?'} - ruka (${HAND_LABELS[state.room.roundWinType]})`));
     const row = el('div', 'hand-cards');
     sortHand(state.room.hands[state.room.roundWinner] || []).forEach(c => {
       const cardElement = cardEl(c, { mini: true });
@@ -1248,16 +1255,17 @@ function renderRoundAnnounce(app) {
   }
 
   // Show the viewer's own leftover hand too - unless it was just shown above
-  // as the mali-hand winner's hand (that's the same cards, would duplicate).
-  const shownAsMaliWinner = state.room.roundWinType === 'mali' && state.room.roundWinner === state.session.playerId;
+  // as the winner's hand (that's the same cards, would duplicate).
+  const shownAsWinner = winnerHandIsRevealed() && state.room.roundWinner === state.session.playerId;
   const myLeftover = myHand();
-  if (!shownAsMaliWinner && myLeftover.length > 0) {
+  if (!shownAsWinner && myLeftover.length > 0) {
     // A player who never opened takes a flat 100-point penalty regardless of
     // what's in their hand (see scoreRound in js/engine.js) - only an opened
     // player's score is the actual sum of their leftover cards.
     const sum = iHaveOpened() ? myLeftover.reduce((s, c) => s + cardValueStandard(c), 0) : 100;
+    const mult = handMultiplier(state.room.roundWinType);
     const label = wonWithHand()
-      ? `Vrednost karata u tvojo ruci je ${sum}, bio  je hand, to je duplo ${sum * 2}`
+      ? `Vrednost karata u tvojo ruci je ${sum}, bio  je hand, to je ${mult === 3 ? 'trostruko' : 'duplo'} ${sum * mult}`
       : `Vrednost karata u tvojo ruci je ${sum}`;
     const labelEl = el('div', 'small center', label);
     labelEl.style.color = 'var(--gold-bright)';
@@ -1282,7 +1290,7 @@ function renderRoundScores(app) {
   // a long history the header only pushed the buttons off the bottom.
   const panel = el('div', 'card-panel round-end-scores-panel');
   const winner = state.room.players.find(p => p.id === state.room.roundWinner);
-  const typeLabel = { mali: 'Mali Hand', veliki: 'Veliki Hand' }[state.room.roundWinType] || 'regularno';
+  const typeLabel = HAND_LABELS[state.room.roundWinType] || 'regularno';
   panel.appendChild(winnerBannerEl(winner));
   panel.appendChild(el('div', 'small center', 'Nacin pobede: ' + typeLabel));
 

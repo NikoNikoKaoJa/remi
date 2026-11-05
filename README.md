@@ -79,9 +79,11 @@ koraka.
 
 - 2 špila (108 karata), 14 karata po igraču (prvi igrač 15).
 - Izlaganje traži 51+ poena u kombinacijama u tom potezu.
-- Dve vrste „handa": mali (zbir ruke < 51), veliki (cela ruka odjednom).
+- Tri vrste „handa": mali (zbir ruke < 51), veliki (cela ruka odjednom),
+  i sva 4 džokera u ruci.
 - Bodovanje: pobednik −10, neizložen +100, izložen = zbir karata u ruci
-  (As=10, Džoker=20); množi se ×2 ako je pobednik izašao handom (mali/veliki).
+  (As=10, Džoker=20); množi se ×2 ako je pobednik izašao malim ili velikim
+  handom, a ×3 ako je izašao sa 4 džokera (pobednik −30).
 
 Kompletna pravila su u `CLAUDE.md`.
 

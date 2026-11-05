@@ -81,20 +81,23 @@ There are two builds of the same game:
   of the card it substitutes.
 - **Melds:** run (3+ same suit consecutive, no wrap around K-A-2) or set (3-4 same
   rank, distinct suits). Jokers can fill.
-- **Two kinds of "hand" (going out in one move, only if never opened before):**
+- **Three kinds of "hand" (going out in one move, only if never opened before):**
   - **Mali hand:** whole 14-card hand sums to < 51, with joker=0 and ace=1.
   - **Veliki hand:** entire hand laid down as valid melds in one move.
+  - **Four jokers:** holding all 4 jokers, whatever the other cards are. Nothing
+    is laid down; the odd card is thrown and the hand is revealed at round end.
 - **Scoring at end of round:**
   - Winner (went out): **−10**.
   - A player who never opened: **+100**.
   - A player who opened but didn't go out: **sum of cards left in hand**, where
     Ace = 10, Joker = 20, J/Q/K = 10, others = face.
-  - **Multiplier** if the winner went out with a hand (mali/veliki): **×2**
-    (applies to everyone's round score).
+  - **Multiplier** if the winner went out with a hand (applies to everyone's
+    round score, the winner's −10 included): mali/veliki **×2**, four jokers
+    **×3** (winner −30).
 - **Drawing from discard** is only allowed if the drawn card can be laid down
   somewhere that same turn (not just kept in hand).
-- **Joker replacement:** a player may swap a joker that's exposed in a table meld
-  for the real card it represents (exact rank+suit for a run; correct rank + a
+- **Joker replacement:** a player who has opened may swap a joker that's exposed
+  in a table meld for the real card it represents (exact rank+suit for a run; correct rank + a
   suit not already present for a set). The freed joker goes to their hand and MUST
   be laid down that same turn (new meld, or added to an existing one) before they
   can discard. **Several jokers may be taken in the same turn** — holding one
