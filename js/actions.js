@@ -1,6 +1,6 @@
 import { state, saveDismissedQuadAnnouncements } from './state.js';
 import {
-  setupRound, scoreRound, sweepCompletedQuads, isValidMeld, sumOpeningValue,
+  setupRound, scoreRound, sweepCompletedQuads, isValidMeld, sumOpeningValue, bestOpeningValue,
   findPartition, findAllPartitions, expandPartitionOptions,
   resolvedOptionDisplayGroups, applyResolvedOptionLocks,
   enumerateSingleJokerRunWindows, runWindowPreviewCards, resolveMeld,
@@ -561,16 +561,8 @@ export function canLaySelected() {
     value = true;
   } else {
     // Any arrangement reaching 51 is enough - the player picks it from the
-    // choice modal. A joker's run window can change the sum, so each option
-    // is scored with its locks applied, then the locks are taken back off.
-    value = expandPartitionOptions(partitions).some(option => {
-      const locked = option.perGroup.filter(({ opt }) => opt)
-        .map(({ group }) => group.find(c => c.joker && c._lockedRank === undefined));
-      applyResolvedOptionLocks(option);
-      const val = sumOpeningValue(option.partition);
-      locked.forEach(c => { delete c._lockedRank; delete c._lockedAceHigh; });
-      return val >= 51;
-    });
+    // choice modal.
+    value = bestOpeningValue(partitions) >= 51;
   }
   canLayCache = { key, value };
   return value;

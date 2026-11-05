@@ -309,6 +309,21 @@ export function sumOpeningValue(melds) {
   return total;
 }
 
+// The most any way of laying these partitions counts toward the 51, or -1 if
+// there are none. A joker's run window can change the sum, so each option is
+// scored with its locks applied, then the locks are taken back off.
+export function bestOpeningValue(partitions) {
+  let best = -1;
+  expandPartitionOptions(partitions).forEach(option => {
+    const locked = option.perGroup.filter(({ opt }) => opt)
+      .map(({ group }) => group.find(c => c.joker && c._lockedRank === undefined));
+    applyResolvedOptionLocks(option);
+    best = Math.max(best, sumOpeningValue(option.partition));
+    locked.forEach(c => { delete c._lockedRank; delete c._lockedAceHigh; });
+  });
+  return best;
+}
+
 // ---- Mali hand check ----
 export function maliHandValue(hand) {
   return hand.reduce((s, c) => s + cardValueMaliHand(c), 0);
@@ -396,29 +411,25 @@ export function findAllPartitions(cards, maxGroupSize = 8, maxOptions = 8, maxAt
   return results;
 }
 
-// For the "selected cards" sum display: Ace always counts as 10, and a joker
-// takes the value of whatever card it represents. If the selected cards form
-// a resolvable meld (run/set), the joker's represented card is known exactly.
-// Otherwise this makes its own best guess from context (matching ranks/suits
-// among the other selected cards) rather than interrupting the player - the
-// player is only ever actually asked at the moment they press "Izlozi se",
-// via the run-position picker if real ambiguity remains at that point.
+// For the "selected cards" sum display. If the selected cards form one or more
+// melds, it's the same best value the 51 check uses (low Ace = 1, joker = the
+// card it stands for), so the label can't disagree with the button. Otherwise
+// Ace counts as 10, and a joker gets a best guess from context (matching
+// ranks/suits among the other selected cards) rather than interrupting the
+// player - the player is only ever actually asked at the moment they press
+// "Izlozi se", via the run-position picker if real ambiguity remains at that
+// point. Memoised per exact selection, since the partition search is expensive
+// and render() runs often.
+let meldSumCache = { key: null, value: -1 };
+
 export function computeSelectedSum(selected) {
+  if (selected.length >= 3) {
+    const key = selected.map(c => c.id).sort().join(',');
+    if (meldSumCache.key !== key) meldSumCache = { key, value: bestOpeningValue(findAllPartitions(selected)) };
+    if (meldSumCache.value >= 0) return meldSumCache.value;
+  }
   const jokers = selected.filter(c => c.joker);
   const nonJokers = selected.filter(c => !c.joker);
-  if (jokers.length === 0) {
-    return nonJokers.reduce((s, c) => s + cardValueStandard(c), 0);
-  }
-  if (selected.length >= 3) {
-    const resolved = resolveMeld(selected);
-    if (resolved) {
-      let sum = 0;
-      for (const item of resolved.cards) {
-        sum += item.isJoker ? cardValueStandard({ rank: item.substitutes.rank }) : cardValueStandard(item.card);
-      }
-      return sum;
-    }
-  }
   let sum = nonJokers.reduce((s, c) => s + cardValueStandard(c), 0);
   jokers.forEach(() => { sum += guessJokerRankValue(nonJokers); });
   return sum;
