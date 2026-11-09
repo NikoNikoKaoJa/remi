@@ -4,7 +4,8 @@
 // there's no sound file to host. Browsers only let audio start after
 // a user gesture, so the context is created/resumed on the first tap or click
 // (joining a room always involves one) - before that, the chime is skipped.
-// Muted by default; the toggle before Stanje in the bottom bar turns it on, remembered per browser.
+// Muted by default; the toggle (lobby panel's top-right corner, and before Stanje in the
+// game's bottom bar) turns it - and the lobby's join chime - on, remembered per browser.
 import { state } from './state.js';
 import { isMyTurn } from './actions.js';
 import { el } from './cards.js';
@@ -60,11 +61,9 @@ export function checkTurnSound() {
 }
 
 // A short two-note "ding-dong" (sine, E6 then C6) for a player joining the
-// lobby. Plays regardless of the turn-sound toggle: that toggle only lives
-// on the game table's bottom bar, so it can't be reached from the lobby -
-// and someone joining is exactly what the host is waiting there for.
+// lobby. Follows the same toggle as the turn sound (shown in the lobby too).
 function playJoinChime() {
-  if (!ctx || ctx.state !== 'running') return;
+  if (!soundOn || !ctx || ctx.state !== 'running') return;
   const now = ctx.currentTime;
   [[1318.5, 0], [1046.5, 0.18]].forEach(([freq, at]) => {
     const osc = ctx.createOscillator();
@@ -91,7 +90,39 @@ export function checkJoinSound() {
   if (ids.some(id => id !== state.session.playerId && !prev.includes(id))) playJoinChime();
 }
 
-export function soundToggleEl() {
+// A rising four-note arpeggio (triangle, C5-E5-G5-C6) when another player
+// goes out and the round ends. Same toggle as the other sounds.
+function playFinishChime() {
+  if (!soundOn || !ctx || ctx.state !== 'running') return;
+  const now = ctx.currentTime;
+  [[523.25, 0], [659.25, 0.12], [783.99, 0.24], [1046.5, 0.36]].forEach(([freq, at]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, now + at);
+    gain.gain.exponentialRampToValueAtTime(0.3, now + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + at + (at === 0.36 ? 0.9 : 0.35));
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + at);
+    osc.stop(now + at + 0.95);
+  });
+}
+
+// Called on every render. Plays once when the round ends with someone else
+// as the winner (keyed by round + winner) - not when you went out yourself,
+// and not on the first render after (re)joining onto a finished round.
+export function checkFinishSound() {
+  const r = state.room;
+  const key = r && r.phase === 'round_end' && r.roundWinner ? `${r.round}:${r.roundWinner}` : null;
+  const prev = state.lastFinishKey;
+  state.lastFinishKey = key;
+  if (key && key !== prev && prev !== undefined && r.roundWinner !== state.session.playerId) playFinishChime();
+}
+
+// Switching it on plays a preview: the join chime in the lobby (`lobby`),
+// the turn sound at the table.
+export function soundToggleEl({ lobby = false } = {}) {
   const btn = el('button', 'btn btn-outline-gold sound-toggle', soundOn ? '🔔' : '🔕');
   btn.title = soundOn ? 'Zvuk ukljucen' : 'Zvuk iskljucen';
   btn.setAttribute('aria-label', btn.title);
@@ -103,7 +134,7 @@ export function soundToggleEl() {
     btn.setAttribute('aria-label', btn.title);
     // A preview, so turning it on is audibly confirmed. On the very first
     // click the context is still resuming, hence waiting on resume().
-    if (soundOn && ctx) ctx.resume().then(playTurnChime);
+    if (soundOn && ctx) ctx.resume().then(lobby ? playJoinChime : playTurnChime);
   };
   return btn;
 }

@@ -13,7 +13,7 @@ import {
   pendingJokerIds,
 } from './actions.js';
 import { createRoom, joinRoom, leaveRoom } from './room.js';
-import { checkTurnSound, checkJoinSound, soundToggleEl } from './sound.js';
+import { checkTurnSound, checkJoinSound, checkFinishSound, soundToggleEl } from './sound.js';
 
 // ===== Rendering =====
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
@@ -657,6 +657,7 @@ export function render() {
   checkQuadAnnouncement();
   checkTurnSound();
   checkJoinSound();
+  checkFinishSound();
 }
 
 function renderLanding(app) {
@@ -731,6 +732,7 @@ function joinButton(nameInput, getCode) {
 
 function renderLobby(app) {
   const panel = el('div', 'card-panel');
+  panel.appendChild(soundToggleEl({ lobby: true }));
   panel.appendChild(el('h2', null, 'Cekaonica'));
   panel.appendChild(el('div', 'small', 'Posalji ovaj link ostalima igracim - kad ga otvore, sve je vec podeseno'));
 
