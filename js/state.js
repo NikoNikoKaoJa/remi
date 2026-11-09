@@ -3,7 +3,7 @@
 // fields directly (an exported `let` binding can't be reassigned by importers,
 // so a shared object is what lets many modules do `state.room = r` etc).
 
-export const APP_VERSION = 'v1.61';
+export const APP_VERSION = 'v1.62';
 
 export const state = {
   session: { playerId: null, name: null, roomCode: null },
@@ -26,6 +26,7 @@ export const state = {
   // polling re-renders of that screen. null = not scrolled yet, so open on the
   // newest round (reset per round in renderRoundEnd).
   scoreHistoryScrollTop: null,
+  lastLobbyPlayerIds: null, // lobby player ids at the last render (null off the lobby) - checkJoinSound chimes when a new one appears
   lastTurnKey: undefined, // `${round}:${currentPlayerIndex}` at the last render (null off the playing table) - checkTurnSound chimes when it changes to your turn
   handDragActive: false, // true while a hand-card reorder drag is in progress - suppresses poll-triggered re-renders that would tear down the mid-drag DOM
   suppressNextCardClick: false, // set right before a reorder drag's synthetic click fires, so it doesn't also toggle card selection

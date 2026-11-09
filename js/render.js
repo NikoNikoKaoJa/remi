@@ -13,7 +13,7 @@ import {
   pendingJokerIds,
 } from './actions.js';
 import { createRoom, joinRoom, leaveRoom } from './room.js';
-import { checkTurnSound, soundToggleEl } from './sound.js';
+import { checkTurnSound, checkJoinSound, soundToggleEl } from './sound.js';
 
 // ===== Rendering =====
 // Top-right corner badge on every screen's panel - panel needs position:relative (card-panel has it).
@@ -656,6 +656,7 @@ export function render() {
   if (handBox) fitHandRows(handBox);
   checkQuadAnnouncement();
   checkTurnSound();
+  checkJoinSound();
 }
 
 function renderLanding(app) {

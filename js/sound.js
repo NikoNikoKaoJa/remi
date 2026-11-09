@@ -59,6 +59,38 @@ export function checkTurnSound() {
   if (key && key !== prev && prev !== undefined && isMyTurn()) playTurnChime();
 }
 
+// A short two-note "ding-dong" (sine, E6 then C6) for a player joining the
+// lobby. Plays regardless of the turn-sound toggle: that toggle only lives
+// on the game table's bottom bar, so it can't be reached from the lobby -
+// and someone joining is exactly what the host is waiting there for.
+function playJoinChime() {
+  if (!ctx || ctx.state !== 'running') return;
+  const now = ctx.currentTime;
+  [[1318.5, 0], [1046.5, 0.18]].forEach(([freq, at]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, now + at);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.6);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + at);
+    osc.stop(now + at + 0.65);
+  });
+}
+
+// Called on every render. Chimes when the lobby gains a player you hadn't
+// seen yet - not for yourself, and not on the first render after (re)joining.
+export function checkJoinSound() {
+  const r = state.room;
+  const ids = r && r.phase === 'lobby' ? (r.players || []).map(p => p.id) : null;
+  const prev = state.lastLobbyPlayerIds;
+  state.lastLobbyPlayerIds = ids;
+  if (!ids || !prev) return;
+  if (ids.some(id => id !== state.session.playerId && !prev.includes(id))) playJoinChime();
+}
+
 export function soundToggleEl() {
   const btn = el('button', 'btn btn-outline-gold sound-toggle', soundOn ? '🔔' : '🔕');
   btn.title = soundOn ? 'Zvuk ukljucen' : 'Zvuk iskljucen';
