@@ -38,6 +38,10 @@ function cardCountLabel(n) {
 // the new left-to-right DOM order is saved to room.handOrders so it survives
 // reconnects/other devices (see orderHand in cards.js for how it's applied).
 const HAND_DRAG_THRESHOLD = 8;
+// Hand reorder: how far a card must be dragged over its neighbour to take its
+// place, and how far back a drag must come to count as changing direction.
+const SWAP_OVERLAP_PX = 5;
+const DIR_FLIP_PX = 6;
 
 // ===== Drag to play =====
 // A drag can END somewhere other than where it began: a hand card dropped on
@@ -464,6 +468,9 @@ function enableHandReorder(node, container) {
   let origParent = null, origNext = null; // where the card sat when the drag started
   const setHoverTarget = dropHighlighter(); // the drop target (otpad / meld) the card is over
   const scheduleUpdate = perFrame(updateDrag);
+  // Which way the card is being dragged (1 right, -1 left, 0 not yet), and
+  // the furthest x reached that way - see trackDirection.
+  let dir = 0, anchorX = 0;
 
   // Where in the hand the dragged card is, judged by the card itself (the
   // ghost), not the pointer: as soon as it overlaps a row, it is over that
@@ -517,6 +524,8 @@ function enableHandReorder(node, container) {
       origNext = node.nextSibling;
       container.classList.add('drag-active'); // gives an empty row a drop zone
       lifted = liftGhost(node, x, y);
+      dir = 0;
+      anchorX = x;
     },
     // The ghost tracks the finger on every event; the hit-testing and reflow
     // in updateDrag touch layout and run once per frame.
@@ -532,6 +541,7 @@ function enableHandReorder(node, container) {
     // Over the otpad or a meld the hand shouldn't preview a reorder at all
     // - the card is leaving the hand, so it stays where it was until the drop
     // is either taken (the action re-renders) or refused (nothing moved).
+    trackDirection(x);
     const { target, spot } = pickDrop(x, y);
     setHoverTarget(target);
     const [parent, next] = spot ? slotAt(spot.row, spot.x) : [origParent, origNext];
@@ -545,11 +555,47 @@ function enableHandReorder(node, container) {
     slideHandFrom(container, before);
   }
 
-  // The slot in `row` (the one the dragged card is over) its centre `x` is
-  // nearest, as [row, the card to insert before] - moving `node` there is
+  // Follows the drag direction, ignoring a few px of jitter: a reversal only
+  // counts once the card has come back DIR_FLIP_PX from the furthest point.
+  function trackDirection(x) {
+    if (dir === 0) {
+      if (Math.abs(x - anchorX) > DIR_FLIP_PX) { dir = x > anchorX ? 1 : -1; anchorX = x; }
+    } else if ((x - anchorX) * dir > 0) {
+      anchorX = x;
+    } else if (Math.abs(x - anchorX) > DIR_FLIP_PX) {
+      dir = -dir;
+      anchorX = x;
+    }
+  }
+
+  // The slot in `row` (the one the dragged card is over) the card should
+  // take, as [row, the card to insert before] - moving `node` there is
   // what makes the row visually "open a gap" at the drop target as the
-  // browser's own flex layout reflows.
+  // browser's own flex layout reflows. `x` is the ghost's centre.
+  //
+  // Within the card's own row: the card takes a neighbour's place as soon
+  // as it is dragged SWAP_OVERLAP_PX over that neighbour - in the direction
+  // it's moving, so the neighbour that just slid into its old slot (and now
+  // sits under the ghost) doesn't bounce it straight back. In a row where
+  // the cards already overlap at rest, "over the neighbour" counts from the
+  // card's own edge, or it would swap at the first pixel. A fast drag can
+  // pass several cards in one frame, hence the loop.
   function slotAt(row, x) {
+    if (node.parentNode === row) {
+      const kids = [...row.children];
+      const rects = kids.map(layoutRect);
+      let j = kids.indexOf(node);
+      const w = rects[j].width;
+      const gl = x - w / 2, gr = x + w / 2;
+      const right = (r) => r.left + r.width;
+      if (dir > 0) {
+        while (j + 1 < kids.length && gr > Math.max(rects[j + 1].left, right(rects[j])) + SWAP_OVERLAP_PX) j++;
+      } else if (dir < 0) {
+        while (j > 0 && gl < Math.min(right(rects[j - 1]), rects[j].left) - SWAP_OVERLAP_PX) j--;
+      }
+      const sibs = kids.filter(ch => ch !== node);
+      return [row, sibs[j] || null];
+    }
     const sibs = [...row.children].filter(ch => ch !== node);
     for (const sib of sibs) {
       const r = layoutRect(sib);
