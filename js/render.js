@@ -101,12 +101,14 @@ function findDropTarget(x, y, kind, ghost, ownRow, cardId) {
   return best;
 }
 
-// A set's joker only has an unambiguous identity (and so can be exchanged)
-// once 3 real cards of that rank are already down, leaving exactly one missing
-// suit - with only 2 real cards it could stand for either remaining suit. A
-// run's joker always stands for one exact card.
+// A set's jokers only have an unambiguous identity (and so can be exchanged)
+// once the set is full - 4 cards, so the jokers stand for exactly the suits
+// still missing (9S 9D + 2 jokers = 9C and 9H). In a 3-card set with a joker
+// (2 real + joker) it could stand for either remaining suit. Jokers are
+// fungible, so in a full set any missing-suit card frees one of them. A run's
+// joker always stands for one exact card.
 function jokerIsSettled(meld, resolved = resolveMeld(meld.cards)) {
-  return !resolved || resolved.type !== 'set' || meld.cards.filter(c => !c.joker).length >= 3;
+  return !resolved || resolved.type !== 'set' || meld.cards.length >= 4;
 }
 
 // The id of the joker in `meld` that `card` is the real card for, or null if

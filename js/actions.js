@@ -830,13 +830,13 @@ export async function actionReplaceJoker(meldIdx, jokerCardId) {
   if (candidate.joker) { showToast('Ne mozes zameniti dzokera drugim dzokerom.'); return; }
   const targetRank = item.substitutes.rank;
   if (resolved.type === 'set') {
-    // A set's joker only stands for a specific card once there's exactly one
-    // missing suit left to fill - i.e. 3 real cards + this 1 joker. With only
-    // 2 real cards (2 missing suits), the joker's identity is ambiguous
-    // (it could represent either remaining suit), so it can't be exchanged yet.
-    const realCount = meld.cards.filter(c => !c.joker).length;
-    if (realCount < 3) {
-      showToast('Dzoker jos nema jasno odredjenu boju - treba 3 prave karte tog ranga u grupi da bi se zamenio.');
+    // A set's jokers only stand for specific cards once the set is full (4
+    // cards): then the jokers are exactly the missing suits (9S 9D + 2 jokers
+    // = 9C and 9H), and since jokers are fungible any of those suits frees one.
+    // In a 3-card set (2 real + joker) the joker could be either of two
+    // missing suits, so it can't be exchanged yet.
+    if (meld.cards.length < 4) {
+      showToast('Dzoker jos nema jasno odredjenu boju - grupa mora imati sve 4 karte da bi se zamenio.');
       return;
     }
     if (candidate.rank !== targetRank) {
