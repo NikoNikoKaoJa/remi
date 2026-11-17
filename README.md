@@ -66,6 +66,8 @@ js/
   actions.js           # sve akcije u potezu (vuci, spusti, hand, ...)
   render.js            # sve render* funkcije
   main.js              # boot ulazna tacka
+PRAVILA.md          # pravila igre (srpski)
+RULES.md            # pravila igre (English)
 CLAUDE.md           # kontekst projekta za Claude Code
 README.md           # ovaj fajl
 ```
@@ -85,7 +87,7 @@ koraka.
   (As=10, Džoker=20); množi se ×2 ako je pobednik izašao malim ili velikim
   handom, a ×3 ako je izašao sa 4 džokera (pobednik −30).
 
-Kompletna pravila su u `CLAUDE.md`.
+Kompletna pravila: [PRAVILA.md](PRAVILA.md) (srpski) · [RULES.md](RULES.md) (English).
 
 ## Tehnički detalji
 
